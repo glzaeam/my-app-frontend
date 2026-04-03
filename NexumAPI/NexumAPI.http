@@ -1,0 +1,6 @@
+@NexumAPI_HostAddress = http://localhost:5026
+
+GET {{NexumAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

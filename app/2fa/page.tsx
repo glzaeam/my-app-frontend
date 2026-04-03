@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const glassInput = {
@@ -13,17 +12,57 @@ const glassInput = {
 
 const focusGlow = '0 0 0 2px hsl(170,60%,50%), 0 0 20px -4px hsl(170,60%,50%,0.3)';
 
-export default function LoginPage() {
+export default function TwoFactorAuthPage() {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
-  const [employeeId, setEmployeeId] = useState('');
-  const [password, setPassword] = useState('');
+  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [timeLeft, setTimeLeft] = useState(275);
   const [focused, setFocused] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  const handleCodeChange = (index: number, value: string) => {
+    if (!/^[0-9]*$/.test(value)) return;
+    const newCode = [...code];
+    newCode[index] = value.slice(-1);
+    setCode(newCode);
+
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`code-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !code[index] && index > 0) {
+      const prevInput = document.getElementById(`code-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt:', { employeeId, password });
-    router.push('/2fa');
+    const fullCode = code.join('');
+    if (fullCode.length === 6) {
+      console.log('2FA verification code:', fullCode);
+      router.push('/dashboard');
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleResend = () => {
+    setTimeLeft(275);
+    console.log('Resend code requested');
   };
 
   return (
@@ -92,10 +131,10 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Right Login Section */}
+      {/* Right 2FA Section */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-8">
         <div
-          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-lg"
+          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-md"
           style={{
             background: 'rgba(30,40,55,0.4)',
             border: '1px solid rgba(255,255,255,0.1)',
@@ -113,112 +152,82 @@ export default function LoginPage() {
 
           <div className="text-center space-y-2 mb-8 lg:mb-10">
             <h2 className="text-2xl lg:text-3xl font-bold" style={{ color: 'white' }}>
-              Welcome back
+              Two-Factor Authentication
             </h2>
             <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
-              Sign in to your account
+              We sent a 6-digit code to your registered phone/email
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Employee ID Field */}
-            <div className="space-y-2">
-              <label
-                className="text-sm font-semibold"
-                style={{ color: 'hsl(210,15%,70%)' }}
-              >
-                Employee ID
-              </label>
-              <div
-                className="rounded-xl transition-all duration-300"
-                style={{ boxShadow: focused === 'employeeId' ? focusGlow : 'none' }}
-              >
-                <input
-                  placeholder="e.g. ADM001"
-                  value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
-                  onFocus={() => setFocused('employeeId')}
-                  onBlur={() => setFocused(null)}
-                  className="w-full px-4 h-12 rounded-xl text-sm outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
-                  style={glassInput}
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Code Input Grid */}
+            <div className="flex gap-2 justify-center">
+              {code.map((digit, index) => (
+                <div
+                  key={index}
+                  className="rounded-xl transition-all duration-300"
+                  style={{ boxShadow: focused === `code-${index}` ? focusGlow : 'none' }}
+                >
+                  <input
+                    id={`code-${index}`}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleCodeChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onFocus={() => setFocused(`code-${index}`)}
+                    onBlur={() => setFocused(null)}
+                    className="w-12 h-12 text-center text-lg font-bold rounded-xl outline-none transition-colors"
+                    style={glassInput}
+                  />
+                </div>
+              ))}
             </div>
 
-            {/* Password Field */}
-            <div className="space-y-2">
-              <label
-                className="text-sm font-semibold"
-                style={{ color: 'hsl(210,15%,70%)' }}
-              >
-                Password
-              </label>
-              <div
-                className="relative rounded-xl transition-all duration-300"
-                style={{ boxShadow: focused === 'password' ? focusGlow : 'none' }}
-              >
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocused('password')}
-                  onBlur={() => setFocused(null)}
-                  className="w-full pl-4 pr-12 h-12 rounded-xl text-sm outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
-                  style={glassInput}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: 'hsl(210,15%,50%)' }}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => router.push('/forgot-password')}
-                  className="text-sm font-medium transition-colors"
-                  style={{ color: 'hsl(170,60%,55%)' }}
-                >
-                  Forgot password?
-                </button>
-              </div>
+            {/* Timer */}
+            <div className="text-center">
+              <p style={{ color: 'hsl(170,60%,50%)' }} className="text-sm font-semibold">
+                Code expires in {formatTime(timeLeft)}
+              </p>
             </div>
 
-            {/* Sign In Button */}
+            {/* Verify Button */}
             <motion.button
               type="submit"
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center transition-all duration-300 mt-6"
+              className="w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center transition-all duration-300 mt-8"
               style={{
                 background: 'linear-gradient(135deg, hsl(170,65%,42%), hsl(170,60%,48%))',
                 color: 'white',
                 boxShadow: '0 4px 20px -4px hsl(170,60%,40%,0.5)',
               }}
             >
-              Sign In
+              Verify
             </motion.button>
           </form>
 
-          {/* Footer */}
-          <p className="text-center text-sm mt-6" style={{ color: 'hsl(210,15%,50%)' }}>
-            Don&apos;t have an account?{' '}
+          {/* Footer Links */}
+          <div className="flex flex-col gap-3 mt-6 text-center">
             <button
-              onClick={() => router.push('/request-access')}
-              className="font-bold transition-colors"
+              type="button"
+              onClick={handleResend}
+              className="text-sm transition-colors"
               style={{ color: 'hsl(170,60%,55%)' }}
             >
-              Request Access
+              Didn&apos;t receive a code?{' '}
+              <span className="font-bold">Resend</span>
             </button>
-          </p>
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              className="text-sm font-medium transition-colors"
+              style={{ color: 'hsl(210,15%,50%)' }}
+            >
+              Back to Login
+            </button>
+          </div>
         </div>
       </div>
     </div>

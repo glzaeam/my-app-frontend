@@ -13,17 +13,15 @@ const glassInput = {
 
 const focusGlow = '0 0 0 2px hsl(170,60%,50%), 0 0 20px -4px hsl(170,60%,50%,0.3)';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
   const [employeeId, setEmployeeId] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [focused, setFocused] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt:', { employeeId, password });
-    router.push('/2fa');
+    console.log('Reset password request:', { employeeId, email });
   };
 
   return (
@@ -92,10 +90,10 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Right Login Section */}
+      {/* Right Reset Section */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-8">
         <div
-          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-lg"
+          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-md"
           style={{
             background: 'rgba(30,40,55,0.4)',
             border: '1px solid rgba(255,255,255,0.1)',
@@ -113,10 +111,10 @@ export default function LoginPage() {
 
           <div className="text-center space-y-2 mb-8 lg:mb-10">
             <h2 className="text-2xl lg:text-3xl font-bold" style={{ color: 'white' }}>
-              Welcome back
+              Reset your password
             </h2>
             <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
-              Sign in to your account
+              Enter your details to receive a reset link
             </p>
           </div>
 
@@ -145,54 +143,32 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Email Field */}
             <div className="space-y-2">
               <label
                 className="text-sm font-semibold"
                 style={{ color: 'hsl(210,15%,70%)' }}
               >
-                Password
+                Email Address
               </label>
               <div
-                className="relative rounded-xl transition-all duration-300"
-                style={{ boxShadow: focused === 'password' ? focusGlow : 'none' }}
+                className="rounded-xl transition-all duration-300"
+                style={{ boxShadow: focused === 'email' ? focusGlow : 'none' }}
               >
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocused('password')}
+                  type="email"
+                  placeholder="john@bank.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocused('email')}
                   onBlur={() => setFocused(null)}
-                  className="w-full pl-4 pr-12 h-12 rounded-xl text-sm outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
+                  className="w-full px-4 h-12 rounded-xl text-sm outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
                   style={glassInput}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: 'hsl(210,15%,50%)' }}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => router.push('/forgot-password')}
-                  className="text-sm font-medium transition-colors"
-                  style={{ color: 'hsl(170,60%,55%)' }}
-                >
-                  Forgot password?
-                </button>
               </div>
             </div>
 
-            {/* Sign In Button */}
+            {/* Send Reset Link Button */}
             <motion.button
               type="submit"
               whileHover={{ scale: 1.01 }}
@@ -204,19 +180,18 @@ export default function LoginPage() {
                 boxShadow: '0 4px 20px -4px hsl(170,60%,40%,0.5)',
               }}
             >
-              Sign In
+              Send Reset Link
             </motion.button>
           </form>
 
           {/* Footer */}
           <p className="text-center text-sm mt-6" style={{ color: 'hsl(210,15%,50%)' }}>
-            Don&apos;t have an account?{' '}
             <button
-              onClick={() => router.push('/request-access')}
+              onClick={() => router.push('/')}
               className="font-bold transition-colors"
               style={{ color: 'hsl(170,60%,55%)' }}
             >
-              Request Access
+              Back to Login
             </button>
           </p>
         </div>

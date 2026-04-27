@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { api, auth } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const glassInput = {
   background: 'rgba(255,255,255,0.06)',
@@ -14,15 +16,21 @@ const focusGlow = '0 0 0 2px hsl(170,60%,50%), 0 0 20px -4px hsl(170,60%,50%,0.3
 
 export default function TwoFactorAuthPage() {
   const router = useRouter();
+  const { refreshUser } = useAuth(); // ✅ get refreshUser from context
   const [code, setCode] = useState(['', '', '', '', '', '']);
-  const [timeLeft, setTimeLeft] = useState(275);
+  const [timeLeft, setTimeLeft] = useState(300);
   const [focused, setFocused] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const userId = auth.getPendingUser();
+    if (!userId) router.push('/');
+  }, [router]);
 
   useEffect(() => {
     if (timeLeft <= 0) return;
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
+    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [timeLeft]);
 
@@ -31,26 +39,53 @@ export default function TwoFactorAuthPage() {
     const newCode = [...code];
     newCode[index] = value.slice(-1);
     setCode(newCode);
-
     if (value && index < 5) {
-      const nextInput = document.getElementById(`code-${index + 1}`);
-      nextInput?.focus();
+      document.getElementById(`code-${index + 1}`)?.focus();
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
-      const prevInput = document.getElementById(`code-${index - 1}`);
-      prevInput?.focus();
+      document.getElementById(`code-${index - 1}`)?.focus();
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullCode = code.join('');
-    if (fullCode.length === 6) {
-      console.log('2FA verification code:', fullCode);
+    if (fullCode.length !== 6) return;
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      const userId = auth.getPendingUser();
+      if (!userId) { router.push('/'); return; }
+
+      const { ok, data } = await api.verifyOtp(userId, fullCode);
+
+      if (!ok || !data || data.success !== true) {
+        setError(data?.message || 'Invalid or expired OTP. Please try again.');
+        setCode(['', '', '', '', '', '']);
+        document.getElementById('code-0')?.focus();
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Save token first
+      auth.saveToken(data.token, data.user);
+      auth.clearPendingUser();
+
+      // ✅ Fetch full user profile with correct role and permissions
+      // before redirecting so the dashboard loads correctly
+      await refreshUser();
+
+      // ✅ Now redirect
       router.push('/dashboard');
+
+    } catch {
+      setError('Cannot connect to server.');
+      setLoading(false);
     }
   };
 
@@ -60,16 +95,11 @@ export default function TwoFactorAuthPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleResend = () => {
-    setTimeLeft(275);
-    console.log('Resend code requested');
-  };
-
   return (
     <div
       className="min-h-screen w-full flex"
       style={{
-        backgroundImage: 'linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(/images/bgg.jpg)',
+        backgroundImage: 'linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url(/images/mny.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
@@ -79,75 +109,43 @@ export default function TwoFactorAuthPage() {
       {/* Left Sidebar */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12">
         <div>
-          <img
-            src="/images/logolgn.png"
-            alt="Nexum"
-            className="h-40 object-contain mb-2"
-            style={{ maxWidth: '400px', filter: 'brightness(1.8)' }}
-          />
-        </div>
-
-        <div>
+          <img src="/images/logolgn.png" alt="Nexum" className="h-16 object-contain mb-8"
+            style={{ maxWidth: '150px', filter: 'brightness(1.8)' }} />
           <h1 className="text-5xl font-bold mb-6 leading-tight">
-            <span style={{ color: 'white' }}>Secure</span>
-            <br />
-            <span style={{ color: 'hsl(170,60%,50%)' }}>Banking</span>
-            <br />
+            <span style={{ color: 'white' }}>Secure</span><br />
+            <span style={{ color: 'hsl(170,60%,50%)' }}>Banking</span><br />
             <span style={{ color: 'white' }}>Operations</span>
           </h1>
-
-          <p
-            className="text-base mb-8 leading-relaxed"
-            style={{ color: 'hsl(210,15%,60%)' }}
-          >
-            Enterprise-grade security with role-based access, real-time monitoring, and
-            tamper-proof audit trails.
+          <p className="text-base mb-8 leading-relaxed" style={{ color: 'hsl(210,15%,60%)' }}>
+            Enterprise-grade security with role-based access, real-time monitoring,
+            and tamper-proof audit trails.
           </p>
-
-          <div className="flex gap-12 mb-12">
-            <div className="flex items-center gap-2">
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center"
-                style={{ background: 'hsl(170,60%,50%)' }}
-              >
-                <span style={{ color: 'white', fontSize: '12px' }}>✓</span>
+          <div className="flex gap-12">
+            {['256-bit Encryption', 'MFA Protected'].map((label) => (
+              <div key={label} className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center"
+                  style={{ background: 'hsl(170,60%,50%)' }}>
+                  <span style={{ color: 'white', fontSize: '12px' }}>✔</span>
+                </div>
+                <span style={{ color: 'hsl(210,15%,70%)' }}>{label}</span>
               </div>
-              <span style={{ color: 'hsl(210,15%,70%)' }}>256-bit Encryption</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center"
-                style={{ background: 'hsl(170,60%,50%)' }}
-              >
-                <span style={{ color: 'white', fontSize: '12px' }}>✓</span>
-              </div>
-              <span style={{ color: 'hsl(210,15%,70%)' }}>MFA Protected</span>
-            </div>
+            ))}
           </div>
         </div>
-
         <p style={{ color: 'hsl(210,15%,40%)' }} className="text-sm">
-          © 2026 Nexum Banking ERP • All rights reserved
+          © 2026 Nexum Banking ERP · All rights reserved
         </p>
       </div>
 
       {/* Right 2FA Section */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-8">
         <div
-          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-md"
-          style={{
-            background: 'rgba(30,40,55,0.4)',
-            border: '1px solid rgba(255,255,255,0.1)',
-          }}
+          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-xl"
+          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }}
         >
-          {/* Logo for mobile */}
           <div className="lg:hidden flex justify-center mb-6">
-            <img
-              src="/images/logolgn.png"
-              alt="Nexum Banking ERP"
-              className="h-28 object-contain"
-              style={{ maxWidth: '300px', filter: 'brightness(1.8)' }}
-            />
+            <img src="/images/logolgn.png" alt="Nexum Banking ERP" className="h-28 object-contain"
+              style={{ maxWidth: '300px', filter: 'brightness(1.8)' }} />
           </div>
 
           <div className="text-center space-y-2 mb-8 lg:mb-10">
@@ -155,19 +153,16 @@ export default function TwoFactorAuthPage() {
               Two-Factor Authentication
             </h2>
             <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
-              We sent a 6-digit code to your registered phone/email
+              Enter the 6-digit code sent to your email
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Code Input Grid */}
+            {/* Code Inputs */}
             <div className="flex gap-2 justify-center">
               {code.map((digit, index) => (
-                <div
-                  key={index}
-                  className="rounded-xl transition-all duration-300"
-                  style={{ boxShadow: focused === `code-${index}` ? focusGlow : 'none' }}
-                >
+                <div key={index} className="rounded-xl transition-all duration-300"
+                  style={{ boxShadow: focused === `code-${index}` ? focusGlow : 'none' }}>
                   <input
                     id={`code-${index}`}
                     type="text"
@@ -187,45 +182,57 @@ export default function TwoFactorAuthPage() {
 
             {/* Timer */}
             <div className="text-center">
-              <p style={{ color: 'hsl(170,60%,50%)' }} className="text-sm font-semibold">
-                Code expires in {formatTime(timeLeft)}
+              <p className="text-sm font-semibold" style={{
+                color: timeLeft < 60 ? 'hsl(0,70%,60%)' : 'hsl(170,60%,50%)'
+              }}>
+                {timeLeft > 0
+                  ? `Code expires in ${formatTime(timeLeft)}`
+                  : '⚠️ Code expired'}
               </p>
             </div>
+
+            {/* Error */}
+            {error && (
+              <div className="rounded-xl px-4 py-3 text-sm text-center" style={{
+                background: 'rgba(239,68,68,0.15)',
+                border: '1px solid rgba(239,68,68,0.3)',
+                color: 'rgb(252,165,165)'
+              }}>
+                ⚠️ {error}
+              </div>
+            )}
 
             {/* Verify Button */}
             <motion.button
               type="submit"
+              disabled={loading || code.join('').length !== 6 || timeLeft === 0}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
               className="w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center transition-all duration-300 mt-8"
               style={{
-                background: 'linear-gradient(135deg, hsl(170,65%,42%), hsl(170,60%,48%))',
+                background: loading
+                  ? 'hsl(170,30%,35%)'
+                  : 'linear-gradient(135deg, hsl(170,65%,42%), hsl(170,60%,48%))',
                 color: 'white',
                 boxShadow: '0 4px 20px -4px hsl(170,60%,40%,0.5)',
+                cursor: loading || code.join('').length !== 6 ? 'not-allowed' : 'pointer',
+                opacity: code.join('').length !== 6 ? 0.6 : 1,
+                border: 'none',
               }}
             >
-              Verify
+              {loading ? 'Verifying...' : 'Verify'}
             </motion.button>
           </form>
 
-          {/* Footer Links */}
           <div className="flex flex-col gap-3 mt-6 text-center">
             <button
               type="button"
-              onClick={handleResend}
+              onClick={() => { auth.clear(); router.push('/'); }}
               className="text-sm transition-colors"
-              style={{ color: 'hsl(170,60%,55%)' }}
+              style={{ color: 'hsl(170,60%,55%)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
               Didn&apos;t receive a code?{' '}
-              <span className="font-bold">Resend</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/')}
-              className="text-sm font-medium transition-colors"
-              style={{ color: 'hsl(210,15%,50%)' }}
-            >
-              Back to Login
+              <span className="font-bold">Back to Login</span>
             </button>
           </div>
         </div>

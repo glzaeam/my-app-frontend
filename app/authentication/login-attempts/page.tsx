@@ -1,305 +1,347 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
-import { Bell, CheckCircle, XCircle, Lock, Search, Activity, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import TopBar from '@/app/components/TopBar';
+import {
+  CheckCircle, XCircle, Lock, Search, Activity,
+  ChevronLeft, ChevronRight, Filter, ChevronDown,
+  RefreshCw, Shield, AlertTriangle,
+} from 'lucide-react';
+import { auth } from '@/lib/api';
+
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+interface LoginAttempt {
+  id: string;
+  ipAddress: string | null;
+  status: string;
+  failureReason: string | null;
+  attemptedAt: string;
+  employeeId: string;
+  userName: string;
+}
+
+interface Summary {
+  total: number;
+  failed: number;
+  blocked: number;
+  todayCount: number;
+  blockedIps: number;
+}
+
+interface BlockedIp {
+  ipAddress: string;
+  failureCount: number;
+  lastAttempt: string;
+}
+
+function CustomSelect({ options, value, onChange }: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.value === value);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  return (
+    <div ref={ref} style={{ position: 'relative', minWidth: 150 }}>
+      <button type="button" onClick={() => setOpen(v => !v)} style={{ width: '100%', padding: '9px 14px', borderRadius: 20, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13, color: open ? '#2db9a3' : '#64748b', background: open ? '#f0fdf9' : '#fff', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontWeight: 500, outline: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Filter size={13} style={{ flexShrink: 0, color: open ? '#2db9a3' : '#94a3b8' }} />
+        <span style={{ flex: 1, textAlign: 'left' }}>{selected?.label ?? 'All'}</span>
+        <ChevronDown size={13} style={{ color: open ? '#2db9a3' : '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999, overflow: 'hidden' }}>
+          {options.map(opt => (
+            <button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }}
+              style={{ width: '100%', padding: '10px 14px', fontSize: 13.5, color: opt.value === value ? '#2db9a3' : '#1e293b', background: opt.value === value ? 'rgba(45,185,163,0.08)' : '#fff', fontWeight: opt.value === value ? 600 : 400, fontFamily: "'DM Sans',sans-serif", border: 'none', cursor: 'pointer', textAlign: 'left', display: 'block' }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const statusMap: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+  Failed:  { label: 'Failed',  color: '#dc2626', bg: '#fee2e2', dot: '#ef4444' },
+  Blocked: { label: 'Blocked', color: '#d97706', bg: '#fef3c7', dot: '#f59e0b' },
+  Success: { label: 'Success', color: '#059669', bg: '#dcfce7', dot: '#10b981' },
+};
 
 export default function LoginAttempts() {
-  const [activeMenu, setActiveMenu] = useState('login-attempts');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const itemsPerPage = 5;
   const router = useRouter();
+  const [activeMenu, setActiveMenu]     = useState('login-attempts');
+  const [sidebarOpen, setSidebarOpen]   = useState(true);
+  const [logs, setLogs]                 = useState<LoginAttempt[]>([]);
+  const [summary, setSummary]           = useState<Summary | null>(null);
+  const [blockedIps, setBlockedIps]     = useState<BlockedIp[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage]   = useState(1);
+  const [showBlockedIps, setShowBlockedIps] = useState(false);
+  const itemsPerPage = 8;
 
-  const activityData = [
-    { date: 'Jan 15, 14:32', empId: 'ADM001', user: 'Sarah Johnson',  ip: '192.168.1.45',    location: 'HQ, New York',     device: 'Chrome / Windows',  status: 'success' },
-    { date: 'Jan 15, 14:28', empId: 'MGR001', user: 'Michael Chen',   ip: '10.0.12.88',      location: 'Downtown Branch',  device: 'Safari / macOS',    status: 'success' },
-    { date: 'Jan 15, 14:15', empId: 'Unknown',user: 'Unknown',        ip: '203.45.67.89',    location: 'Moscow, Russia',   device: 'Firefox / Linux',   status: 'failed'  },
-    { date: 'Jan 15, 14:10', empId: 'AUD001', user: 'Emily Davis',    ip: '10.0.12.34',      location: 'HQ, New York',     device: 'Firefox / Windows', status: 'success' },
-    { date: 'Jan 15, 13:55', empId: 'TEL001', user: 'James Wilson',   ip: '10.0.8.15',       location: 'Main St Branch',   device: 'Chrome / Windows',  status: 'success' },
-    { date: 'Jan 15, 13:50', empId: 'Unknown',user: 'Unknown',        ip: '185.220.101.42',  location: 'Tor Exit Node',    device: 'Unknown',           status: 'blocked' },
-    { date: 'Jan 15, 13:45', empId: 'EMP042', user: 'Robert Lee',     ip: '10.0.0.45',       location: 'East Branch',      device: 'Chrome / Windows',  status: 'failed'  },
-    { date: 'Jan 15, 13:40', empId: 'EMP042', user: 'Robert Lee',     ip: '10.0.0.45',       location: 'East Branch',      device: 'Chrome / Windows',  status: 'failed'  },
-  ];
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = auth.getToken();
+      const [logsRes, summaryRes, ipsRes] = await Promise.all([
+        fetch(`${API}/security/failed-logins`,      { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/login-attempts/summary`,       { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/login-attempts/blocked-ips`,   { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const logsData    = await logsRes.json();
+      const summaryData = await summaryRes.json();
+      const ipsData     = await ipsRes.json();
 
-  const filtered = activityData.filter(row => {
-    const matchSearch = !searchQuery ||
-      row.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      row.empId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      row.ip.includes(searchQuery);
-    const matchStatus = statusFilter === 'all' || row.status === statusFilter;
-    return matchSearch && matchStatus;
+      setLogs(Array.isArray(logsData) ? logsData : []);
+      setSummary(summaryData);
+      setBlockedIps(Array.isArray(ipsData) ? ipsData : []);
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const filtered = logs.filter(l => {
+    if (statusFilter !== 'all' && l.status !== statusFilter) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!l.userName.toLowerCase().includes(q) &&
+          !l.employeeId.toLowerCase().includes(q) &&
+          !(l.ipAddress ?? '').toLowerCase().includes(q)) return false;
+    }
+    return true;
   });
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filtered.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  const safePage   = Math.min(currentPage, totalPages);
+  const paged      = filtered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
 
-  const handleLogout = () => router.push('/');
+  const formatDate = (iso: string) => {
+    if (!iso) return '—';
+    // Ensure the string is parsed as UTC (append Z if missing)
+    const utcString = iso.endsWith('Z') ? iso : iso + 'Z';
+    const d = new Date(utcString);
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    
+    const timeStr = d.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
+    
+    if (isToday) return `Today ${timeStr}`;
+    
+    return d.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    }) + ' ' + timeStr;
+  };
 
   const stats = [
-    { label: 'Total Attempts',   value: activityData.length,                                   accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',   icon: <Activity size={20} />,     trend: null },
-    { label: 'Successful',       value: activityData.filter(r => r.status === 'success').length, accent: '#2db9a3', iconBg: 'rgba(45,185,163,0.1)',  icon: <CheckCircle size={20} />,  trend: 'up' },
-    { label: 'Failed',           value: activityData.filter(r => r.status === 'failed').length,  accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)',   icon: <XCircle size={20} />,      trend: 'down' },
-    { label: 'Blocked / Locked', value: activityData.filter(r => r.status === 'blocked').length, accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)', icon: <Lock size={20} />,         trend: 'down' },
+    { label: 'Total Attempts', value: summary?.total      ?? logs.length, accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Activity size={20} />    },
+    { label: 'Failed',         value: summary?.failed     ?? 0,           accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)',   icon: <XCircle size={20} />     },
+    { label: 'Blocked',        value: summary?.blocked    ?? 0,           accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)',  icon: <Lock size={20} />        },
+    { label: 'Today',          value: summary?.todayCount ?? 0,           accent: '#2db9a3', iconBg: 'rgba(45,185,163,0.1)',  icon: <CheckCircle size={20} /> },
+    { label: 'Blocked IPs',    value: summary?.blockedIps ?? 0,           accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)',   icon: <Shield size={20} />      },
   ];
-
-  const statusMap = {
-    success: { label: 'Success', color: '#059669', bg: '#dcfce7', dot: '#10b981' },
-    failed:  { label: 'Failed',  color: '#dc2626', bg: '#fee2e2', dot: '#ef4444' },
-    blocked: { label: 'Blocked', color: '#d97706', bg: '#fef3c7', dot: '#f59e0b' },
-  };
-
-  const deviceColorMap = (d: string) => {
-    if (d.startsWith('Chrome'))  return { color: '#2db9a3', bg: 'rgba(45,185,163,0.1)' };
-    if (d.startsWith('Safari'))  return { color: '#6366f1', bg: 'rgba(99,102,241,0.1)' };
-    if (d.startsWith('Firefox')) return { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' };
-    return { color: '#94a3b8', bg: '#f1f5f9' };
-  };
-
-  const locationFlag = (loc: string) => {
-    if (loc.includes('Russia'))   return '🇷🇺';
-    if (loc.includes('Tor'))      return '⚠️';
-    if (loc.includes('HQ'))       return '🏢';
-    if (loc.includes('Branch'))   return '🏦';
-    return '📍';
-  };
-
-  const userInitials = (name: string) =>
-    name === 'Unknown' ? '?' : name.split(' ').map((n: string) => n[0]).join('').slice(0, 2);
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        .la-root { display: flex; height: 100vh; background: #ffffff; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif; }
-        .la-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-        /* Topbar */
-        .topbar { height: 66px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .topbar-title { font-size: 16px; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; }
-        .topbar-right { display: flex; align-items: center; gap: 14px; }
-        .notif-btn { width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; transition: all 0.18s; position: relative; }
-        .notif-btn:hover { border-color: #2db9a3; color: #2db9a3; background: #f0fdf9; }
-        .notif-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; background: #ef4444; border-radius: 50%; border: 1.5px solid #fff; }
-        .profile-pill { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 40px; padding: 5px 14px 5px 5px; cursor: pointer; transition: all 0.18s; }
-        .profile-pill:hover { border-color: #2db9a3; background: #f0fdf9; }
-        .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #2db9a3 0%, #6366f1 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; }
-        .profile-name { font-size: 13px; font-weight: 600; color: #1e293b; }
-
-        /* Scroll */
-        .main-content { flex: 1; overflow-y: auto; padding: 32px 36px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
-        .main-content::-webkit-scrollbar { width: 6px; }
-        .main-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
-
-        /* Header */
-        .page-header { margin-bottom: 28px; }
-        .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #2db9a3; background: rgba(45,185,163,0.08); padding: 4px 10px; border-radius: 20px; margin-bottom: 10px; }
-        .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: #2db9a3; }
-        .page-header h1 { font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 4px; letter-spacing: -0.03em; }
-        .page-header p { font-size: 14px; color: #94a3b8; font-weight: 400; }
-
-        /* Stats */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-        .stat-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; transition: all 0.2s; position: relative; overflow: hidden; }
-        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: 16px 16px 0 0; transform: scaleX(0); transform-origin: left; transition: transform 0.25s; }
-        .stat-card:hover { border-color: var(--accent); box-shadow: 0 6px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
-        .stat-card:hover::before { transform: scaleX(1); }
-        .stat-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-        .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--icon-bg); color: var(--accent); flex-shrink: 0; }
-        .stat-label { font-size: 11.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
-        .stat-value { font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; line-height: 1; margin-bottom: 10px; }
-        .stat-trend { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 20px; }
-        .stat-trend.up { color: #059669; background: #dcfce7; }
-        .stat-trend.down { color: #dc2626; background: #fee2e2; }
-
-        /* Controls */
-        .controls-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-        .search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 380px; }
-        .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
-        .search-input { width: 100%; padding: 10px 14px 10px 40px; border-radius: 10px; border: 1.5px solid #e2e8f0; font-size: 13.5px; color: #1e293b; background: #fff; font-family: 'Plus Jakarta Sans', sans-serif; outline: none; transition: all 0.18s; }
-        .search-input::placeholder { color: #94a3b8; }
-        .search-input:focus { border-color: #2db9a3; box-shadow: 0 0 0 3px rgba(45,185,163,0.1); }
-
-        .filter-group { display: flex; align-items: center; gap: 8px; }
-        .filter-select { padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.18s; outline: none; -webkit-appearance: none; appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M1.41 3.41L6 8l4.59-4.59L12 4l-6 6-6-6z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
-        .filter-select:hover { border-color: #2db9a3; box-shadow: 0 0 0 3px rgba(45,185,163,0.06); }
-        .filter-select:focus { border-color: #2db9a3; box-shadow: 0 0 0 3px rgba(45,185,163,0.1); }
-        .filter-select option { color: #1e293b; background: #fff; padding: 8px; }
-
-        /* Table */
-        .table-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
-        .table-card-header { padding: 18px 28px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; }
-        .table-card-header h2 { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
-        .table-card-header p { font-size: 12.5px; color: #94a3b8; margin-top: 2px; }
-        .table-count { font-size: 12px; font-weight: 700; color: #2db9a3; background: rgba(45,185,163,0.1); padding: 4px 12px; border-radius: 20px; }
-
-        .attempts-table { width: 100%; border-collapse: collapse; }
-        .attempts-table thead tr { background: #f8fafc; border-bottom: 1.5px solid #f1f5f9; }
-        .attempts-table thead th { padding: 11px 16px; text-align: center; font-size: 10.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.09em; white-space: nowrap; }
-        .attempts-table tbody tr { border-bottom: 1px solid #f8fafc; transition: background 0.13s; }
-        .attempts-table tbody tr:last-child { border-bottom: none; }
-        .attempts-table tbody tr:hover { background: #fafbfd; }
-        .attempts-table tbody td { padding: 13px 16px; font-size: 13px; color: #1e293b; font-weight: 500; vertical-align: middle; text-align: center; }
-
-        .user-cell { display: block; }
-        .user-avatar { width: 30px; height: 30px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; flex-shrink: 0; }
-        .user-avatar.known { background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: #0369a1; border: 1.5px solid #bae6fd; }
-        .user-avatar.unknown { background: #f1f5f9; color: #94a3b8; border: 1.5px solid #e2e8f0; }
-        .user-name { font-weight: 400; color: #0f172a; font-size: 13px; }
-
-        .emp-chip { font-family: 'Menlo','Monaco',monospace; font-size: 11.5px; font-weight: 400; color: #475569; background: transparent; padding: 0; border-radius: 0; border: none; }
-        .ip-mono { font-family: 'Menlo','Monaco',monospace; font-size: 11.5px; font-weight: 600; color: #475569; }
-        .location-text { font-size: 12.5px; color: #64748b; display: block; }
-        .device-tag { display: block; font-size: 12px; font-weight: 400; padding: 0; border-radius: 0; white-space: nowrap; color: #475569; background: none; }
-        .device-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; display: none; }
-        .date-text { font-size: 12px; color: #94a3b8; font-weight: 400; white-space: nowrap; }
-
-        .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-        .status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-
-        /* Pagination */
-        .pagination-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-top: 1px solid #f1f5f9; background: #fafbfc; }
-        .pagination-info { font-size: 13px; color: #94a3b8; font-weight: 500; }
-        .pagination-info strong { color: #475569; font-weight: 700; }
-        .pagination-controls { display: flex; align-items: center; gap: 4px; }
-        .pg-btn { width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #64748b; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.15s; }
-        .pg-btn:hover:not(:disabled) { border-color: #2db9a3; color: #2db9a3; background: #f0fdf9; }
-        .pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-        .pg-btn.active { background: #2db9a3; border-color: #2db9a3; color: #fff; box-shadow: 0 2px 10px rgba(45,185,163,0.35); }
-
-        .empty-state { padding: 48px 24px; text-align: center; color: #94a3b8; font-size: 14px; font-weight: 500; }
-
-        @media (max-width: 768px) { .topbar { padding: 0 18px; } .main-content { padding: 18px; } .stats-grid { grid-template-columns: 1fr 1fr; } }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        .la-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:'DM Sans',sans-serif;}
+        .la-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+        .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
+        .la-scroll::-webkit-scrollbar{width:6px;}
+        .la-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;}
+        .stat-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;padding:16px 18px;cursor:default;transition:box-shadow 0.15s;}
+        .stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);}
+        .stat-card.clickable{cursor:pointer;}
+        .stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+        .stat-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+        .stat-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;}
+        .stat-value{font-size:26px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;}
+        .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+        .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
+        .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;}
+        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:'DM Sans',sans-serif;outline:none;}
+        .search-input:focus{border-color:#2db9a3;}
+        .table-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);margin-bottom:18px;}
+        .table-card-header{padding:16px 22px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9;}
+        table{width:100%;border-collapse:collapse;}
+        thead tr{background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
+        thead th{padding:11px 16px;text-align:center;font-size:10.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.09em;white-space:nowrap;}
+        tbody tr{border-bottom:1px solid #f8fafc;transition:background 0.13s;}
+        tbody tr:last-child{border-bottom:none;}
+        tbody tr:hover{background:#fafbfd;}
+        tbody td{padding:12px 16px;font-size:13px;color:#1e293b;font-weight:500;vertical-align:middle;text-align:center;}
+        .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;}
+        .badge-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+        .pagination-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid #f1f5f9;}
+        .pagination-info{font-size:13px;color:#94a3b8;}
+        .pagination-info strong{color:#475569;font-weight:600;}
+        .pagination-controls{display:flex;align-items:center;gap:4px;}
+        .pg-btn{width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#64748b;transition:all 0.15s;}
+        .pg-btn:hover:not(:disabled){border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
+        .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
+        .pg-btn.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
+        .pg-counter{min-width:50px;text-align:center;font-size:13px;color:#475569;font-weight:500;}
+        .la-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'DM Sans',sans-serif;color:#64748b;cursor:pointer;}
+        .refresh-btn:hover{background:#f5f7fa;}
+        .ip-table{width:100%;border-collapse:collapse;}
+        .ip-table th{padding:10px 16px;text-align:left;font-size:10.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
+        .ip-table td{padding:11px 16px;font-size:13px;color:#1e293b;border-bottom:1px solid #f8fafc;}
+        .ip-table tr:last-child td{border-bottom:none;}
+        .ip-table tr:hover td{background:#fafbfd;}
       `}</style>
 
       <div className="la-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={handleLogout} />
+        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
+        <div className="la-main">
+          <TopBar title="Authentication" />
+          <div className="la-scroll">
 
-        <div className="la-content">
-          <div className="topbar">
-            <span className="topbar-title">Login Attempts</span>
-            <div className="topbar-right">
-              <button className="notif-btn"><Bell size={17} /><div className="notif-dot" /></button>
-              <button onClick={() => router.push('/my-profile')} className="profile-pill" style={{ border: 'none' }}>
-                <div className="profile-avatar">SJ</div>
-                <span className="profile-name">Sarah Johnson</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="main-content">
-            <div className="page-header">
-              <div className="eyebrow"><span className="eyebrow-dot" />Monitoring</div>
-              <h1>Login Attempts</h1>
-              <p>Monitor and manage login attempt history across all users and devices.</p>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2db9a3' }} />Authentication
+                </div>
+                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Login Attempts</h1>
+                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor login attempt history — failures trigger audit logs and security alerts</p>
+              </div>
+              <button className="refresh-btn" onClick={fetchAll}><RefreshCw size={13} /> Refresh</button>
             </div>
 
             {/* Stats */}
             <div className="stats-grid">
               {stats.map((s, i) => (
-                <div key={i} className="stat-card" style={{ '--accent': s.accent, '--icon-bg': s.iconBg } as React.CSSProperties}>
-                  <div className="stat-card-accent-bar" />
+                <div key={i} className={`stat-card${i === 4 ? ' clickable' : ''}`}
+                  onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
+                  title={i === 4 ? 'Click to view blocked IPs' : undefined}>
                   <div className="stat-top">
                     <div>
                       <div className="stat-label">{s.label}</div>
                       <div className="stat-value">{s.value}</div>
                     </div>
-                    <div className="stat-icon">{s.icon}</div>
+                    <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
                   </div>
-                  {s.trend && (
-                    <div className={`stat-trend ${s.trend}`}>
-                      {s.trend === 'up' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                      {s.trend === 'up' ? 'vs yesterday' : 'vs yesterday'}
+                  {i === 4 && s.value > 0 && (
+                    <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 2 }}>
+                      {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
                     </div>
                   )}
                 </div>
               ))}
             </div>
 
+            {/* Blocked IPs panel */}
+            {showBlockedIps && blockedIps.length > 0 && (
+              <div className="table-card" style={{ marginBottom: 18 }}>
+                <div className="table-card-header">
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <AlertTriangle size={15} color="#dc2626" />
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Blocked IPs (last 24h)</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>IPs with 5+ failed attempts — fed to Security Monitoring</div>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '4px 12px', borderRadius: 20 }}>{blockedIps.length} IPs</span>
+                </div>
+                <table className="ip-table">
+                  <thead>
+                    <tr><th>IP Address</th><th>Failed Attempts</th><th>Last Attempt</th><th>Risk</th></tr>
+                  </thead>
+                  <tbody>
+                    {blockedIps.map((ip, i) => (
+                      <tr key={i}>
+                        <td><span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 6 }}>{ip.ipAddress}</span></td>
+                        <td style={{ fontWeight: 700, color: '#1e293b' }}>{ip.failureCount}</td>
+                        <td style={{ fontSize: 12, color: '#94a3b8' }}>{formatDate(ip.lastAttempt)}</td>
+                        <td>
+                          <span className="badge" style={{ background: ip.failureCount >= 10 ? '#fee2e2' : '#fef3c7', color: ip.failureCount >= 10 ? '#dc2626' : '#d97706' }}>
+                            <span className="badge-dot" style={{ background: ip.failureCount >= 10 ? '#ef4444' : '#f59e0b' }} />
+                            {ip.failureCount >= 10 ? 'Critical' : 'High'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
             {/* Controls */}
             <div className="controls-bar">
               <div className="search-wrap">
-                <Search size={15} className="search-icon" style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="Search by user, ID, or IP..."
-                  value={searchQuery}
-                  onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                />
+                <Search size={14} className="search-icon" />
+                <input className="search-input" placeholder="Search by user, ID, or IP..."
+                  value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
               </div>
-              <div className="filter-group">
-                <Filter size={13} style={{ color: '#94a3b8' }} />
-                <select
-                  className="filter-select"
-                  value={statusFilter}
-                  onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                >
-                  <option value="all">All</option>
-                  <option value="success">Success</option>
-                  <option value="failed">Failed</option>
-                  <option value="blocked">Blocked</option>
-                </select>
-              </div>
+              <CustomSelect
+                options={[
+                  { value: 'all',     label: 'All Statuses' },
+                  { value: 'Failed',  label: 'Failed'       },
+                  { value: 'Blocked', label: 'Blocked'      },
+                  { value: 'Success', label: 'Success'      },
+                ]}
+                value={statusFilter}
+                onChange={v => { setStatusFilter(v); setCurrentPage(1); }}
+              />
+              <span style={{ fontSize: 13, color: '#94a3b8', marginLeft: 'auto' }}>{filtered.length} records</span>
             </div>
 
-            {/* Table */}
+            {/* Attempts Table */}
             <div className="table-card">
               <div className="table-card-header">
                 <div>
-                  <h2>Attempt Log</h2>
-                  <p>{filtered.length} record{filtered.length !== 1 ? 's' : ''} found</p>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Attempt Log</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Each failure is written to Audit Logs — threshold breach triggers Security Alert</div>
                 </div>
-                <span className="table-count">{filtered.length} entries</span>
               </div>
-
-              <table className="attempts-table">
+              <table>
                 <thead>
-                  <tr>
-                    <th>Date &amp; Time</th>
-                    <th>Emp ID</th>
-                    <th>User</th>
-                    <th>IP Address</th>
-                    <th>Location</th>
-                    <th>Device</th>
-                    <th>Status</th>
-                  </tr>
+                  <tr><th>Date &amp; Time</th><th>Emp ID</th><th>User</th><th>IP Address</th><th>Reason</th><th>Status</th></tr>
                 </thead>
                 <tbody>
-                  {paginatedData.length === 0 ? (
-                    <tr><td colSpan={7}><div className="empty-state">No records match your search or filter.</div></td></tr>
-                  ) : paginatedData.map((row, idx) => {
-                    const s = statusMap[row.status as keyof typeof statusMap];
-                    const dc = deviceColorMap(row.device);
-                    const isUnknown = row.user === 'Unknown';
+                  {loading ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>Loading...</td></tr>
+                  ) : paged.length === 0 ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No records found.</td></tr>
+                  ) : paged.map(l => {
+                    const s = statusMap[l.status] ?? { label: l.status, color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' };
                     return (
-                      <tr key={idx}>
-                        <td><span className="date-text">{row.date}</span></td>
-                        <td><span className="emp-chip">{row.empId}</span></td>
+                      <tr key={l.id}>
+                        <td style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(l.attemptedAt)}</td>
                         <td>
-                          <span className="user-name">{row.user}</span>
-                        </td>
-                        <td><span className="ip-mono">{row.ip}</span></td>
-                        <td>
-                          <span className="location-text">
-                            {row.location}
+                          <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>
+                            {l.employeeId}
                           </span>
                         </td>
+                        <td style={{ fontWeight: 600, color: '#0f172a' }}>{l.userName}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64748b' }}>{l.ipAddress ?? '—'}</td>
+                        <td style={{ fontSize: 12, color: '#64748b' }}>{l.failureReason ?? '—'}</td>
                         <td>
-                          <span className="device-tag">
-                            {row.device}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="status-badge" style={{ background: s.bg, color: s.color }}>
-                            <span className="status-dot" style={{ background: s.dot }} />
-                            {s.label}
+                          <span className="badge" style={{ background: s.bg, color: s.color }}>
+                            <span className="badge-dot" style={{ background: s.dot }} />{s.label}
                           </span>
                         </td>
                       </tr>
@@ -307,20 +349,18 @@ export default function LoginAttempts() {
                   })}
                 </tbody>
               </table>
-
               <div className="pagination-bar">
                 <span className="pagination-info">
-                  Showing <strong>{filtered.length === 0 ? 0 : startIndex + 1}–{Math.min(startIndex + itemsPerPage, filtered.length)}</strong> of <strong>{filtered.length}</strong> records
+                  Showing <strong>{filtered.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}–{Math.min(safePage * itemsPerPage, filtered.length)}</strong> of <strong>{filtered.length}</strong>
                 </span>
                 <div className="pagination-controls">
-                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}><ChevronLeft size={15} /></button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button key={page} className={`pg-btn ${currentPage === page ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>{page}</button>
-                  ))}
-                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}><ChevronRight size={15} /></button>
+                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={14} /></button>
+                  <span className="pg-counter">{safePage} / {totalPages}</span>
+                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}><ChevronRight size={14} /></button>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </div>

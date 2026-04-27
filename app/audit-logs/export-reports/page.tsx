@@ -1,366 +1,396 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
-import { Bell, Download, FileText, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
+import TopBar from '@/app/components/TopBar';
+import {
+  Download, FileText, FileSpreadsheet,
+  ChevronDown, RefreshCw, Activity, CheckCircle, XCircle, Clock,
+} from 'lucide-react';
+import { auth } from '@/lib/api';
 
-const recentExports = [
-  { id:1, name:'Audit Logs — January 2024',        format:'PDF',  size:'2.4 MB',  date:'Jan 15, 14:10', user:'Emily Davis',   status:'completed' },
-  { id:2, name:'Failed Login Report — Week 3',      format:'CSV',  size:'156 KB',  date:'Jan 14, 09:30', user:'Sarah Johnson', status:'completed' },
-  { id:3, name:'User Activity Summary — Q4 2023',  format:'PDF',  size:'5.1 MB',  date:'Jan 12, 16:45', user:'Emily Davis',   status:'completed' },
-  { id:4, name:'Permission Changes — December',     format:'CSV',  size:'89 KB',   date:'Jan 10, 11:20', user:'Sarah Johnson', status:'completed' },
-  { id:5, name:'Security Incident Report — Jan',   format:'PDF',  size:'1.8 MB',  date:'Jan 8, 14:00',  user:'Michael Chen',  status:'completed' },
-  { id:6, name:'Compliance Summary — Q4 2023',     format:'PDF',  size:'3.2 MB',  date:'Jan 6, 10:15',  user:'Emily Davis',   status:'completed' },
-  { id:7, name:'User Access Report — December',    format:'XLSX', size:'420 KB',  date:'Jan 4, 08:45',  user:'Sarah Johnson', status:'completed' },
-  { id:8, name:'Transaction Trail — Week 1',       format:'CSV',  size:'234 KB',  date:'Jan 2, 13:00',  user:'Michael Chen',  status:'completed' },
-];
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+interface ExportRecord {
+  name: string;
+  format: string;
+  dateRange: string;
+  type: string;
+  generatedAt: string;
+  generatedBy: string;
+  url?: string;
+}
+
+function CustomSelect({
+  options, value, onChange, label,
+}: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (val: string) => void;
+  label?: string;
+}) {
+  const [open, setOpen]   = useState(false);
+  const [pos, setPos]     = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef        = useRef<HTMLButtonElement>(null);
+  const dropdownRef       = useRef<HTMLDivElement>(null);
+  const selected          = options.find(o => o.value === value);
+
+  const updatePos = () => {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+  };
+
+  const handleToggle = () => { updatePos(); setOpen(v => !v); };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!triggerRef.current?.contains(t) && !dropdownRef.current?.contains(t)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const sync = () => updatePos();
+    window.addEventListener('scroll', sync, true);
+    window.addEventListener('resize', sync);
+    return () => { window.removeEventListener('scroll', sync, true); window.removeEventListener('resize', sync); };
+  }, [open]);
+
+  return (
+    <div>
+      {label && (
+        <label style={{ fontSize: 11, fontWeight: 500, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, display: 'block' }}>
+          {label}
+        </label>
+      )}
+      <div style={{ position: 'relative' }}>
+        <button ref={triggerRef} type="button" onClick={handleToggle}
+          style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${open ? '#1D9E75' : 'rgba(0,0,0,0.15)'}`, fontSize: 13, color: '#1a2332', background: '#ffffff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 400, outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border-color 0.15s' }}>
+          <span>{selected?.label ?? options[0]?.label}</span>
+          <ChevronDown size={14} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+        </button>
+        {open && typeof window !== 'undefined' && createPortal(
+          <div ref={dropdownRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, background: '#ffffff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 999999, overflow: 'hidden' }}>
+            {options.map(opt => {
+              const isSel = opt.value === value;
+              return (
+                <button key={opt.value} type="button"
+                  onMouseDown={e => { e.preventDefault(); onChange(opt.value); setOpen(false); }}
+                  style={{ width: '100%', padding: '10px 14px', fontSize: 13, color: isSel ? '#1D9E75' : '#1a2332', background: isSel ? 'rgba(29,158,117,0.07)' : 'transparent', fontWeight: isSel ? 500 : 400, fontFamily: 'inherit', border: 'none', cursor: 'pointer', textAlign: 'left', display: 'block', lineHeight: 1.5 }}
+                  onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.03)'; }}
+                  onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )}
+      </div>
+    </div>
+  );
+}
+
+const formatCfg: Record<string, { color: string; bg: string; border: string }> = {
+  PDF:  { color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  CSV:  { color: '#059669', bg: '#dcfce7', border: '#6ee7b7' },
+  XLSX: { color: '#2563eb', bg: '#dbeafe', border: '#93c5fd' },
+};
 
 const reportTemplates = [
-  { name:'Audit Log Report',          desc:'Complete activity logs with filters',       icon:FileText,        formats:['PDF','CSV'],        accent:'#2db9a3' },
-  { name:'Security Incident Report',  desc:'Failed logins, blocked IPs, threats',       icon:FileText,        formats:['PDF'],              accent:'#ef4444' },
-  { name:'User Access Report',        desc:'User roles, permissions, last login',        icon:FileSpreadsheet, formats:['PDF','CSV','XLSX'],  accent:'#6366f1' },
-  { name:'Compliance Summary',        desc:'MFA enrollment, password policy status',    icon:FileText,        formats:['PDF'],              accent:'#f59e0b' },
-  { name:'Transaction Trail Export',  desc:'All system transactions with details',      icon:FileSpreadsheet, formats:['CSV','XLSX'],       accent:'#8b5cf6' },
-  { name:'Device & Session Report',   desc:'Active devices and sessions per user',      icon:FileText,        formats:['PDF','CSV'],        accent:'#06b6d4' },
+  { name: 'Activity Log Report',      desc: 'All system actions with user, module, and status', icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#1D9E75', accentBg: '#E1F5EE' },
+  { name: 'Transaction Trail Export', desc: 'All TXN-ID records for compliance tracing',        icon: FileSpreadsheet, formats: ['PDF', 'CSV'], type: 'transactions', accent: '#7c3aed', accentBg: '#ede9fe' },
+  { name: 'Security Report',          desc: 'Failed logins, alerts, and device events',          icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#dc2626', accentBg: '#fee2e2' },
+  { name: 'User Access Summary',      desc: 'Role assignments and permission changes',           icon: FileSpreadsheet, formats: ['PDF', 'CSV'], type: 'activity',     accent: '#4f46e5', accentBg: '#e0e7ff' },
+  { name: 'Compliance Summary',       desc: 'MFA, password policy, and session audit',          icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#d97706', accentBg: '#fef3c7' },
 ];
-
-const formatCfg: Record<string,{color:string;bg:string}> = {
-  PDF:  { color:'#dc2626', bg:'#fee2e2' },
-  CSV:  { color:'#059669', bg:'#dcfce7' },
-  XLSX: { color:'#2563eb', bg:'#dbeafe' },
-};
 
 const ROWS_PER_PAGE = 5;
 
 export default function ExportReports() {
-  const [dateRange,       setDateRange]       = useState('last-30');
-  const [selectedFormat,  setSelectedFormat]  = useState('PDF');
-  const [activeMenu,      setActiveMenu]      = useState('export-reports');
-  const [sidebarOpen,     setSidebarOpen]     = useState(true);
-  const [page,            setPage]            = useState(1);
   const router = useRouter();
+  const [activeMenu, setActiveMenu]   = useState('export-reports');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [dateRange, setDateRange]     = useState('last-30');
+  const [reportType, setReportType]   = useState('activity');
+  const [format, setFormat]           = useState('CSV');
+  const [generating, setGenerating]   = useState(false);
+  const [exports, setExports]         = useState<ExportRecord[]>([]);
+  const [summary, setSummary]         = useState({ total: 0, success: 0, failed: 0, today: 0 });
+  const [page, setPage]               = useState(1);
 
-  const totalPages = Math.max(1, Math.ceil(recentExports.length / ROWS_PER_PAGE));
+  const fetchSummary = useCallback(async () => {
+    try {
+      const res  = await fetch(`${API}/audit/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+      const data = await res.json();
+      setSummary(data);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('nexum_exports');
+    if (saved) setExports(JSON.parse(saved));
+  }, []);
+
+  const saveExports = (list: ExportRecord[]) => {
+    setExports(list);
+    localStorage.setItem('nexum_exports', JSON.stringify(list));
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      let res: Response;
+      if (format === 'PDF') {
+        const params = new URLSearchParams({ dateRange, type: reportType, tzOffset: (-new Date().getTimezoneOffset()).toString() });
+        res = await fetch(`${API}/audit/export/pdf?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+      } else {
+        const params = new URLSearchParams({ format: format.toLowerCase(), dateRange, type: reportType });
+        res = await fetch(`${API}/audit/export?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+      }
+      if (!res.ok) { alert('Export failed'); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${reportType}-report-${dateRange}.${format.toLowerCase()}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      const newExport: ExportRecord = {
+        name:        `${reportType === 'transactions' ? 'Transaction Trail' : 'Activity Log'} — ${dateRange}`,
+        format, dateRange, type: reportType,
+        generatedAt: new Date().toISOString(), generatedBy: 'Admin',
+      };
+      saveExports([newExport, ...exports].slice(0, 20));
+    } catch { alert('Export failed — check API connection'); }
+    finally { setGenerating(false); }
+  };
+
+  const handleTemplateDownload = async (template: typeof reportTemplates[0], fmt = 'PDF') => {
+    let res: Response;
+    if (fmt === 'PDF') {
+      const params = new URLSearchParams({ dateRange: 'last-30', type: template.type, tzOffset: (-new Date().getTimezoneOffset()).toString() });
+      res = await fetch(`${API}/audit/export/pdf?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+    } else {
+      const params = new URLSearchParams({ format: 'csv', dateRange: 'last-30', type: template.type });
+      res = await fetch(`${API}/audit/export?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+    }
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${template.type}-report-last-30.${fmt.toLowerCase()}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    const newExport: ExportRecord = {
+      name: `${template.name} — Last 30 Days`, format: fmt,
+      dateRange: 'last-30', type: template.type,
+      generatedAt: new Date().toISOString(), generatedBy: 'Admin',
+    };
+    saveExports([newExport, ...exports].slice(0, 20));
+  };
+
+  const formatDate = (iso: string) => {
+    if (!iso) return '—';
+    const utcString = iso.endsWith('Z') ? iso : iso + 'Z';
+    return new Date(utcString).toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  };
+
+  const totalPages = Math.max(1, Math.ceil(exports.length / ROWS_PER_PAGE));
   const safePage   = Math.min(page, totalPages);
-  const paginated  = recentExports.slice((safePage - 1) * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE);
+  const paginated  = exports.slice((safePage - 1) * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE);
+
+  const stats = [
+    { label: 'Total logs',   value: summary.total,   icon: Activity,    color: '#4f46e5', bg: '#e0e7ff' },
+    { label: 'Successful',   value: summary.success, icon: CheckCircle, color: '#059669', bg: '#dcfce7' },
+    { label: 'Failed',       value: summary.failed,  icon: XCircle,     color: '#dc2626', bg: '#fee2e2' },
+    { label: "Today's logs", value: summary.today,   icon: Clock,       color: '#1D9E75', bg: '#E1F5EE' },
+  ];
+
+  const card: React.CSSProperties = {
+    background: '#ffffff',
+    border: '0.5px solid rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+  };
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 500,
+    color: '#0f172a',
+    marginBottom: 12,
+  };
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    <div style={{ display: 'flex', height: '100vh', background: '#ffffff', overflow: 'hidden', fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
+      <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
 
-        .er-root    { display: flex; height: 100vh; background: #ffffff; overflow: hidden; font-family: 'Open Sans', sans-serif; }
-        .er-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <TopBar title="Export Reports" />
 
-        /* ── Topbar ── */
-        .topbar { height: 66px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .topbar-title { font-size: 16px; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; }
-        .topbar-right { display: flex; align-items: center; gap: 14px; }
-        .notif-btn { width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; transition: all 0.18s; position: relative; }
-        .notif-btn:hover { border-color: #2db9a3; color: #2db9a3; background: #f0fdf9; }
-        .notif-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; background: #ef4444; border-radius: 50%; border: 1.5px solid #fff; }
-        .profile-pill { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 40px; padding: 5px 14px 5px 5px; cursor: pointer; transition: all 0.18s; }
-        .profile-pill:hover { border-color: #2db9a3; background: #f0fdf9; }
-        .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #2db9a3, #6366f1); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; }
-        .profile-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+        <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
 
-        /* ── Main ── */
-        .main-content { flex: 1; overflow-y: auto; padding: 32px 36px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
-        .main-content::-webkit-scrollbar { width: 6px; }
-        .main-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
-
-        /* ── Page header ── */
-        .page-header { margin-bottom: 28px; }
-        .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #2db9a3; background: rgba(45,185,163,0.08); padding: 4px 10px; border-radius: 20px; margin-bottom: 10px; }
-        .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: #2db9a3; }
-        .page-header h1 { font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 4px; letter-spacing: -0.03em; }
-        .page-header p { font-size: 14px; color: #94a3b8; font-weight: 400; }
-
-        /* ── Section label ── */
-        .section-label { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 16px; letter-spacing: -0.01em; margin-top: 40px; }
-        .section-label:first-of-type { margin-top: 0; }
-
-        /* ── Generate card ── */
-        .gen-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 18px; padding: 24px; margin-bottom: 48px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
-        .gen-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px; align-items: end; }
-
-        .field-label { font-size: 11.5px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 7px; display: block; }
-        .field-select { width: 100%; padding: 10px 36px 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; font-size: 13.5px; color: #1e293b; background: #f8fafc; cursor: pointer; font-family: 'Open Sans', sans-serif; font-weight: 500; outline: none; transition: all 0.18s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
-        .field-select:focus { border-color: #2db9a3; background-color: #fff; box-shadow: 0 0 0 3px rgba(45,185,163,0.1); }
-
-        .gen-btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 10px; border: none; background: #2db9a3; color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer; font-family: 'Open Sans', sans-serif; white-space: nowrap; transition: all 0.18s; box-shadow: 0 2px 10px rgba(45,185,163,0.3); }
-        .gen-btn:hover { background: #28a593; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(45,185,163,0.4); }
-
-        /* ── Templates grid ── */
-        .templates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 48px; }
-
-        .template-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
-        .template-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--tc-accent); border-radius: 16px 16px 0 0; }
-
-        .tc-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--tc-icon-bg); color: var(--tc-accent); margin-bottom: 14px; }
-        .tc-name { font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 5px; letter-spacing: -0.01em; }
-        .tc-desc { font-size: 12.5px; color: #94a3b8; margin-bottom: 14px; line-height: 1.5; font-weight: 400; }
-        .format-badges { display: flex; gap: 5px; flex-wrap: wrap; }
-        .format-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-
-        /* ── Recent exports table card — redesigned to match screenshot ── */
-        .table-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
-
-        .table-card-header {
-          padding: 18px 24px 16px;
-          display: flex; align-items: center; justify-content: space-between;
-          border-bottom: 1px solid #f1f5f9;
-        }
-        .table-card-header h2 { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
-        .table-card-header p  { font-size: 12.5px; color: #94a3b8; margin-top: 2px; }
-
-        /* Table — centered headers + cells, clean rows like screenshot */
-        .er-table { width: 100%; border-collapse: collapse; min-width: 640px; }
-
-        .er-table thead tr { background: #f8fafc; }
-        .er-table thead th {
-          padding: 13px 20px;
-          text-align: center;
-          font-size: 10.5px; font-weight: 700; color: #94a3b8;
-          text-transform: uppercase; letter-spacing: 0.09em;
-          border-top: 1px solid #edf2f7;
-          border-bottom: 1px solid #edf2f7;
-          white-space: nowrap;
-        }
-        .er-table thead th:last-child  { padding-right: 24px; }
-
-        .er-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background 0.13s; }
-        .er-table tbody tr:last-child { border-bottom: none; }
-        .er-table tbody tr:hover { background: #fafbfd; }
-
-        .er-table tbody td {
-          padding: 18px 20px;
-          font-size: 13px; color: #1e293b; font-weight: 500;
-          vertical-align: middle; text-align: center;
-        }
-        .er-table tbody td:first-child { padding-left: 24px; }
-        .er-table tbody td:last-child  { padding-right: 24px; }
-
-        .report-name { font-weight: 700; color: #0f172a; font-size: 13px; }
-        .size-text   { font-size: 12.5px; color: #64748b; font-weight: 400; }
-        .date-text   { font-size: 12px; color: #94a3b8; font-weight: 400; white-space: nowrap; font-family: 'Menlo', 'Monaco', monospace; }
-        .user-text   { font-size: 13px; color: #475569; font-weight: 500; }
-
-        .dl-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: #2db9a3; background: rgba(45,185,163,0.08); padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Open Sans', sans-serif; transition: all 0.15s; }
-        .dl-btn:hover { background: rgba(45,185,163,0.15); }
-
-        /* ── Pagination ── */
-        .er-pagination {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 24px; border-top: 1px solid #f1f5f9;
-          flex-wrap: wrap; gap: 10px;
-        }
-        .er-pag-info { font-size: 12.5px; color: #94a3b8; }
-        .er-pag-info strong { color: #1e293b; font-weight: 700; }
-        .er-pag-btns { display: flex; align-items: center; gap: 6px; }
-        .er-pag-btn {
-          width: 32px; height: 32px; border-radius: 8px;
-          border: 1px solid #e2e8f0; background: #fff;
-          color: #475569; font-size: 13px; font-weight: 500;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          cursor: pointer; display: flex; align-items: center; justify-content: center;
-          transition: all 0.15s;
-        }
-        .er-pag-btn:hover:not(:disabled):not(.er-pag-active) { background: #f1f5f9; border-color: #c8d0dc; }
-        .er-pag-btn.er-pag-active { background: #2db9a3; color: #fff; border-color: #2db9a3; font-weight: 700; }
-        .er-pag-btn:disabled { opacity: 0.38; cursor: not-allowed; }
-
-        @media (max-width: 768px) {
-          .topbar { padding: 0 18px; }
-          .main-content { padding: 18px; }
-          .gen-grid { grid-template-columns: 1fr; }
-          .templates-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
-
-      <div className="er-root">
-        <Sidebar
-          activeMenu={activeMenu}
-          setActiveMenu={setActiveMenu}
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          onLogout={() => router.push('/')}
-        />
-
-        <div className="er-content">
-          {/* Topbar */}
-          <div className="topbar">
-            <span className="topbar-title">Audit Logs</span>
-            <div className="topbar-right">
-              <button className="notif-btn">
-                <Bell size={17} />
-                <div className="notif-dot" />
-              </button>
-              <button onClick={() => router.push('/my-profile')} className="profile-pill" style={{ border: 'none' }}>
-                <div className="profile-avatar">SJ</div>
-                <span className="profile-name">Sarah Johnson</span>
-              </button>
+          {/* Page Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>Export Reports</h1>
+              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Generate and download audit reports in PDF or CSV format</p>
             </div>
+            <button onClick={fetchSummary}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '0.5px solid rgba(0,0,0,0.15)', borderRadius: 8, background: '#ffffff', fontSize: 13, fontFamily: 'inherit', color: '#64748b', cursor: 'pointer' }}>
+              <RefreshCw size={13} /> Refresh
+            </button>
           </div>
 
-          {/* Main */}
-          <div className="main-content">
-
-            {/* Header */}
-            <div className="page-header">
-              <div className="eyebrow"><span className="eyebrow-dot" />Audit Logs</div>
-              <h1>Export Reports</h1>
-              <p>Generate and download audit reports</p>
-            </div>
-
-            {/* Generate */}
-            <div className="section-label">Generate New Report</div>
-            <div className="gen-card">
-              <div className="gen-grid">
-                <div>
-                  <label className="field-label">Date Range</label>
-                  <select className="field-select" value={dateRange} onChange={e => setDateRange(e.target.value)}>
-                    <option value="today">Today</option>
-                    <option value="last-7">Last 7 Days</option>
-                    <option value="last-30">Last 30 Days</option>
-                    <option value="last-90">Last 90 Days</option>
-                    <option value="custom">Custom Range</option>
-                  </select>
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+            {stats.map(s => {
+              const Icon = s.icon;
+              return (
+                <div key={s.label} style={{ ...card, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon size={16} style={{ color: s.color }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{s.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.02em' }}>{s.value.toLocaleString()}</div>
+                  </div>
                 </div>
-                <div>
-                  <label className="field-label">Format</label>
-                  <select className="field-select" value={selectedFormat} onChange={e => setSelectedFormat(e.target.value)}>
-                    <option value="PDF">PDF Document</option>
-                    <option value="CSV">CSV Spreadsheet</option>
-                    <option value="XLSX">Excel Workbook</option>
-                  </select>
-                </div>
-                <button className="gen-btn">
-                  <Download size={15} />
-                  Generate Report
+              );
+            })}
+          </div>
+
+          {/* Generate */}
+          <p style={sectionLabel}>Generate new report</p>
+          <div style={{ ...card, padding: 20, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+              <CustomSelect label="Report type" options={[{ value: 'activity', label: 'Activity logs' }, { value: 'transactions', label: 'Transaction trail' }]} value={reportType} onChange={setReportType} />
+              <CustomSelect label="Date range" options={[{ value: 'today', label: 'Today' }, { value: 'last-7', label: 'Last 7 days' }, { value: 'last-30', label: 'Last 30 days' }, { value: 'last-90', label: 'Last 90 days' }]} value={dateRange} onChange={setDateRange} />
+              <CustomSelect label="Format" options={[{ value: 'PDF', label: 'PDF report' }, { value: 'CSV', label: 'CSV spreadsheet' }]} value={format} onChange={setFormat} />
+              <div>
+                <div style={{ fontSize: 11, marginBottom: 6, visibility: 'hidden' }}>.</div>
+                <button onClick={handleGenerate} disabled={generating}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 8, border: 'none', background: generating ? '#9ca3af' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: generating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'background 0.15s' }}>
+                  <Download size={14} />
+                  {generating ? 'Generating…' : 'Generate & download'}
                 </button>
               </div>
             </div>
+          </div>
 
-            {/* Templates */}
-            <div className="section-label">Report Templates</div>
-            <div className="templates-grid">
-              {reportTemplates.map(t => {
-                const Icon = t.icon;
-                return (
-                  <div
-                    key={t.name}
-                    className="template-card"
-                    style={{ '--tc-accent': t.accent, '--tc-icon-bg': t.accent + '18' } as React.CSSProperties}
-                  >
-                    <div className="tc-icon"><Icon size={18} /></div>
-                    <div className="tc-name">{t.name}</div>
-                    <div className="tc-desc">{t.desc}</div>
-                    <div className="format-badges">
-                      {t.formats.map(f => {
-                        const fc = formatCfg[f] || { color: '#64748b', bg: '#f1f5f9' };
-                        return (
-                          <span key={f} className="format-pill" style={{ background: fc.bg, color: fc.color }}>
-                            {f}
-                          </span>
-                        );
-                      })}
-                    </div>
+          {/* Templates */}
+          <p style={sectionLabel}>Quick export templates</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 24 }}>
+            {reportTemplates.map(t => {
+              const Icon = t.icon;
+              return (
+                <div key={t.name} style={{ ...card, padding: 18, borderTop: `2.5px solid ${t.accent}`, borderRadius: '0 0 12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 9, background: t.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon size={16} style={{ color: t.accent }} />
                   </div>
-                );
-              })}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', marginBottom: 3 }}>{t.name}</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>{t.desc}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
+                    {t.formats.map(f => {
+                      const fc = formatCfg[f] ?? { color: '#64748b', bg: '#f1f5f9', border: '#e2e8f0' };
+                      return (
+                        <button key={f} onClick={() => handleTemplateDownload(t, f)}
+                          style={{ fontSize: 11, fontWeight: 500, padding: '4px 12px', borderRadius: 20, background: fc.bg, color: fc.color, border: `1px solid ${fc.border}`, cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+                          {f}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Recent Exports */}
+          <p style={sectionLabel}>Recent exports</p>
+          <div style={{ ...card, overflow: 'hidden', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>Export history</span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: '#1D9E75', background: '#E1F5EE', padding: '3px 10px', borderRadius: 20 }}>
+                {exports.length} exports
+              </span>
             </div>
 
-            {/* ── Recent Exports — redesigned table ── */}
-            <div className="table-card">
-              <div className="table-card-header">
-                <div>
-                  <h2>Recent Exports</h2>
-                  <p>{recentExports.length} recent exports</p>
-                </div>
+            {exports.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 13 }}>
+                No exports yet — generate a report above.
               </div>
-
-              <div style={{ overflowX: 'auto' }}>
-                <table className="er-table">
+            ) : (
+              <>
+                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                   <thead>
-                    <tr>
-                      <th>Report Name</th>
-                      <th>Format</th>
-                      <th>Size</th>
-                      <th>Generated</th>
-                      <th>By</th>
-                      <th>Action</th>
+                    <tr style={{ background: '#ffffff' }}>
+                      {['Report name', 'Format', 'Type', 'Date range', 'Generated at', 'By'].map(h => (
+                        <th key={h} style={{ padding: '9px 16px', textAlign: 'left', fontSize: 10.5, fontWeight: 500, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {paginated.map(e => {
-                      const fc = formatCfg[e.format] || { color: '#64748b', bg: '#f1f5f9' };
+                    {paginated.map((e, i) => {
+                      const fc = formatCfg[e.format] ?? { color: '#64748b', bg: '#f1f5f9', border: '#e2e8f0' };
                       return (
-                        <tr key={e.id}>
-                          <td><span className="report-name">{e.name}</span></td>
-                          <td>
-                            <span style={{ background: fc.bg, color: fc.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, display: 'inline-block' }}>
-                              {e.format}
-                            </span>
+                        <tr key={i} style={{ borderTop: i === 0 ? 'none' : '0.5px solid rgba(0,0,0,0.05)' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{e.name}</td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ background: fc.bg, color: fc.color, border: `1px solid ${fc.border}`, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20 }}>{e.format}</span>
                           </td>
-                          <td><span className="size-text">{e.size}</span></td>
-                          <td><span className="date-text">{e.date}</span></td>
-                          <td><span className="user-text">{e.user}</span></td>
-                          <td>
-                            <button className="dl-btn">
-                              <Download size={13} />
-                              Download
-                            </button>
-                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#64748b' }}>{e.type === 'transactions' ? 'Transaction trail' : 'Activity logs'}</td>
+                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#64748b' }}>{e.dateRange}</td>
+                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#94a3b8' }}>{formatDate(e.generatedAt)}</td>
+                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#475569' }}>{e.generatedBy}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-              </div>
 
-              {/* Pagination */}
-              <div className="er-pagination">
-                <span className="er-pag-info">
-                  Showing{' '}
-                  <strong>
-                    {recentExports.length === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, recentExports.length)}
-                  </strong>{' '}
-                  of <strong>{recentExports.length}</strong> exports
-                </span>
-                <div className="er-pag-btns">
-                  <button
-                    className="er-pag-btn"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={safePage === 1}
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                    <button
-                      key={p}
-                      className={`er-pag-btn${safePage === p ? ' er-pag-active' : ''}`}
-                      onClick={() => setPage(p)}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                  <button
-                    className="er-pag-btn"
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={safePage === totalPages}
-                  >
-                    <ChevronRight size={14} />
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '0.5px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
+                  <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                    Showing <strong style={{ color: '#475569', fontWeight: 500 }}>{(safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, exports.length)}</strong> of <strong style={{ color: '#475569', fontWeight: 500 }}>{exports.length}</strong>
+                  </span>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                      style={{ width: 30, height: 30, borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.15)', background: '#fff', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === 1 ? 0.4 : 1, fontSize: 16 }}>‹</button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                      <button key={p} onClick={() => setPage(p)}
+                        style={{ width: 30, height: 30, borderRadius: 7, fontSize: 13, border: safePage === p ? 'none' : '0.5px solid rgba(0,0,0,0.15)', background: safePage === p ? '#1D9E75' : '#fff', color: safePage === p ? '#fff' : '#64748b', cursor: 'pointer', fontWeight: safePage === p ? 500 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {p}
+                      </button>
+                    ))}
+                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                      style={{ width: 30, height: 30, borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.15)', background: '#fff', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === totalPages ? 0.4 : 1, fontSize: 16 }}>›</button>
+                  </div>
                 </div>
-              </div>
-            </div>
-
+              </>
+            )}
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

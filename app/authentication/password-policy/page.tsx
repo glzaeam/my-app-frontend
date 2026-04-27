@@ -1,289 +1,957 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
-import { Bell, Lock, RotateCw, CheckCircle, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
+import TopBar from '@/app/components/TopBar';
+import {
+  Lock, RotateCw, CheckCircle, Circle, ChevronLeft, ChevronRight,
+  ChevronDown, RefreshCw, Shield, Mail, Users
+} from 'lucide-react';
+import { auth } from '@/lib/api';
+
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface RolePolicy {
+  id: string;
+  name: string;
+  userCount: number;
+  minLength: number;
+  expiryDays: number;
+  historyCount: number;
+  mfaRequired: boolean;
+}
+
+// ─── Custom Select ────────────────────────────────────────────────────────────
+// Custom dropdown rendered via portal into document.body using fixed positioning
+// calculated from getBoundingClientRect — works correctly in any scroll container.
+
+function CustomSelect({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen]   = useState(false);
+  const [pos, setPos]     = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef        = useRef<HTMLButtonElement>(null);
+  const dropdownRef       = useRef<HTMLDivElement>(null);
+  const selected          = options.find(o => o.value === value);
+
+  const updatePos = () => {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+  };
+
+  const handleToggle = () => {
+    updatePos();
+    setOpen(v => !v);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (
+        !triggerRef.current?.contains(t) &&
+        !dropdownRef.current?.contains(t)
+      ) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Sync position on scroll/resize
+  useEffect(() => {
+    if (!open) return;
+    const sync = () => updatePos();
+    window.addEventListener('scroll', sync, true);
+    window.addEventListener('resize', sync);
+    return () => {
+      window.removeEventListener('scroll', sync, true);
+      window.removeEventListener('resize', sync);
+    };
+  }, [open]);
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      {/* Trigger */}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleToggle}
+        style={{
+          width: '100%',
+          padding: '10px 14px',
+          borderRadius: 8,
+          border: `1px solid ${open ? '#1D9E75' : 'rgba(0,0,0,0.15)'}`,
+          fontSize: 13,
+          color: '#1a2332',
+          background: '#ffffff',
+          cursor: 'pointer',
+          fontFamily: 'var(--font-sans)',
+          fontWeight: 400,
+          outline: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          transition: 'border-color 0.15s',
+        }}
+      >
+        <span style={{ color: '#1a2332' }}>{selected?.label ?? 'Select'}</span>
+        <ChevronDown
+          size={14}
+          style={{
+            color: '#94a3b8',
+            transform: open ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s',
+            flexShrink: 0,
+          }}
+        />
+      </button>
+
+      {/* Dropdown — portaled to body so it is never clipped */}
+      {open && typeof window !== 'undefined' && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            left: pos.left,
+            width: pos.width,
+            background: '#ffffff',
+            border: '1px solid rgba(0,0,0,0.1)',
+            borderRadius: 10,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            zIndex: 999999,
+            overflow: 'hidden',
+          }}
+        >
+          {options.map(opt => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onMouseDown={e => {
+                  e.preventDefault(); // prevent blur before click
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '11px 16px',
+                  fontSize: 13,
+                  color: isSelected ? '#1D9E75' : '#1a2332',
+                  background: isSelected ? 'rgba(29,158,117,0.07)' : 'transparent',
+                  fontWeight: isSelected ? 500 : 400,
+                  fontFamily: 'var(--font-sans)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'block',
+                  letterSpacing: 0,
+                  lineHeight: 1.5,
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) (e.target as HTMLElement).style.background = 'rgba(0,0,0,0.03)';
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) (e.target as HTMLElement).style.background = 'transparent';
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+function Toast({
+  msg,
+  type,
+  onDone,
+}: {
+  msg: string;
+  type: 'success' | 'error';
+  onDone: () => void;
+}) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 3000);
+    return () => clearTimeout(t);
+  }, [onDone]);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        right: 24,
+        zIndex: 9999,
+        padding: '12px 18px',
+        borderRadius: 10,
+        fontSize: 13,
+        fontWeight: 500,
+        fontFamily: 'var(--font-sans)',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+        background: type === 'success' ? 'var(--color-background-success)' : 'var(--color-background-danger)',
+        color: type === 'success' ? 'var(--color-text-success)' : 'var(--color-text-danger)',
+        border: `0.5px solid ${type === 'success' ? 'var(--color-border-success)' : 'var(--color-border-danger)'}`,
+      }}
+    >
+      {msg}
+    </div>
+  );
+}
+
+// ─── Rule Row ─────────────────────────────────────────────────────────────────
+
+function RuleRow({
+  label,
+  value,
+  onToggle,
+}: {
+  label: string;
+  value: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      onClick={onToggle}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '11px 0',
+        borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}
+    >
+      {value
+        ? <CheckCircle size={16} style={{ color: '#1D9E75', flexShrink: 0 }} />
+        : <Circle size={16} style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }} />}
+      <span style={{ fontSize: 13, color: 'var(--color-text-primary)', flex: 1 }}>{label}</span>
+      {/* Toggle */}
+      <div
+        onClick={e => { e.stopPropagation(); onToggle(); }}
+        style={{
+          width: 40,
+          height: 22,
+          borderRadius: 11,
+          background: value ? '#1D9E75' : 'rgba(0,0,0,0.15)',
+          position: 'relative',
+          flexShrink: 0,
+          cursor: 'pointer',
+          transition: 'background 0.2s',
+        }}
+      >
+        <div
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            background: '#fff',
+            position: 'absolute',
+            top: 3,
+            left: value ? 21 : 3,
+            transition: 'left 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Card ─────────────────────────────────────────────────────────────────────
+
+function Card({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--color-background-primary)',
+        border: '0.5px solid rgba(0,0,0,0.1)',
+        borderRadius: 12,
+        padding: 20,
+        overflow: 'visible',
+        position: 'relative',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--color-background-info)',
+            color: 'var(--color-text-info)',
+            flexShrink: 0,
+          }}
+        >
+          {icon}
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ─── Field ────────────────────────────────────────────────────────────────────
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label
+        style={{
+          fontSize: 11,
+          fontWeight: 500,
+          color: 'var(--color-text-secondary)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.07em',
+          marginBottom: 6,
+          display: 'block',
+        }}
+      >
+        {label}
+      </label>
+      {children}
+      {hint && (
+        <p style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 5 }}>{hint}</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Guide Card ───────────────────────────────────────────────────────────────
+
+interface GuideItem {
+  icon: string;
+  text: string;
+}
+
+function GuideCard({
+  icon,
+  title,
+  iconColor,
+  items,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  iconColor: string;
+  items: GuideItem[];
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--color-background-primary)',
+        border: '0.5px solid rgba(0,0,0,0.08)',
+        borderRadius: 12,
+        padding: '20px 24px',
+      }}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        marginBottom: 16, paddingBottom: 14,
+        borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+        color: iconColor, fontSize: 13, fontWeight: 500,
+      }}>
+        {icon}
+        {title}
+      </div>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {items.map((item, i) => (
+          <li
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              fontSize: 13,
+              color: 'var(--color-text-secondary)',
+              lineHeight: 1.7,
+              paddingBottom: i < items.length - 1 ? 10 : 0,
+              marginBottom: i < items.length - 1 ? 10 : 0,
+              borderBottom: i < items.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none',
+            }}
+          >
+            <span style={{
+              marginTop: 6,
+              width: 5, height: 5, borderRadius: '50%',
+              background: iconColor,
+              flexShrink: 0,
+              opacity: 0.45,
+            }} />
+            <span>{item.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PasswordPolicy() {
-  const [activeMenu, setActiveMenu] = useState('password-policy');
+  const router = useRouter();
+  const [activeMenu, setActiveMenu]   = useState('password-policy');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [uppercase, setUppercase] = useState(true);
-  const [lowercase, setLowercase] = useState(true);
-  const [numbers, setNumbers] = useState(true);
-  const [special, setSpecial] = useState(true);
-  const [commonPasswords, setCommonPasswords] = useState(true);
+  const [loading, setLoading]         = useState(true);
+  const [saving, setSaving]           = useState(false);
+  const [toast, setToast]             = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  // Global policy state
+  const [minLength, setMinLength]             = useState('8');
+  const [passwordExpiry, setPasswordExpiry]   = useState('90');
+  const [passwordHistory, setPasswordHistory] = useState('5');
+  const [uppercase, setUppercase]             = useState(true);
+  const [lowercase, setLowercase]             = useState(true);
+  const [numbers, setNumbers]                 = useState(true);
+  const [special, setSpecial]                 = useState(true);
+  const [blockCommon, setBlockCommon]         = useState(true);
+
+  // Role policies
+  const [roles, setRoles]             = useState<RolePolicy[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-  const router = useRouter();
 
-  const policyData = [
-    { role: 'System Admin',    minLength: '16 chars', expiry: '60 days',  history: 'Last 10', mfa: 'Yes' },
-    { role: 'Branch Manager',  minLength: '12 chars', expiry: '90 days',  history: 'Last 5',  mfa: 'Yes' },
-    { role: 'Auditor',         minLength: '12 chars', expiry: '90 days',  history: 'Last 5',  mfa: 'No'  },
-    { role: 'Bank Teller',     minLength: '10 chars', expiry: '90 days',  history: 'Last 3',  mfa: 'No'  },
-    { role: 'Customer Service',minLength: '10 chars', expiry: '120 days', history: 'Last 3',  mfa: 'No'  },
-    { role: 'Data Analyst',    minLength: '12 chars', expiry: '90 days',  history: 'Last 5',  mfa: 'Yes' },
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = auth.getToken();
+      const [policyRes, rolesRes] = await Promise.all([
+        fetch(`${API}/password-policy`,       { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/password-policy/roles`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const policy    = await policyRes.json();
+      const rolesData = await rolesRes.json();
+
+      setMinLength(String(policy.minLength ?? 8));
+      setPasswordExpiry(String(policy.expiryDays ?? 90));
+      setPasswordHistory(String(policy.historyCount ?? 5));
+      setUppercase(policy.requireUppercase ?? true);
+      setLowercase(policy.requireLowercase ?? true);
+      setNumbers(policy.requireNumbers ?? true);
+      setSpecial(policy.requireSpecial ?? true);
+      setBlockCommon(policy.blockCommon ?? true);
+      setRoles(rolesData);
+    } catch {
+      setToast({ msg: 'Failed to load policy', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/password-policy`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.getToken()}`,
+        },
+        body: JSON.stringify({
+          minLength:        parseInt(minLength),
+          requireUppercase: uppercase,
+          requireLowercase: lowercase,
+          requireNumbers:   numbers,
+          requireSpecial:   special,
+          blockCommon,
+          expiryDays:       parseInt(passwordExpiry),
+          historyCount:     parseInt(passwordHistory),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) setToast({ msg: 'Password policy saved', type: 'success' });
+      else setToast({ msg: data.message || 'Save failed', type: 'error' });
+    } catch {
+      setToast({ msg: 'Server error', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(roles.length / itemsPerPage));
+  const safePage   = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * itemsPerPage;
+  const paged      = roles.slice(startIndex, startIndex + itemsPerPage);
+
+  const rules = [
+    { label: 'Uppercase letters (A–Z)',     value: uppercase,   toggle: () => setUppercase(v => !v) },
+    { label: 'Lowercase letters (a–z)',     value: lowercase,   toggle: () => setLowercase(v => !v) },
+    { label: 'Numbers (0–9)',               value: numbers,     toggle: () => setNumbers(v => !v) },
+    { label: 'Special characters (!@#$%)', value: special,     toggle: () => setSpecial(v => !v) },
+    { label: 'Block common passwords',     value: blockCommon, toggle: () => setBlockCommon(v => !v) },
   ];
 
-  const totalPages = Math.ceil(policyData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedPolicyData = policyData.slice(startIndex, startIndex + itemsPerPage);
-  const handleLogout = () => router.push('/');
-
-  const complexityRules = [
-    { label: 'Uppercase letters (A–Z)',    value: uppercase,       set: setUppercase       },
-    { label: 'Lowercase letters (a–z)',    value: lowercase,       set: setLowercase       },
-    { label: 'Numbers (0–9)',              value: numbers,         set: setNumbers         },
-    { label: 'Special characters (!@#$%)', value: special,         set: setSpecial         },
-    { label: 'Block common passwords',     value: commonPasswords, set: setCommonPasswords },
+  const guidelines = [
+    {
+      icon: <Lock size={14} />,
+      title: 'Password requirements',
+      color: 'var(--color-text-info)',
+      items: [
+        { icon: '✓', text: '12–128 characters; never truncate silently' },
+        { icon: '✓', text: 'At least one uppercase letter (A–Z)' },
+        { icon: '✓', text: 'At least one lowercase letter (a–z)' },
+        { icon: '✓', text: 'At least one number (0–9)' },
+        { icon: '✓', text: 'At least one special character (!@#$%)' },
+        { icon: '✓', text: 'Block common passwords via HaveIBeenPwned API' },
+      ],
+    },
+    {
+      icon: <Shield size={14} />,
+      title: 'Brute force & lockout',
+      color: 'var(--color-text-danger)',
+      items: [
+        { icon: '🔒', text: '5 failed attempts triggers lockout per account and IP' },
+        { icon: '⏱', text: '15-minute minimum lockout; send unlock link to email' },
+        { icon: '🔐', text: 'Generic error only: "Invalid email or password"' },
+        { icon: '🤖', text: 'CAPTCHA after 3 attempts (reCAPTCHA v3)' },
+        { icon: '⏰', text: 'Exponential backoff with Redis-cached state' },
+      ],
+    },
+    {
+      icon: <Shield size={14} />,
+      title: 'Sessions & cookies',
+      color: '#534AB7',
+      items: [
+        { icon: '🔐', text: 'HttpOnly, Secure, SameSite=Strict — JS cannot read' },
+        { icon: '🔄', text: 'New session ID immediately after login' },
+        { icon: '⏲', text: 'Auto-expire idle sessions after 30 minutes' },
+        { icon: '🛡', text: 'Force HTTPS; HSTS header (max-age=31536000)' },
+        { icon: '📱', text: 'Email alert on new device with IP, location, timestamp' },
+      ],
+    },
+    {
+      icon: <RotateCw size={14} />,
+      title: 'Password reset tokens',
+      color: '#BA7517',
+      items: [
+        { icon: '🔐', text: 'Cryptographically secure: crypto.randomBytes(32)' },
+        { icon: '💾', text: 'Store only SHA-256 hash — raw tokens never in DB' },
+        { icon: '⏰', text: '15-minute expiry; single-use; invalidated after click' },
+        { icon: '🚫', text: 'Second-click rejection: "This link has already been used"' },
+        { icon: '🔄', text: 'Cancel all previous tokens on new request' },
+      ],
+    },
+    {
+      icon: <Mail size={14} />,
+      title: 'Email & anti-enumeration',
+      color: '#185FA5',
+      items: [
+        { icon: '✓', text: 'Same response always: "If registered, a link was sent"' },
+        { icon: '🚫', text: 'Max 3 resets/hour per email and per IP' },
+        { icon: '📋', text: 'Honeypot field for bot detection — silent reject' },
+        { icon: '📧', text: 'Confirmation email after password change with "Wasn\'t me" button' },
+        { icon: '🔗', text: 'Referrer-Policy: no-referrer to prevent token leakage' },
+      ],
+    },
+    {
+      icon: <CheckCircle size={14} />,
+      title: 'After password reset',
+      color: 'var(--color-text-success)',
+      items: [
+        { icon: '🚪', text: 'Invalidate all active sessions immediately' },
+        { icon: '✓', text: 'New password must pass the same strength rules' },
+        { icon: '🔄', text: 'Check last 5 hashed passwords to prevent reuse' },
+        { icon: '📝', text: 'Send confirmation email with "Secure my account" link' },
+        { icon: '📊', text: 'Log all resets — retain 90+ days for audit' },
+      ],
+    },
+    {
+      icon: <Shield size={14} />,
+      title: 'MFA & security alerts',
+      color: '#1D9E75',
+      items: [
+        { icon: '🔐', text: 'MFA required for admin roles — TOTP or SMS OTP' },
+        { icon: '📱', text: 'New device: email with device type, IP, city, timestamp' },
+        { icon: '🚨', text: 'Admin "wasn\'t me" button auto-locks account' },
+        { icon: '📋', text: 'Log all login attempts: IP, user-agent, timestamp' },
+        { icon: '🗂', text: 'Retain logs 90+ days for compliance and forensics' },
+      ],
+    },
+    {
+      icon: <Users size={14} />,
+      title: 'Admin review & onboarding',
+      color: '#533AB7',
+      items: [
+        { icon: '👤', text: 'No auto-approval — all requests require manual review' },
+        { icon: '📋', text: 'Immutable audit logs with admin name, time, reason' },
+        { icon: '🔑', text: 'Least privilege: new accounts get lowest role' },
+        { icon: '🎁', text: 'One-time invite link: 48-hour expiry, single-use' },
+        { icon: '🔐', text: 'Force MFA on first login — no skip allowed' },
+      ],
+    },
   ];
+
+  // ─── Styles ──────────────────────────────────────────────────────────────────
+
+  const s = {
+    root: {
+      display: 'flex',
+      height: '100vh',
+      background: 'var(--color-background-primary)',
+      overflow: 'hidden',
+      fontFamily: 'var(--font-sans)',
+    } as React.CSSProperties,
+    main: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    } as React.CSSProperties,
+    scroll: {
+      flex: 1,
+      overflowY: 'auto',
+      padding: '28px 32px',
+      scrollbarWidth: 'thin' as const,
+      scrollbarColor: 'rgba(0,0,0,0.1) transparent',
+    } as React.CSSProperties,
+  };
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-        .pp-root { display: flex; height: 100vh; background: #ffffff; overflow: hidden; font-family: 'Open Sans', sans-serif; }
-        .pp-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+      <div style={s.root}>
+        <Sidebar
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          onLogout={() => { auth.clear(); router.push('/'); }}
+        />
 
-        .topbar { height: 66px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .topbar-title { font-size: 16px; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; }
-        .topbar-right { display: flex; align-items: center; gap: 14px; }
-        .notif-btn { width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; transition: all 0.18s; position: relative; }
-        .notif-btn:hover { border-color: #2db9a3; color: #2db9a3; background: #f0fdf9; }
-        .notif-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; background: #ef4444; border-radius: 50%; border: 1.5px solid #fff; }
-        .profile-pill { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 40px; padding: 5px 14px 5px 5px; cursor: pointer; transition: all 0.18s; }
-        .profile-pill:hover { border-color: #2db9a3; background: #f0fdf9; }
-        .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #2db9a3 0%, #6366f1 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; }
-        .profile-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+        <div style={s.main}>
+          <TopBar title="Authentication" />
 
-        .main-content { flex: 1; overflow-y: auto; padding: 32px 36px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
-        .main-content::-webkit-scrollbar { width: 6px; }
-        .main-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+          <div style={s.scroll}>
 
-        .page-header { margin-bottom: 28px; }
-        .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #2db9a3; background: rgba(45,185,163,0.08); padding: 4px 10px; border-radius: 20px; margin-bottom: 10px; }
-        .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: #2db9a3; }
-        .page-header h1 { font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 4px; letter-spacing: -0.03em; }
-        .page-header p { font-size: 14px; color: #94a3b8; font-weight: 400; }
+            {/* ── Header ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <div>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: '#0F6E56',
+                  background: '#E1F5EE',
+                  border: '1px solid #9FE1CB',
+                  padding: '4px 12px',
+                  borderRadius: 999,
+                  marginBottom: 10,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1D9E75', flexShrink: 0 }} />
+                  Authentication
+                </div>
+                <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+                  Password policy
+                </h1>
+                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>
+                  Define password complexity and rotation rules for all users
+                </p>
+              </div>
 
-        .top-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 18px; }
-
-        .card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 18px; padding: 24px; transition: box-shadow 0.2s; }
-        .card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.06); }
-        .card-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 20px; letter-spacing: -0.01em; }
-        .card-title-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: rgba(45,185,163,0.1); color: #2db9a3; flex-shrink: 0; }
-
-        .field-group { margin-bottom: 16px; }
-        .field-label { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 7px; display: block; }
-        .field-desc { font-size: 12px; color: #94a3b8; margin-top: 5px; }
-        .field-select { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; font-size: 13.5px; color: #1e293b; background: #f8fafc; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 500; outline: none; transition: all 0.18s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
-        .field-select:focus { border-color: #2db9a3; background: #fff; box-shadow: 0 0 0 3px rgba(45,185,163,0.1); }
-
-        /* Complexity rule rows — matches screenshot */
-        .rule-row { display: flex; align-items: center; gap: 12px; padding: 15px 2px; border-bottom: 1px solid #f1f5f9; cursor: pointer; user-select: none; }
-        .rule-row:last-child { border-bottom: none; padding-bottom: 0; }
-        .rule-row:first-of-type { padding-top: 4px; }
-        .rule-check { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .rule-label { font-size: 14px; font-weight: 400; color: #1e293b; flex: 1; }
-        .rule-toggle { width: 52px; height: 28px; border-radius: 14px; background: #e2e8f0; position: relative; flex-shrink: 0; border: none; outline: none; cursor: pointer; transition: background 0.25s; }
-        .rule-toggle.on { background: #2db9a3; }
-        .rule-toggle-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 3px; left: 3px; transition: left 0.25s; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
-        .rule-toggle.on .rule-toggle-thumb { left: 27px; }
-
-        .info-box { margin-top: 16px; background: #f0fdf9; border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 12px 16px; }
-        .info-box p { font-size: 13px; font-weight: 600; color: #059669; }
-        .info-box span { font-size: 12px; color: #34d399; display: block; margin-top: 2px; }
-
-        .table-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
-        .table-card-header { padding: 20px 28px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; }
-        .table-card-header h2 { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
-        .table-card-header p { font-size: 12.5px; color: #94a3b8; margin-top: 2px; }
-        .table-count { font-size: 12px; font-weight: 700; color: #2db9a3; background: rgba(45,185,163,0.1); padding: 4px 12px; border-radius: 20px; }
-
-        .policy-table { width: 100%; border-collapse: collapse; margin: 0 auto; }
-        .policy-table thead tr { background: #f8fafc; border-bottom: 1.5px solid #f1f5f9; }
-        .policy-table thead th { padding: 11px 20px; text-align: center; font-size: 10.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.09em; white-space: nowrap; }
-        .policy-table tbody tr { border-bottom: 1px solid #f8fafc; transition: background 0.13s; }
-        .policy-table tbody tr:last-child { border-bottom: none; }
-        .policy-table tbody tr:hover { background: #fafbfd; }
-        .policy-table tbody td { padding: 14px 20px; font-size: 13px; color: #1e293b; font-weight: 500; vertical-align: middle; text-align: center; }
-
-        .role-name { font-weight: 700; color: #0f172a; }
-        .meta-chip { display: inline-block; font-size: 13px; font-weight: 500; color: #1e293b; white-space: nowrap; }
-        .mfa-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-        .mfa-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-
-        .pagination-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-top: 1px solid #f1f5f9; background: #fafbfc; }
-        .pagination-info { font-size: 13px; color: #94a3b8; font-weight: 500; }
-        .pagination-info strong { color: #475569; font-weight: 700; }
-        .pagination-controls { display: flex; align-items: center; gap: 4px; }
-        .pg-btn { width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #64748b; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.15s; }
-        .pg-btn:hover:not(:disabled) { border-color: #2db9a3; color: #2db9a3; background: #f0fdf9; }
-        .pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-        .pg-btn.active { background: #2db9a3; border-color: #2db9a3; color: #fff; box-shadow: 0 2px 10px rgba(45,185,163,0.35); }
-
-        .footer-actions { display: flex; justify-content: flex-end; gap: 12px; }
-        .btn-cancel { padding: 11px 28px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; color: #64748b; cursor: pointer; font-size: 13.5px; font-weight: 600; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.18s; }
-        .btn-cancel:hover { border-color: #cbd5e1; background: #f8fafc; }
-        .btn-save { padding: 11px 28px; border-radius: 10px; border: none; background: #2db9a3; color: #fff; cursor: pointer; font-size: 13.5px; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.18s; box-shadow: 0 2px 10px rgba(45,185,163,0.3); }
-        .btn-save:hover { background: #28a593; box-shadow: 0 4px 16px rgba(45,185,163,0.4); transform: translateY(-1px); }
-
-        @media (max-width: 768px) { .topbar { padding: 0 18px; } .main-content { padding: 18px; } .top-grid { grid-template-columns: 1fr; } }
-      `}</style>
-
-      <div className="pp-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={handleLogout} />
-        <div className="pp-content">
-          <div className="topbar">
-            <span className="topbar-title">Password Policy</span>
-            <div className="topbar-right">
-              <button className="notif-btn"><Bell size={17} /><div className="notif-dot" /></button>
-              <button onClick={() => router.push('/my-profile')} className="profile-pill" style={{ border: 'none' }}>
-                <div className="profile-avatar">SJ</div>
-                <span className="profile-name">Sarah Johnson</span>
+              <button
+                onClick={fetchData}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', border: '0.5px solid rgba(0,0,0,0.15)',
+                  borderRadius: 8, background: 'var(--color-background-primary)',
+                  fontSize: 13, fontFamily: 'var(--font-sans)',
+                  color: 'var(--color-text-secondary)', cursor: 'pointer',
+                }}
+              >
+                <RefreshCw size={13} /> Refresh
               </button>
             </div>
-          </div>
 
-          <div className="main-content">
-            <div className="page-header">
-              <div className="eyebrow"><span className="eyebrow-dot" />Security</div>
-              <h1>Password Policy</h1>
-              <p>Define password complexity and rotation rules for all roles.</p>
-            </div>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-text-tertiary)' }}>
+                Loading policy…
+              </div>
+            ) : (
+              <>
+                {/* ── Top Grid ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14, marginBottom: 14 }}>
 
-            <div className="top-grid">
-              {/* Complexity Requirements */}
-              <div className="card">
-                <div className="card-title">
-                  <div className="card-title-icon"><Lock size={16} /></div>
-                  Complexity Requirements
-                </div>
-                <div className="field-group">
-                  <label className="field-label">Minimum Password Length</label>
-                  <select className="field-select" defaultValue="12">
-                    <option value="8">8 characters</option>
-                    <option value="10">10 characters</option>
-                    <option value="12">12 characters</option>
-                    <option value="16">16 characters</option>
-                  </select>
-                </div>
-                {complexityRules.map((rule, i) => (
-                  <div key={i} className="rule-row" onClick={() => rule.set(v => !v)}>
-                    <div className="rule-check">
-                      {rule.value
-                        ? <CheckCircle size={20} style={{ color: '#2db9a3' }} />
-                        : <Circle size={20} style={{ color: '#cbd5e1' }} />
-                      }
+                  {/* Complexity */}
+                  <Card icon={<Lock size={14} />} title="Complexity requirements">
+                    <Field label="Minimum password length" hint="Enforced on add user form and password reset">
+                      <CustomSelect
+                        options={[
+                          { value: '8',  label: '8 characters' },
+                          { value: '10', label: '10 characters' },
+                          { value: '12', label: '12 characters' },
+                          { value: '16', label: '16 characters' },
+                        ]}
+                        value={minLength}
+                        onChange={setMinLength}
+                      />
+                    </Field>
+                    <div>
+                      {rules.map((rule, i) => (
+                        <div key={i} style={{ borderBottom: i < rules.length - 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none' }}>
+                          <RuleRow label={rule.label} value={rule.value} onToggle={rule.toggle} />
+                        </div>
+                      ))}
                     </div>
-                    <span className="rule-label">{rule.label}</span>
-                    <button
-                      className={`rule-toggle ${rule.value ? 'on' : ''}`}
-                      onClick={e => { e.stopPropagation(); rule.set(v => !v); }}
-                    >
-                      <div className="rule-toggle-thumb" />
-                    </button>
+                  </Card>
+
+                  {/* Rotation & History */}
+                  <Card icon={<RotateCw size={14} />} title="Rotation & history">
+                    <Field label="Password expiry" hint="Users must change passwords after this period">
+                      <CustomSelect
+                        options={[
+                          { value: '30',  label: '30 days' },
+                          { value: '60',  label: '60 days' },
+                          { value: '90',  label: '90 days' },
+                          { value: '180', label: '180 days' },
+                        ]}
+                        value={passwordExpiry}
+                        onChange={setPasswordExpiry}
+                      />
+                    </Field>
+                    <Field label="Password history" hint="Prevents reusing recent passwords">
+                      <CustomSelect
+                        options={[
+                          { value: '3',  label: 'Remember last 3 passwords' },
+                          { value: '5',  label: 'Remember last 5 passwords' },
+                          { value: '10', label: 'Remember last 10 passwords' },
+                          { value: '0',  label: 'Disabled' },
+                        ]}
+                        value={passwordHistory}
+                        onChange={setPasswordHistory}
+                      />
+                    </Field>
+                    <div style={{
+                      marginTop: 14,
+                      background: 'var(--color-background-success)',
+                      border: '0.5px solid var(--color-border-success)',
+                      borderRadius: 8,
+                      padding: '11px 14px',
+                    }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-success)' }}>
+                        Password strength meter: Enabled
+                      </p>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-success)', opacity: 0.75, display: 'block', marginTop: 2 }}>
+                        Visual feedback shown during password creation
+                      </span>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* ── Policy by Role Table ── */}
+                <div style={{
+                  background: 'var(--color-background-primary)',
+                  border: '0.5px solid rgba(0,0,0,0.08)',
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  marginBottom: 24,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)' }}>Policy by role</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                        Per-role requirements — global policy applies to all roles
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 500,
+                      color: 'var(--color-text-info)',
+                      background: 'var(--color-background-info)',
+                      padding: '3px 10px', borderRadius: 20,
+                    }}>
+                      {roles.length} roles
+                    </span>
                   </div>
-                ))}
-              </div>
 
-              {/* Rotation & History */}
-              <div className="card">
-                <div className="card-title">
-                  <div className="card-title-icon"><RotateCw size={16} /></div>
-                  Rotation &amp; History
-                </div>
-                <div className="field-group">
-                  <label className="field-label">Password Expiry</label>
-                  <select className="field-select" defaultValue="90">
-                    <option value="30">30 days</option>
-                    <option value="60">60 days</option>
-                    <option value="90">90 days</option>
-                    <option value="180">180 days</option>
-                  </select>
-                  <p className="field-desc">Users must change passwords after this period</p>
-                </div>
-                <div className="field-group">
-                  <label className="field-label">Password History</label>
-                  <select className="field-select" defaultValue="5">
-                    <option value="3">Remember last 3 passwords</option>
-                    <option value="5">Remember last 5 passwords</option>
-                    <option value="10">Remember last 10 passwords</option>
-                    <option value="0">Disable</option>
-                  </select>
-                  <p className="field-desc">Prevents reusing recent passwords</p>
-                </div>
-                <div className="info-box">
-                  <p>Password Strength Meter: Enabled</p>
-                  <span>Visual feedback shown during password creation</span>
-                </div>
-              </div>
-            </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--color-background-secondary)' }}>
+                        {['Role', 'Users', 'Min length', 'Expiry', 'History', 'MFA required'].map(h => (
+                          <th key={h} style={{
+                            padding: '9px 16px', textAlign: 'center',
+                            fontSize: 10.5, fontWeight: 500,
+                            color: 'var(--color-text-secondary)',
+                            textTransform: 'uppercase', letterSpacing: '0.08em',
+                          }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paged.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '28px 0', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+                            No roles found.
+                          </td>
+                        </tr>
+                      ) : paged.map(row => (
+                        <tr key={row.id} style={{ borderTop: '0.5px solid rgba(0,0,0,0.05)' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', textAlign: 'center' }}>{row.name}</td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--color-text-secondary)', textAlign: 'center' }}>{row.userCount}</td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--color-text-primary)', textAlign: 'center' }}>{row.minLength} chars</td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--color-text-primary)', textAlign: 'center' }}>{row.expiryDays} days</td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--color-text-primary)', textAlign: 'center' }}>Last {row.historyCount}</td>
+                          <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5,
+                              padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+                              background: row.mfaRequired ? 'var(--color-background-success)' : 'var(--color-background-secondary)',
+                              color: row.mfaRequired ? 'var(--color-text-success)' : 'var(--color-text-secondary)',
+                            }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
+                              {row.mfaRequired ? 'Yes' : 'No'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-            {/* Policy by Role Table */}
-            <div className="table-card">
-              <div className="table-card-header">
-                <div>
-                  <h2>Policy by Role</h2>
-                  <p>Per-role password requirements and MFA enforcement</p>
+                  {/* Pagination */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 20px', borderTop: '0.5px solid rgba(0,0,0,0.06)',
+                    background: 'var(--color-background-secondary)',
+                  }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                      Showing{' '}
+                      <strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                        {roles.length === 0 ? 0 : startIndex + 1}–{Math.min(startIndex + itemsPerPage, roles.length)}
+                      </strong>
+                      {' '}of{' '}
+                      <strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{roles.length}</strong> roles
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={safePage === 1}
+                        style={{
+                          width: 30, height: 30, borderRadius: 8,
+                          border: '0.5px solid rgba(0,0,0,0.15)',
+                          background: 'var(--color-background-primary)',
+                          cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--color-text-secondary)', opacity: safePage === 1 ? 0.35 : 1,
+                        }}
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', minWidth: 50, textAlign: 'center' }}>
+                        {safePage} / {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={safePage === totalPages}
+                        style={{
+                          width: 30, height: 30, borderRadius: 8,
+                          border: '0.5px solid rgba(0,0,0,0.15)',
+                          background: 'var(--color-background-primary)',
+                          cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--color-text-secondary)', opacity: safePage === totalPages ? 0.35 : 1,
+                        }}
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <span className="table-count">{policyData.length} roles</span>
-              </div>
 
-              <table className="policy-table">
-                <thead>
-                  <tr>
-                    <th>Role</th>
-                    <th>Min Length</th>
-                    <th>Expiry</th>
-                    <th>History</th>
-                    <th>MFA Required</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedPolicyData.map((row, idx) => (
-                    <tr key={idx}>
-                      <td><span className="role-name">{row.role}</span></td>
-                      <td><span className="meta-chip">{row.minLength}</span></td>
-                      <td><span className="meta-chip">{row.expiry}</span></td>
-                      <td><span className="meta-chip">{row.history}</span></td>
-                      <td>
-                        {row.mfa === 'Yes' ? (
-                          <span className="mfa-badge" style={{ background: '#dcfce7', color: '#059669' }}>
-                            <span className="mfa-dot" style={{ background: '#10b981' }} />Required
-                          </span>
-                        ) : (
-                          <span className="mfa-badge" style={{ background: '#f1f5f9', color: '#94a3b8' }}>
-                            <span className="mfa-dot" style={{ background: '#cbd5e1' }} />Not Required
-                          </span>
-                        )}
-                      </td>
-                    </tr>
+                {/* ── Security Guidelines ── */}
+                <div style={{ marginBottom: 20 }}>
+                  <h2 style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+                    Security guidelines
+                  </h2>
+                  <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>
+                    Best practices for authentication and access control
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 28 }}>
+                  {guidelines.map((g, i) => (
+                    <GuideCard
+                      key={i}
+                      icon={g.icon}
+                      title={g.title}
+                      iconColor={g.color}
+                      items={g.items}
+                    />
                   ))}
-                </tbody>
-              </table>
-
-              <div className="pagination-bar">
-                <span className="pagination-info">
-                  Showing <strong>{startIndex + 1}–{Math.min(startIndex + itemsPerPage, policyData.length)}</strong> of <strong>{policyData.length}</strong> roles
-                </span>
-                <div className="pagination-controls">
-                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}><ChevronLeft size={15} /></button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button key={page} className={`pg-btn ${currentPage === page ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>{page}</button>
-                  ))}
-                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}><ChevronRight size={15} /></button>
                 </div>
-              </div>
-            </div>
 
-            <div className="footer-actions">
-              <button className="btn-cancel">Cancel</button>
-              <button className="btn-save">Save Password Policy</button>
-            </div>
+                {/* ── Footer Actions ── */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button
+                    onClick={fetchData}
+                    style={{
+                      padding: '9px 22px', borderRadius: 8,
+                      border: '0.5px solid rgba(0,0,0,0.15)',
+                      background: 'var(--color-background-primary)',
+                      color: 'var(--color-text-secondary)',
+                      cursor: 'pointer', fontSize: 13,
+                      fontFamily: 'var(--font-sans)',
+                    }}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    disabled={saving}
+                    onClick={handleSave}
+                    style={{
+                      padding: '9px 22px', borderRadius: 8, border: 'none',
+                      background: saving ? '#9ca3af' : '#1D9E75',
+                      color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+                      fontSize: 13, fontWeight: 500,
+                      fontFamily: 'var(--font-sans)',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {saving ? 'Saving…' : 'Save policy'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

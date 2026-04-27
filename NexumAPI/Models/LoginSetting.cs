@@ -1,0 +1,15 @@
+namespace NexumAPI.Models;
+
+public class LoginSetting
+{
+    public Guid Id { get; set; }
+
+    public int MaxFailedAttempts { get; set; }
+    public int LockoutDuration { get; set; }
+
+    public bool IpWhitelistEnabled { get; set; }
+    public string? AllowedIps { get; set; }
+
+    public int SessionTimeoutMinutes { get; set; }
+    public int MaxConcurrentSessions { get; set; }
+}

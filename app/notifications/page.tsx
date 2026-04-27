@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import NotificationsDropdown from '@/app/components/NotificationsDropdown';
 import { Bell, X, Check, AlertCircle, Info, CheckCircle } from 'lucide-react';
 
 const notificationsData = [
@@ -11,8 +12,9 @@ const notificationsData = [
   { id: 5, type: 'success', title: 'Role Updated', message: 'User permissions have been successfully updated', time: '3 hours ago', read: true },
 ];
 
-export default function NotificationsDropdown() {
-  const [isOpen, setIsOpen] = useState(true);
+export default function NotificationsPage() {
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationBtnRef = useRef<HTMLButtonElement>(null);
   const [notifications, setNotifications] = useState(notificationsData);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -73,12 +75,68 @@ export default function NotificationsDropdown() {
           background: #f8fafc;
         }
 
+        .page-wrapper {
+          display: flex;
+          min-height: 100vh;
+        }
+
         .notifications-container {
           min-height: 100vh;
           display: flex;
           align-items: flex-start;
           justify-content: center;
           padding: 40px 20px;
+        }
+
+        .topbar {
+          height: 66px;
+          background: #fff;
+          border-bottom: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 32px;
+          flex-shrink: 0;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 100;
+        }
+
+        .topbar-title {
+          font-size: 16px;
+          font-weight: 700;
+          color: #0f172a;
+          letter-spacing: -0.01em;
+        }
+
+        .topbar-right {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .notif-btn {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          border: 1.5px solid #e2e8f0;
+          background: #fff;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          transition: all 0.18s;
+          position: relative;
+        }
+
+        .notif-btn:hover {
+          border-color: #2db9a3;
+          color: #2db9a3;
+          background: #f0fdf9;
         }
 
         .dropdown-wrapper {
@@ -118,7 +176,7 @@ export default function NotificationsDropdown() {
           border-radius: 12px;
           padding: 2px 8px;
           font-size: 12px;
-          font-weight: 700;
+          font-weight: 600;
         }
 
         .dropdown-actions {
@@ -209,7 +267,7 @@ export default function NotificationsDropdown() {
 
         .notification-title {
           font-size: 13px;
-          font-weight: 700;
+          font-weight: 600;
           color: #0f172a;
           flex: 1;
         }
@@ -303,6 +361,25 @@ export default function NotificationsDropdown() {
         }
       `}</style>
 
+      <div className="page-wrapper">
+        <div className="topbar">
+          <span className="topbar-title">Notifications</span>
+          <div className="topbar-right">
+            <button
+              ref={notificationBtnRef}
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="notif-btn"
+            >
+              <Bell size={17} />
+            </button>
+          </div>
+        </div>
+        <NotificationsDropdown
+          isOpen={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          triggerRef={notificationBtnRef}
+        />
+      </div>
       <div className="notifications-container">
         <div className="dropdown-wrapper">
           <div className="dropdown-header">

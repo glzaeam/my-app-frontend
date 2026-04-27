@@ -1,0 +1,10 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.key
+Properties/launchSettings.json

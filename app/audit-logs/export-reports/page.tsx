@@ -7,7 +7,7 @@ import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
 import {
   Download, FileText, FileSpreadsheet,
-  ChevronDown, RefreshCw, Activity, CheckCircle, XCircle, Clock,
+  ChevronDown, Activity, CheckCircle, XCircle, Clock,
 } from 'lucide-react';
 import { auth } from '@/lib/api';
 
@@ -113,7 +113,7 @@ const reportTemplates = [
   { name: 'Compliance Summary',       desc: 'MFA, password policy, and session audit',          icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#d97706', accentBg: '#fef3c7' },
 ];
 
-const ROWS_PER_PAGE = 5;
+const ROWS_PER_PAGE = 10;
 
 export default function ExportReports() {
   const router = useRouter();
@@ -250,10 +250,6 @@ export default function ExportReports() {
               <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>Export Reports</h1>
               <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Generate and download audit reports in PDF or CSV format</p>
             </div>
-            <button onClick={fetchSummary}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '0.5px solid rgba(0,0,0,0.15)', borderRadius: 8, background: '#ffffff', fontSize: 13, fontFamily: 'inherit', color: '#64748b', cursor: 'pointer' }}>
-              <RefreshCw size={13} /> Refresh
-            </button>
           </div>
 
           {/* Stats */}

@@ -14,25 +14,44 @@ const glassInput = {
 
 const focusGlow = '0 0 0 2px hsl(170,60%,50%), 0 0 20px -4px hsl(170,60%,50%,0.3)';
 
+const API = process.env.NEXT_PUBLIC_API_URL;
+
 export default function TwoFactorAuthPage() {
   const router = useRouter();
-  const { refreshUser } = useAuth(); // ✅ get refreshUser from context
-  const [code, setCode] = useState(['', '', '', '', '', '']);
-  const [timeLeft, setTimeLeft] = useState(300);
-  const [focused, setFocused] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { refreshUser } = useAuth();
+  const [code, setCode]         = useState(['', '', '', '', '', '']);
+  const [timeLeft, setTimeLeft] = useState(0); // starts at 0 until fetch completes
+  const [focused, setFocused]   = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [isTotp, setIsTotp]     = useState(false);
 
   useEffect(() => {
     const userId = auth.getPendingUser();
-    if (!userId) router.push('/');
+    if (!userId) { router.push('/'); return; }
+    const totp = sessionStorage.getItem('requiresTotp') === 'true';
+    setIsTotp(totp);
+
+    // ✅ Only fetch expiry for email OTP, not Authenticator TOTP
+    if (!totp) {
+      // Set high temp value so timer doesn't flash 5:00 while fetching
+      setTimeLeft(99999);
+      fetch(`${API}/auth/otp-expiry`)
+        .then(r => r.json())
+        .then(data => {
+          const seconds = (data.codeExpiryMinutes ?? 5) * 60;
+          setTimeLeft(seconds); // e.g. 600 for 10 minutes
+        })
+        .catch(() => setTimeLeft(300)); // fallback 5 min
+    }
   }, [router]);
 
+  // Timer only runs for email OTP
   useEffect(() => {
-    if (timeLeft <= 0) return;
+    if (isTotp || timeLeft <= 0 || timeLeft === 99999) return;
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, isTotp]);
 
   const handleCodeChange = (index: number, value: string) => {
     if (!/^[0-9]*$/.test(value)) return;
@@ -62,25 +81,39 @@ export default function TwoFactorAuthPage() {
       const userId = auth.getPendingUser();
       if (!userId) { router.push('/'); return; }
 
-      const { ok, data } = await api.verifyOtp(userId, fullCode);
+      let ok: boolean;
+      let data: any;
+
+      if (isTotp) {
+        // ✅ Authenticator App flow — call verify-totp
+        const res = await fetch(`${API}/auth/verify-totp`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ userId, code: fullCode }),
+        });
+        data = await res.json();
+        ok   = res.ok;
+      } else {
+        // ✅ Email OTP flow — call verify-otp
+        const result = await api.verifyOtp(userId, fullCode);
+        ok   = result.ok;
+        data = result.data;
+      }
 
       if (!ok || !data || data.success !== true) {
-        setError(data?.message || 'Invalid or expired OTP. Please try again.');
+        setError(data?.message || 'Invalid or expired code. Please try again.');
         setCode(['', '', '', '', '', '']);
         document.getElementById('code-0')?.focus();
         setLoading(false);
         return;
       }
 
-      // ✅ Save token first
+      // ✅ Save token and redirect
       auth.saveToken(data.token, data.user);
       auth.clearPendingUser();
+      sessionStorage.removeItem('requiresTotp');
 
-      // ✅ Fetch full user profile with correct role and permissions
-      // before redirecting so the dashboard loads correctly
       await refreshUser();
-
-      // ✅ Now redirect
       router.push('/dashboard');
 
     } catch {
@@ -103,7 +136,7 @@ export default function TwoFactorAuthPage() {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
-        fontFamily: "'Open Sans', sans-serif",
+        fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
       }}
     >
       {/* Left Sidebar */}
@@ -125,7 +158,7 @@ export default function TwoFactorAuthPage() {
               <div key={label} className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full flex items-center justify-center"
                   style={{ background: 'hsl(170,60%,50%)' }}>
-                  <span style={{ color: 'white', fontSize: '12px' }}>✔</span>
+                  <span style={{ color: 'white', fontSize: '12px' }}>✓</span>
                 </div>
                 <span style={{ color: 'hsl(210,15%,70%)' }}>{label}</span>
               </div>
@@ -152,9 +185,23 @@ export default function TwoFactorAuthPage() {
             <h2 className="text-2xl lg:text-3xl font-bold" style={{ color: 'white' }}>
               Two-Factor Authentication
             </h2>
-            <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
-              Enter the 6-digit code sent to your email
-            </p>
+
+            {isTotp ? (
+              // ✅ Authenticator App screen
+              <>
+                <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
+                  Enter the 6-digit code from your
+                </p>
+                <p className="text-sm font-semibold" style={{ color: 'hsl(170,60%,55%)' }}>
+                  Google / Microsoft Authenticator
+                </p>
+              </>
+            ) : (
+              // ✅ Email OTP screen
+              <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
+                Enter the 6-digit code sent to your email
+              </p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -180,16 +227,36 @@ export default function TwoFactorAuthPage() {
               ))}
             </div>
 
-            {/* Timer */}
-            <div className="text-center">
-              <p className="text-sm font-semibold" style={{
-                color: timeLeft < 60 ? 'hsl(0,70%,60%)' : 'hsl(170,60%,50%)'
-              }}>
-                {timeLeft > 0
-                  ? `Code expires in ${formatTime(timeLeft)}`
-                  : '⚠️ Code expired'}
-              </p>
-            </div>
+            {/* ✅ Timer — reads CodeExpiryMinutes from DB, only for email OTP */}
+            {!isTotp && (
+              <div className="text-center">
+                {timeLeft === 99999 ? (
+                  // Still loading expiry from server
+                  <p className="text-sm font-semibold" style={{ color: 'hsl(170,60%,50%)' }}>
+                    Loading...
+                  </p>
+                ) : timeLeft > 0 ? (
+                  <p className="text-sm font-semibold" style={{
+                    color: timeLeft < 60 ? 'hsl(0,70%,60%)' : 'hsl(170,60%,50%)'
+                  }}>
+                    Code expires in {formatTime(timeLeft)}
+                  </p>
+                ) : (
+                  <p className="text-sm font-semibold" style={{ color: 'hsl(0,70%,60%)' }}>
+                    ⚠️ Code expired — please go back and login again
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Authenticator hint */}
+            {isTotp && (
+              <div className="text-center">
+                <p className="text-xs" style={{ color: 'hsl(210,15%,45%)' }}>
+                  The code refreshes every 30 seconds in your app
+                </p>
+              </div>
+            )}
 
             {/* Error */}
             {error && (
@@ -205,7 +272,7 @@ export default function TwoFactorAuthPage() {
             {/* Verify Button */}
             <motion.button
               type="submit"
-              disabled={loading || code.join('').length !== 6 || timeLeft === 0}
+              disabled={loading || code.join('').length !== 6 || (!isTotp && timeLeft === 0)}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
               className="w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center transition-all duration-300 mt-8"
@@ -227,11 +294,11 @@ export default function TwoFactorAuthPage() {
           <div className="flex flex-col gap-3 mt-6 text-center">
             <button
               type="button"
-              onClick={() => { auth.clear(); router.push('/'); }}
+              onClick={() => { auth.clear(); sessionStorage.removeItem('requiresTotp'); router.push('/'); }}
               className="text-sm transition-colors"
               style={{ color: 'hsl(170,60%,55%)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              Didn&apos;t receive a code?{' '}
+              {isTotp ? 'Use a different method? ' : "Didn't receive a code? "}
               <span className="font-bold">Back to Login</span>
             </button>
           </div>

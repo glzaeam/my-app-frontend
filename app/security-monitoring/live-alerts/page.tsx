@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { AlertTriangle, Eye, Lock, RefreshCw, CheckCircle, ChevronDown, Filter } from 'lucide-react';
+import { AlertTriangle, Eye, Lock, CheckCircle, ChevronDown, Filter } from 'lucide-react';
 import { auth } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -26,8 +26,8 @@ const alertCfg: Record<string, { color: string; bg: string; border: string; dot:
   high:     { color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', dot: '#f97316', iconBg: 'rgba(249,115,22,0.1)' },
   warning:  { color: '#d97706', bg: '#fffbeb', border: '#fde68a', dot: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)' },
   medium:   { color: '#d97706', bg: '#fffbeb', border: '#fde68a', dot: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)' },
-  info:     { color: '#2db9a3', bg: '#f0fdf9', border: '#a7f3d0', dot: '#10b981', iconBg: 'rgba(45,185,163,0.1)'  },
-  low:      { color: '#2db9a3', bg: '#f0fdf9', border: '#a7f3d0', dot: '#10b981', iconBg: 'rgba(45,185,163,0.1)'  },
+  info:     { color: '#1D9E75', bg: '#f0fdf9', border: '#a7f3d0', dot: '#10b981', iconBg: 'rgba(45,185,163,0.15)'  },
+  low:      { color: '#1D9E75', bg: '#f0fdf9', border: '#a7f3d0', dot: '#10b981', iconBg: 'rgba(45,185,163,0.15)'  },
 };
 
 function Toast({ msg, type, onDone }: { msg: string; type: 'success' | 'error'; onDone: () => void }) {
@@ -225,8 +225,7 @@ export default function LiveAlerts() {
         .filter-chip{padding:6px 14px;border-radius:20px;border:1.5px solid #e2e8f0;background:#fff;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;font-family:'Open Sans',sans-serif;transition:all 0.15s;}
         .filter-chip:hover{border-color:#2db9a3;color:#2db9a3;}
         .filter-chip.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'Open Sans',sans-serif;color:#64748b;cursor:pointer;margin-left:auto;}
-        .refresh-btn:hover{background:#f5f7fa;}
+
         .empty-state{text-align:center;padding:40px 0;color:#94a3b8;font-size:13px;}
       `}</style>
 
@@ -244,7 +243,7 @@ export default function LiveAlerts() {
                 </div>
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Live Alerts</h1>
               </div>
-              <button className="refresh-btn" onClick={fetchAlerts}><RefreshCw size={13} /> Refresh</button>
+
             </div>
 
             <div className="stats-row">

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexumAPI.Data;
 using NexumAPI.Models;
+using NexumAPI.Helpers;
 
 namespace NexumAPI.Controllers
 {
@@ -17,11 +18,23 @@ namespace NexumAPI.Controllers
         // GET /api/roles — BranchManager and above
         [HttpGet]
         [Authorize(Policy = "BranchManager")]
-        public async Task<IActionResult> GetRoles()
+        public async Task<IActionResult> GetRoles(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var roles = await _context.Roles
+            page     = PaginationHelper.ValidatePage(page);
+            pageSize = PaginationHelper.ValidatePageSize(pageSize);
+
+            var query = _context.Roles
                 .Include(r => r.UserRoles)
                 .Include(r => r.Permissions).ThenInclude(p => p.Module)
+                .AsQueryable();
+
+            var totalItems = await query.CountAsync();
+
+            var roles = await query
+                .Skip(PaginationHelper.CalculateSkip(page, pageSize))
+                .Take(pageSize)
                 .Select(r => new {
                     r.Id,
                     r.Name,
@@ -32,7 +45,13 @@ namespace NexumAPI.Controllers
                     Modules   = r.Permissions.Select(p => p.Module.Name).Distinct().ToList()
                 })
                 .ToListAsync();
-            return Ok(roles);
+
+            return Ok(new PaginatedResponse<dynamic>(
+                roles.Cast<dynamic>().ToList(),
+                page,
+                pageSize,
+                totalItems
+            ));
         }
 
         // GET /api/roles/{id}/users — BranchManager and above
@@ -73,7 +92,12 @@ namespace NexumAPI.Controllers
             };
             _context.Roles.Add(role);
 
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var ip       = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId  = Guid.Parse(subClaim);
+            var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
+
             _context.AuditLogs.Add(new AuditLog {
                 Action    = "Role Created",
                 Module    = "Role Management",
@@ -81,6 +105,18 @@ namespace NexumAPI.Controllers
                 Status    = "Success",
                 CreatedAt = DateTime.UtcNow,
                 IpAddress = ip
+            });
+
+            _context.TransactionTrails.Add(new TransactionTrail {
+                Id          = Guid.NewGuid(),
+                TxnId       = txn,
+                Action      = "Role Created",
+                Module      = "Roles",
+                Details     = $"New role '{role.Name}' created with description: {role.Description ?? "N/A"}",
+                PerformedBy = adminUser?.Id ?? Guid.Empty,
+                Status      = "Success",
+                CreatedAt   = DateTime.UtcNow,
+                IpAddress   = ip
             });
 
             await _context.SaveChangesAsync();
@@ -95,10 +131,16 @@ namespace NexumAPI.Controllers
             var role = await _context.Roles.FindAsync(id);
             if (role == null) return NotFound(new { success = false, message = "Role not found" });
 
+            var oldName = role.Name;
             if (!string.IsNullOrWhiteSpace(dto.Name)) role.Name        = dto.Name.Trim();
             if (dto.Description != null)              role.Description = dto.Description;
 
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var ip       = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId  = Guid.Parse(subClaim);
+            var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
+
             _context.AuditLogs.Add(new AuditLog {
                 Action    = "Role Updated",
                 Module    = "Role Management",
@@ -106,6 +148,18 @@ namespace NexumAPI.Controllers
                 Status    = "Success",
                 CreatedAt = DateTime.UtcNow,
                 IpAddress = ip
+            });
+
+            _context.TransactionTrails.Add(new TransactionTrail {
+                Id          = Guid.NewGuid(),
+                TxnId       = txn,
+                Action      = "Role Updated",
+                Module      = "Roles",
+                Details     = $"Role '{oldName}' updated to '{role.Name}'. Description: {role.Description ?? "N/A"}",
+                PerformedBy = adminUser?.Id ?? Guid.Empty,
+                Status      = "Success",
+                CreatedAt   = DateTime.UtcNow,
+                IpAddress   = ip
             });
 
             await _context.SaveChangesAsync();
@@ -125,7 +179,12 @@ namespace NexumAPI.Controllers
             if (role.UserRoles.Any())
                 return Ok(new { success = false, message = $"Cannot delete — {role.UserRoles.Count} users assigned to this role" });
 
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var ip       = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId  = Guid.Parse(subClaim);
+            var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
+
             _context.AuditLogs.Add(new AuditLog {
                 Action    = "Role Deleted",
                 Module    = "Role Management",
@@ -133,6 +192,18 @@ namespace NexumAPI.Controllers
                 Status    = "Success",
                 CreatedAt = DateTime.UtcNow,
                 IpAddress = ip
+            });
+
+            _context.TransactionTrails.Add(new TransactionTrail {
+                Id          = Guid.NewGuid(),
+                TxnId       = txn,
+                Action      = "Role Deleted",
+                Module      = "Roles",
+                Details     = $"Role '{role.Name}' (ID: {role.Id}) permanently deleted",
+                PerformedBy = adminUser?.Id ?? Guid.Empty,
+                Status      = "Success",
+                CreatedAt   = DateTime.UtcNow,
+                IpAddress   = ip
             });
 
             _context.Roles.Remove(role);
@@ -157,9 +228,12 @@ namespace NexumAPI.Controllers
                 return Ok(new { success = false, message = "Role not found" });
 
             var oldRole = user.UserRoles.FirstOrDefault();
-            var oldRoleName = oldRole != null
-                ? (await _context.Roles.FindAsync(oldRole.RoleId))?.Name ?? "None"
-                : "None";
+            string oldRoleName = "None";
+            if (oldRole != null)
+            {
+                var oldRoleEntity = await _context.Roles.FindAsync(oldRole.RoleId);
+                oldRoleName = oldRoleEntity?.Name ?? "None";
+            }
 
             _context.UserRoles.RemoveRange(user.UserRoles);
 
@@ -256,13 +330,24 @@ namespace NexumAPI.Controllers
         // GET /api/roles/transaction-trail — Auditor and above
         [HttpGet("transaction-trail")]
         [Authorize(Policy = "Auditor")]
-        public async Task<IActionResult> GetTransactionTrail()
+        public async Task<IActionResult> GetTransactionTrail(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var trail = await _context.TransactionTrails
+            page     = PaginationHelper.ValidatePage(page);
+            pageSize = PaginationHelper.ValidatePageSize(pageSize);
+
+            var query = _context.TransactionTrails
                 .Include(t => t.Performer)
                 .Include(t => t.TargetUser)
+                .AsQueryable();
+
+            var totalItems = await query.CountAsync();
+
+            var trail = await query
                 .OrderByDescending(t => t.CreatedAt)
-                .Take(200)
+                .Skip(PaginationHelper.CalculateSkip(page, pageSize))
+                .Take(pageSize)
                 .Select(t => new {
                     t.Id,
                     t.TxnId,
@@ -276,7 +361,13 @@ namespace NexumAPI.Controllers
                     TargetUser  = t.TargetUser != null ? t.TargetUser.Name : "—",
                 })
                 .ToListAsync();
-            return Ok(trail);
+
+            return Ok(new PaginatedResponse<dynamic>(
+                trail.Cast<dynamic>().ToList(),
+                page,
+                pageSize,
+                totalItems
+            ));
         }
     }
 

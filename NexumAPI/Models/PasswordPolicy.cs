@@ -4,6 +4,10 @@ public class PasswordPolicy
 {
     public Guid Id { get; set; }
 
+    // FK → Roles (policy can be scoped per role)
+    public Guid? RoleId { get; set; }
+    public Role? Role { get; set; }
+
     public int MinLength { get; set; }
     public bool RequireUppercase { get; set; }
     public bool RequireLowercase { get; set; }

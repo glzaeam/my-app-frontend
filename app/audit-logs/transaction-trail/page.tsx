@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { Search, Filter, FileText, ChevronDown, RefreshCw } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { Search, Filter, FileText, ChevronDown } from 'lucide-react';
+import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -39,7 +39,7 @@ function CustomSelect({ options, value, onChange }: {
   return (
     <div ref={ref} style={{ position: 'relative', width: 180 }}>
       <button type="button" onClick={() => setOpen(v => !v)}
-        style={{ width: '100%', padding: '10px 14px', borderRadius: 20, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13, color: open ? '#2db9a3' : '#64748b', background: open ? '#f0fdf9' : '#fff', cursor: 'pointer', fontFamily: "'Open Sans',sans-serif", fontWeight: 600, outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        style={{ width: '100%', padding: '10px 14px', borderRadius: 20, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13, color: open ? '#2db9a3' : '#64748b', background: open ? '#f0fdf9' : '#fff', cursor: 'pointer', fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)", fontWeight: 600, outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <Filter size={14} style={{ flexShrink: 0, color: open ? '#2db9a3' : '#94a3b8' }} />
         <span style={{ flex: 1, textAlign: 'left' }}>{selected?.label ?? options[0]?.label}</span>
         <ChevronDown size={14} style={{ color: open ? '#2db9a3' : '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -48,7 +48,7 @@ function CustomSelect({ options, value, onChange }: {
         <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999, overflow: 'hidden' }}>
           {options.map(opt => (
             <button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }}
-              style={{ width: '100%', padding: '10px 14px', fontSize: 13, color: opt.value === value ? '#2db9a3' : '#1e293b', background: opt.value === value ? 'rgba(45,185,163,0.08)' : '#fff', fontWeight: opt.value === value ? 700 : 500, fontFamily: "'Open Sans',sans-serif", border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+              style={{ width: '100%', padding: '10px 14px', fontSize: 13, color: opt.value === value ? '#2db9a3' : '#1e293b', background: opt.value === value ? 'rgba(45,185,163,0.08)' : '#fff', fontWeight: opt.value === value ? 700 : 500, fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)", border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               {opt.label}
             </button>
           ))}
@@ -95,10 +95,13 @@ export default function TransactionTrailPage() {
       if (searchTerm)              params.set('search', searchTerm);
       if (moduleFilter !== 'all')  params.set('module', moduleFilter);
       if (dateRange !== 'all')     params.set('dateRange', dateRange);
-      const res  = await fetch(`${API}/audit/transactions?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
-      const data = await res.json();
-      setRecords(Array.isArray(data) ? data : []);
-    } catch {}
+      const url = `${API}/audit/transactions?${params}`;
+      const data = await fetchArray(url);
+      console.log('Transaction Trail Response:', data);
+      setRecords(data);
+    } catch (err) {
+      console.error('Failed to fetch transaction trail:', err);
+    }
     finally { setLoading(false); }
   }, [searchTerm, moduleFilter, dateRange]);
 
@@ -115,14 +118,14 @@ export default function TransactionTrailPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        .tt-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:'Open Sans',sans-serif;}
+        .tt-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);}
         .tt-content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
         .main-content{flex:1;overflow-y:auto;padding:32px 36px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .main-content::-webkit-scrollbar{width:6px;}
         .main-content::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
-        .search-input{width:100%;padding:10px 14px 10px 38px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:'Open Sans',sans-serif;outline:none;}
+        .search-input{width:100%;padding:10px 14px 10px 38px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);outline:none;}
         .search-input:focus{border-color:#2db9a3;}
         .table-card{background:#fff;border:1px solid #e8ecf2;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.05);}
         .tt-table{width:100%;border-collapse:collapse;}

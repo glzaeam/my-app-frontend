@@ -72,7 +72,7 @@ export default function RequestAccess() {
   const inp = (key: string): React.CSSProperties => ({
     width: '100%', height: 40, padding: '0 12px',
     border: `1px solid ${errors[key] ? '#e55353' : '#e2e8f0'}`,
-    borderRadius: 8, fontSize: 13, fontFamily: "'Open Sans',sans-serif",
+    borderRadius: 8, fontSize: 13, fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
     color: '#1a2332', background: '#fff', outline: 'none',
   });
 
@@ -81,7 +81,7 @@ export default function RequestAccess() {
   const roles        = ['Bank Teller', 'Branch Manager', 'Auditor', 'User'];
 
   if (submitted) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', fontFamily: "'Open Sans',sans-serif" }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)" }}>
       <div style={{ textAlign: 'center', padding: '40px 20px' }}>
         <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', marginBottom: 8 }}>Request Submitted!</h2>
@@ -252,7 +252,7 @@ export default function RequestAccess() {
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block', marginBottom: 6 }}>Confirm Password *</label>
               <div style={{ position: 'relative' }}>
-                <input style={{ width: '100%', height: 40, padding: '0 12px', border: errors.confirmPassword ? '2px solid #fca5a5' : '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, fontFamily: "'Open Sans',sans-serif", color: 'white', background: 'rgba(255,255,255,0.06)', outline: 'none', paddingRight: 40 }} type={showConfirmPassword ? 'text' : 'password'} placeholder="Repeat" value={form.confirmPassword} onChange={e => update('confirmPassword', e.target.value)} />
+                <input style={{ width: '100%', height: 40, padding: '0 12px', border: errors.confirmPassword ? '2px solid #fca5a5' : '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)", color: 'white', background: 'rgba(255,255,255,0.06)', outline: 'none', paddingRight: 40 }} type={showConfirmPassword ? 'text' : 'password'} placeholder="Repeat" value={form.confirmPassword} onChange={e => update('confirmPassword', e.target.value)} />
                 <button type="button" onClick={() => setShowConfirmPassword(p => !p)}
                   style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
                   {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}

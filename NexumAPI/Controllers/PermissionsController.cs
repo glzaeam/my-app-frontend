@@ -91,6 +91,9 @@ namespace NexumAPI.Controllers
             {
                 // ✅ Get the admin's name from JWT for audit log
                 var adminName = User.FindFirstValue("name") ?? "System Admin";
+                var adminId = Guid.TryParse(User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
+                var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var txn = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
 
                 _context.AuditLogs.Add(new AuditLog {
                     Action    = "Permission Matrix Updated",
@@ -98,7 +101,19 @@ namespace NexumAPI.Controllers
                     Details   = $"Updated by {adminName}. Changes: {string.Join(" | ", changes)}",
                     Status    = "Success",
                     CreatedAt = DateTime.UtcNow,
-                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+                    IpAddress = ip
+                });
+
+                _context.TransactionTrails.Add(new TransactionTrail {
+                    Id        = Guid.NewGuid(),
+                    TxnId     = txn,
+                    Action    = "Permission Matrix Updated",
+                    Module    = "Permissions",
+                    Details   = $"Permissions updated by {adminName}. {changes.Count} changes: {string.Join(" | ", changes)}",
+                    PerformedBy = adminId,
+                    Status    = "Success",
+                    CreatedAt = DateTime.UtcNow,
+                    IpAddress = ip
                 });
             }
 

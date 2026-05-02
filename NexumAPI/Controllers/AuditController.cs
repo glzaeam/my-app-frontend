@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexumAPI.Data;
+using NexumAPI.Helpers;
 
 namespace NexumAPI.Controllers
 {
@@ -17,13 +18,18 @@ namespace NexumAPI.Controllers
         [HttpGet]
         [Authorize(Policy = "BranchManager")]
         public async Task<IActionResult> GetLogs(
-            [FromQuery] int     limit     = 500,
+            [FromQuery] int     page      = 1,
+            [FromQuery] int     pageSize  = 10,
             [FromQuery] string? action    = null,
             [FromQuery] string? status    = null,
             [FromQuery] string? search    = null,
             [FromQuery] string? module    = null,
             [FromQuery] string? dateRange = null)
         {
+            // Validate pagination parameters
+            page = PaginationHelper.ValidatePage(page);
+            pageSize = PaginationHelper.ValidatePageSize(pageSize);
+
             var query = _context.AuditLogs
                 .Include(a => a.User)
                 .AsQueryable();
@@ -61,9 +67,13 @@ namespace NexumAPI.Controllers
                     query = query.Where(a => a.CreatedAt >= from.Value);
             }
 
+            // Get total count before pagination
+            var totalItems = await query.CountAsync();
+
             var logs = await query
                 .OrderByDescending(a => a.CreatedAt)
-                .Take(limit)
+                .Skip(PaginationHelper.CalculateSkip(page, pageSize))
+                .Take(pageSize)
                 .Select(a => new {
                     a.Id,
                     a.Action,
@@ -78,7 +88,12 @@ namespace NexumAPI.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(logs);
+            return Ok(new PaginatedResponse<dynamic>(
+                logs.Cast<dynamic>().ToList(),
+                page,
+                pageSize,
+                totalItems
+            ));
         }
 
         // GET /api/audit/summary — Auditor and above
@@ -98,10 +113,16 @@ namespace NexumAPI.Controllers
         [HttpGet("transactions")]
         [Authorize(Policy = "Auditor")]
         public async Task<IActionResult> GetTransactions(
+            [FromQuery] int     page      = 1,
+            [FromQuery] int     pageSize  = 10,
             [FromQuery] string? search    = null,
             [FromQuery] string? module    = null,
             [FromQuery] string? dateRange = null)
         {
+            // Validate pagination parameters
+            page = PaginationHelper.ValidatePage(page);
+            pageSize = PaginationHelper.ValidatePageSize(pageSize);
+
             var query = _context.TransactionTrails
                 .Include(t => t.Performer)
                 .Include(t => t.TargetUser)
@@ -132,9 +153,13 @@ namespace NexumAPI.Controllers
                     query = query.Where(t => t.CreatedAt >= from.Value);
             }
 
+            // Get total count before pagination
+            var totalItems = await query.CountAsync();
+
             var trails = await query
                 .OrderByDescending(t => t.CreatedAt)
-                .Take(500)
+                .Skip(PaginationHelper.CalculateSkip(page, pageSize))
+                .Take(pageSize)
                 .Select(t => new {
                     t.Id,
                     t.TxnId,
@@ -150,7 +175,12 @@ namespace NexumAPI.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(trails);
+            return Ok(new PaginatedResponse<dynamic>(
+                trails.Cast<dynamic>().ToList(),
+                page,
+                pageSize,
+                totalItems
+            ));
         }
 
         // GET /api/audit/export — Auditor and above
@@ -538,6 +568,87 @@ namespace NexumAPI.Controllers
                 });
             }
             return Ok(months);
+        }
+
+        // GET /api/audit/my-activity — any logged-in user sees their own activity
+        [HttpGet("my-activity")]
+        public async Task<IActionResult> GetMyActivity([FromQuery] int limit = 20)
+        {
+            var sub = User.FindFirst("sub")?.Value
+                   ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
+                return Unauthorized();
+
+            var logs = await _context.AuditLogs
+                .Where(a => a.UserId == userId &&
+                            !a.Action.StartsWith("GET ")    &&
+                            !a.Action.StartsWith("POST ")   &&
+                            !a.Action.StartsWith("PUT ")    &&
+                            !a.Action.StartsWith("DELETE ") &&
+                            !a.Action.StartsWith("PATCH "))
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(limit)
+                .Select(a => new {
+                    a.Id,
+                    a.Action,
+                    a.Module,
+                    a.Details,
+                    a.Status,
+                    a.IpAddress,
+                    a.CreatedAt,
+                })
+                .ToListAsync();
+
+            // Also get recent login attempts
+            var logins = await _context.LoginAttempts
+                .Where(l => l.UserId == userId)
+                .OrderByDescending(l => l.AttemptedAt)
+                .Take(10)
+                .Select(l => new {
+                    Id        = l.Id,
+                    Action    = l.Status == "Success" ? "Login Success" : "Login Failed",
+                    Module    = "Authentication",
+                    Details   = $"IP: {l.IpAddress ?? "unknown"}",
+                    Status    = l.Status,
+                    IpAddress = l.IpAddress,
+                    CreatedAt = l.AttemptedAt,
+                })
+                .ToListAsync();
+
+            // Merge and sort by date
+            var combined = logs
+                .Select(a => new {
+                    a.Action, a.Module, a.Details,
+                    a.Status, a.IpAddress, a.CreatedAt
+                })
+                .Concat(logins.Select(l => new {
+                    l.Action, l.Module, l.Details,
+                    l.Status, l.IpAddress, l.CreatedAt
+                }))
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(limit)
+                .ToList();
+
+            // Also get login count and last login
+            var totalLogins = await _context.LoginAttempts
+                .CountAsync(l => l.UserId == userId && l.Status == "Success");
+            var lastLogin = await _context.LoginAttempts
+                .Where(l => l.UserId == userId && l.Status == "Success")
+                .OrderByDescending(l => l.AttemptedAt)
+                .Select(l => (DateTime?)l.AttemptedAt)
+                .FirstOrDefaultAsync();
+            var deviceCount = await _context.Devices
+                .CountAsync(d => d.UserId == userId);
+
+            return Ok(new {
+                activities = combined,
+                summary = new {
+                    totalLogins,
+                    lastLogin,
+                    deviceCount,
+                }
+            });
         }
     }
 }

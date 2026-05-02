@@ -18,7 +18,7 @@ interface ApiRole {
 }
 
 const LEVEL_CONFIG = [
-  { accent: '#2db9a3', iconBg: 'rgba(45,185,163,0.1)'  },
+  { accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)'  },
   { accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)'  },
   { accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)'  },
   { accent: '#06b6d4', iconBg: 'rgba(6,182,212,0.1)'   },
@@ -33,15 +33,15 @@ export default function RoleHierarchy() {
   const [roles,       setRoles]       = useState<ApiRole[]>([]);
   const [loading,     setLoading]     = useState(true);
 
-  const fetchRoles = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res  = await fetch(`${API}/roles`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
-      const data = await res.json();
-      setRoles(data);
-    } catch {}
-    finally { setLoading(false); }
-  }, []);
+const fetchRoles = useCallback(async () => {
+  setLoading(true);
+  try {
+    const res  = await fetch(`${API}/roles`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+    const data = await res.json();
+    setRoles(Array.isArray(data) ? data : (data.roles ?? data.data ?? []));
+  } catch {}
+  finally { setLoading(false); }
+}, []);
 
   useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
@@ -95,7 +95,7 @@ export default function RoleHierarchy() {
           <TopBar title="Role Management" />
           <div className="main-content">
             <div className="page-header">
-              <div className="eyebrow"><span className="eyebrow-dot" />Role Management</div>
+
               <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', marginBottom: 4, letterSpacing: '-0.03em' }}>Role Hierarchy</h1>
               <p style={{ fontSize: 14, color: '#94a3b8' }}>View role levels, inheritance, and management scope</p>
             </div>

@@ -89,21 +89,13 @@ const allMenuItems = [
     submenu: [
       { id: 'access-requests', label: 'Access Requests', icon: UserPlus  },
       { id: 'user-accounts',   label: 'User Accounts',   icon: Users     },
-      { id: 'add-user',        label: 'Add User',        icon: UserPlus  },
       { id: 'deactivate-user', label: 'Deactivate User', icon: UserMinus },
     ],
-  },
-  {
-    id: 'my-profile',
-    label: 'My Profile',
-    icon: Users,
-    submenu: null,
   },
 ];
 
 const routeMap: Record<string, string> = {
   'dashboard':           '/dashboard',
-  'my-profile':          '/my-profile',
   'login-settings':      '/authentication/login-settings',
   'mfa-settings':        '/authentication/mfa-settings',
   'session-settings':    '/authentication/session-settings',
@@ -123,7 +115,6 @@ const routeMap: Record<string, string> = {
   'export-reports':      '/audit-logs/export-reports',
   'access-requests':     '/users-accounts/access-requests',
   'user-accounts':       '/users-accounts/user-accounts',
-  'add-user':            '/users-accounts/add-user',
   'deactivate-user':     '/users-accounts/deactivate-user',
 };
 
@@ -179,7 +170,6 @@ export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSid
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         :root {
           --accent: #2db9a3;
           --accent-light: rgba(45,185,163,0.10);
@@ -197,7 +187,7 @@ export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSid
           display: flex; flex-direction: column;
           background: var(--sidebar-bg);
           border-right: 1px solid var(--sidebar-border);
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-family: var(--font-dm-sans, 'DM Sans', sans-serif);
           flex-shrink: 0; position: relative; z-index: 100;
           overflow: hidden;
           transition: width 0.25s ease, opacity 0.25s ease;

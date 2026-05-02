@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { Download, Filter, Search, ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { Download, Filter, Search, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -40,7 +40,7 @@ function CustomSelect({ options, value, onChange, withIcon }: {
   return (
     <div ref={ref} style={{ position: 'relative', width: 180 }}>
       <button type="button" onClick={() => setOpen(v => !v)}
-        style={{ width: '100%', padding: '10px 14px', borderRadius: 20, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13, color: open ? '#2db9a3' : '#64748b', background: open ? '#f0fdf9' : '#fff', cursor: 'pointer', fontFamily: "'Open Sans',sans-serif", fontWeight: 600, outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, transition: 'all 0.18s' }}>
+        style={{ width: '100%', padding: '10px 14px', borderRadius: 20, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13, color: open ? '#2db9a3' : '#64748b', background: open ? '#f0fdf9' : '#fff', cursor: 'pointer', fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)", fontWeight: 600, outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, transition: 'all 0.18s' }}>
         {withIcon && <Filter size={14} style={{ flexShrink: 0, color: open ? '#2db9a3' : '#94a3b8' }} />}
         <span style={{ flex: 1, textAlign: 'left' }}>{selected?.label ?? options[0]?.label}</span>
         <ChevronDown size={14} style={{ flexShrink: 0, color: open ? '#2db9a3' : '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -85,8 +85,7 @@ export default function ActivityLogs() {
     try {
       const params = new URLSearchParams({ limit: '500' });
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      const res  = await fetch(`${API}/audit?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
-      const data = await res.json();
+      const data = await fetchArray(`${API}/audit?${params}`);
       setLogs(data);
     } catch {}
     finally { setLoading(false); }
@@ -140,16 +139,16 @@ export default function ActivityLogs() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;}
-        .al-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:'Open Sans',sans-serif;}
+        .al-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);}
         .al-content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
         .main-content{flex:1;overflow-y:auto;padding:32px 36px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .main-content::-webkit-scrollbar{width:6px;}
         .main-content::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
         .page-header-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;}
-        .export-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:10px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;}
+        .export-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:10px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);}
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
-        .search-input{width:100%;padding:10px 14px 10px 38px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:'Open Sans',sans-serif;outline:none;}
+        .search-input{width:100%;padding:10px 14px 10px 38px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);outline:none;}
         .search-input:focus{border-color:#2db9a3;}
         .table-card{background:#fff;border:1px solid #e8ecf2;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.05);}
         .table-card-header{padding:20px 28px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0f3f7;}
@@ -164,12 +163,10 @@ export default function ActivityLogs() {
         .pagination-info{font-size:13px;color:#94a3b8;}
         .pagination-info strong{color:#475569;font-weight:500;}
         .pagination-controls{display:flex;align-items:center;gap:10px;}
-        .pg-btn{width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#475569;font-family:'Open Sans',sans-serif;transition:all 0.15s;}
+        .pg-btn{width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#475569;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);transition:all 0.15s;}
         .pg-btn:hover:not(:disabled){border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
         .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
         .pg-counter{font-size:13px;color:#475569;font-weight:500;min-width:45px;text-align:center;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;font-size:13px;font-family:'Open Sans',sans-serif;color:#64748b;cursor:pointer;}
-        .refresh-btn:hover{background:#f5f7fa;}
       `}</style>
 
       <div className="al-root">

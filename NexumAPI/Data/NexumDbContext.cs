@@ -192,5 +192,32 @@ public class NexumDbContext : DbContext
         .WithMany()
         .HasForeignKey(t => t.TargetUserId)
         .OnDelete(DeleteBehavior.NoAction);
+
+    // -------------------------
+    // USER ↔ MFA CONFIG
+    // -------------------------
+    modelBuilder.Entity<MfaConfig>()
+        .HasOne(m => m.User)
+        .WithMany(u => u.MfaConfigs)
+        .HasForeignKey(m => m.UserId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    // -------------------------
+    // ACCESS REQUEST ↔ REVIEWER (User)
+    // -------------------------
+    modelBuilder.Entity<AccessRequest>()
+        .HasOne(a => a.Reviewer)
+        .WithMany()
+        .HasForeignKey(a => a.ReviewedBy)
+        .OnDelete(DeleteBehavior.SetNull);
+
+    // -------------------------
+    // ROLE ↔ PASSWORD POLICY
+    // -------------------------
+    modelBuilder.Entity<PasswordPolicy>()
+        .HasOne(p => p.Role)
+        .WithMany(r => r.PasswordPolicies)
+        .HasForeignKey(p => p.RoleId)
+        .OnDelete(DeleteBehavior.SetNull);
 }
 }

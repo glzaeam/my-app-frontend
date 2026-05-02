@@ -11,25 +11,37 @@ namespace NexumAPI.Services
 
     public class LockoutService
     {
-        // In-memory stores
         private static readonly ConcurrentDictionary<string, LockoutEntry> _ipStore
             = new();
         private static readonly ConcurrentDictionary<string, LockoutEntry> _accountStore
             = new();
 
-        private static int _maxAttempts    = 5;
-        private static int _lockoutMinutes = 15;
-        private static int _captchaAfter   = 3;
+        // ✅ No longer static — loaded from DB on startup via InitializeAsync
+        private int _maxAttempts    = 5;
+        private int _lockoutMinutes = 15;
+        private int _captchaAfter   = 3;
 
-        // ── IP LOCKOUT ────────────────────────────────
+        // ✅ Called once at startup by Program.cs to load DB settings
+        public void Initialize(int maxAttempts, int lockoutMinutes, int captchaAfter)
+        {
+            _maxAttempts    = maxAttempts;
+            _lockoutMinutes = lockoutMinutes;
+            _captchaAfter   = captchaAfter;
+        }
+
+        public void UpdateSettings(int maxAttempts, int lockoutMinutes, int captchaAfter)
+        {
+            _maxAttempts    = maxAttempts;
+            _lockoutMinutes = lockoutMinutes;
+            _captchaAfter   = captchaAfter;
+        }
+
+        // ✅ Expose so AuthService can use the real value for attemptsLeft
+        public int MaxAttempts => _maxAttempts;
+
         public bool IsIpLocked(string ip)
         {
-            if (!_ipStore.TryGetValue(ip, out var entry)) return false;
-            if (entry.LockedUntil == null) return false;
-            if (DateTime.UtcNow < entry.LockedUntil) return true;
-
-            // Expired — reset
-            _ipStore.TryRemove(ip, out _);
+            // ✅ IP never gets fully locked — only used for CAPTCHA threshold tracking
             return false;
         }
 
@@ -38,42 +50,33 @@ namespace NexumAPI.Services
             if (!_accountStore.TryGetValue(employeeId, out var entry)) return false;
             if (entry.LockedUntil == null) return false;
             if (DateTime.UtcNow < entry.LockedUntil) return true;
-
             _accountStore.TryRemove(employeeId, out _);
             return false;
         }
 
         public int GetIpFailedAttempts(string ip)
-        {
-            return _ipStore.TryGetValue(ip, out var entry) ? entry.FailedAttempts : 0;
-        }
+            => _ipStore.TryGetValue(ip, out var entry) ? entry.FailedAttempts : 0;
 
         public int GetAccountFailedAttempts(string employeeId)
-        {
-            return _accountStore.TryGetValue(employeeId, out var entry)
-                ? entry.FailedAttempts : 0;
-        }
+            => _accountStore.TryGetValue(employeeId, out var entry) ? entry.FailedAttempts : 0;
 
         public bool RequiresCaptcha(string ip, string employeeId)
-        {
-            return GetIpFailedAttempts(ip) >= _captchaAfter
-                || GetAccountFailedAttempts(employeeId) >= _captchaAfter;
-        }
+            => GetIpFailedAttempts(ip) >= _captchaAfter
+            || GetAccountFailedAttempts(employeeId) >= _captchaAfter;
 
         public (bool isLocked, DateTime? lockedUntil) RecordFailedAttempt(
             string ip, string employeeId)
         {
-            // Update IP store
+            // ✅ IP store only tracks count for CAPTCHA threshold — never locks the IP
             var ipEntry = _ipStore.GetOrAdd(ip, _ => new LockoutEntry());
             lock (ipEntry)
             {
                 ipEntry.FailedAttempts++;
                 ipEntry.LastAttempt = DateTime.UtcNow;
-                if (ipEntry.FailedAttempts >= _maxAttempts)
-                    ipEntry.LockedUntil = DateTime.UtcNow.AddMinutes(_lockoutMinutes);
+                // ❌ Removed: IP lockout — too aggressive, blocks all users on same network
             }
 
-            // Update account store
+            // ✅ Only the specific ACCOUNT gets locked
             var accEntry = _accountStore.GetOrAdd(employeeId, _ => new LockoutEntry());
             lock (accEntry)
             {
@@ -83,9 +86,8 @@ namespace NexumAPI.Services
                     accEntry.LockedUntil = DateTime.UtcNow.AddMinutes(_lockoutMinutes);
             }
 
-            bool isLocked = ipEntry.LockedUntil.HasValue || accEntry.LockedUntil.HasValue;
-            DateTime? lockedUntil = ipEntry.LockedUntil ?? accEntry.LockedUntil;
-
+            bool isLocked = accEntry.LockedUntil.HasValue;
+            DateTime? lockedUntil = accEntry.LockedUntil;
             return (isLocked, lockedUntil);
         }
 
@@ -93,16 +95,8 @@ namespace NexumAPI.Services
         {
             int attempts = Math.Max(
                 GetIpFailedAttempts(ip),
-                GetAccountFailedAttempts(employeeId)
-            );
-
-            return attempts switch
-            {
-                <= 2 => 0,
-                3    => 2,
-                4    => 4,
-                _    => 8
-            };
+                GetAccountFailedAttempts(employeeId));
+            return attempts switch { <= 2 => 0, 3 => 2, 4 => 4, _ => 8 };
         }
 
         public void ResetAttempts(string ip, string employeeId)
@@ -113,23 +107,13 @@ namespace NexumAPI.Services
 
         public TimeSpan? GetRemainingLockout(string ip, string employeeId)
         {
-            DateTime? ipLocked  = _ipStore.TryGetValue(ip, out var ie)
-                ? ie.LockedUntil : null;
-            DateTime? accLocked = _accountStore.TryGetValue(employeeId, out var ae)
-                ? ae.LockedUntil : null;
-
-            DateTime? latest = ipLocked.HasValue && accLocked.HasValue
+            DateTime? ipLocked  = _ipStore.TryGetValue(ip, out var ie) ? ie.LockedUntil : null;
+            DateTime? accLocked = _accountStore.TryGetValue(employeeId, out var ae) ? ae.LockedUntil : null;
+            DateTime? latest    = ipLocked.HasValue && accLocked.HasValue
                 ? (ipLocked > accLocked ? ipLocked : accLocked)
                 : ipLocked ?? accLocked;
-
             if (latest == null || DateTime.UtcNow >= latest) return null;
             return latest - DateTime.UtcNow;
         }
-        public void UpdateSettings(int maxAttempts, int lockoutMinutes, int captchaAfter)
-{
-    _maxAttempts    = maxAttempts;
-    _lockoutMinutes = lockoutMinutes;
-    _captchaAfter   = captchaAfter;
-}
     }
 }

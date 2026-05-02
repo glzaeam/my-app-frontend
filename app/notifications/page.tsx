@@ -71,7 +71,7 @@ export default function NotificationsPage() {
         }
 
         body {
-          font-family: 'Open Sans', sans-serif;
+          font-family: var(--font-dm-sans, 'DM Sans', sans-serif);
           background: #f8fafc;
         }
 

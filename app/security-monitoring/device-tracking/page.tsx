@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { Smartphone, Monitor, Tablet, Search, Shield, Activity, AlertTriangle, Filter, RefreshCw, XCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { Smartphone, Monitor, Tablet, Search, Shield, Activity, AlertTriangle, Filter, XCircle, CheckCircle, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -249,7 +249,7 @@ export default function DeviceTracking() {
 
   const stats = [
     { label: 'Total Devices', value: devices.length,                                     accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Monitor size={20} />      },
-    { label: 'Active Now',    value: devices.filter(d => d.status === 'active').length,   accent: '#2db9a3', iconBg: 'rgba(45,185,163,0.1)',  icon: <Activity size={20} />     },
+    { label: 'Active Now',    value: devices.filter(d => d.status === 'active').length,   accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)',  icon: <Activity size={20} />     },
     { label: 'Trusted',       value: devices.filter(d => d.isTrusted).length,             accent: '#059669', iconBg: 'rgba(5,150,105,0.1)',   icon: <Shield size={20} />       },
     { label: 'Suspicious',    value: devices.filter(d => d.status === 'suspicious').length, accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)', icon: <AlertTriangle size={20} /> },
   ];
@@ -298,8 +298,7 @@ export default function DeviceTracking() {
         .revoke-btn:hover{background:#fee2e2;border-color:#fca5a5;}
         .revoke-btn:disabled{opacity:0.5;cursor:not-allowed;}
         .trust-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:20px;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'Open Sans',sans-serif;color:#64748b;cursor:pointer;margin-left:auto;}
-        .refresh-btn:hover{background:#f5f7fa;}
+
         .empty-state{text-align:center;padding:40px 0;color:#94a3b8;font-size:13px;}
       `}</style>
 
@@ -318,7 +317,7 @@ export default function DeviceTracking() {
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Device Tracking</h1>
                 <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor and manage registered devices across all users</p>
               </div>
-              <button className="refresh-btn" onClick={fetchDevices}><RefreshCw size={13} /> Refresh</button>
+
             </div>
 
             <div className="stats-grid">
@@ -356,7 +355,7 @@ export default function DeviceTracking() {
                   const bs  = getBrowserStyle(d.browser);
                   const Icon = (d.deviceType ?? '').toLowerCase() === 'mobile' ? Smartphone : (d.deviceType ?? '').toLowerCase() === 'tablet' ? Tablet : Monitor;
                   const iconColor = d.status === 'suspicious' ? '#ef4444' : '#2db9a3';
-                  const iconBg    = d.status === 'suspicious' ? 'rgba(239,68,68,0.1)' : 'rgba(45,185,163,0.1)';
+                  const iconBg    = d.status === 'suspicious' ? 'rgba(239,68,68,0.1)' : 'rgba(45,185,163,0.15)';
                   return (
                     <div key={d.id} className={`device-card${d.status === 'suspicious' ? ' suspicious' : ''}`}>
                       <div className="device-icon-wrap" style={{ background: iconBg, color: iconColor }}><Icon size={20} /></div>

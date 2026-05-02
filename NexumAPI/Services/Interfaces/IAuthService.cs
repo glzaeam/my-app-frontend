@@ -6,6 +6,7 @@ namespace NexumAPI.Services.Interfaces
     {
         Task<object> LoginAsync(LoginDto loginDto);
         Task<object> VerifyOtpAsync(string userId, string code);
+        Task<object> VerifyTotpAsync(string userId, string code);
         Task<object> RegisterAsync(RegisterDto registerDto);
         Task<bool> LogoutAsync(string userId);
         Task<object> RefreshTokenAsync(string refreshToken);

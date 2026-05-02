@@ -113,6 +113,11 @@ namespace NexumAPI.Controllers
                 return Ok(new { success = false, message = "Request already reviewed" });
 
             var reviewerName = User.FindFirst("name")?.Value ?? "System Admin";
+            var reviewerIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                             ?? User.FindFirst("sub")?.Value;
+            Guid? reviewerId = Guid.TryParse(reviewerIdStr, out var parsedId) ? parsedId : null;
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var txn = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
 
             if (dto.Action == "Approve")
             {
@@ -152,27 +157,56 @@ namespace NexumAPI.Controllers
                 });
 
                 request.Status     = "Approved";
-                request.ReviewedBy = reviewerName;
+                request.ReviewedBy = reviewerId;
                 request.ReviewedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
 
+                // Log transaction
+                _context.TransactionTrails.Add(new TransactionTrail {
+                    Id           = Guid.NewGuid(),
+                    TxnId        = txn,
+                    Action       = "Access Request Approved",
+                    Module       = "Access Requests",
+                    Details      = $"Access request for {request.FullName} ({request.EmployeeId}) approved. User created with role {role.Name}",
+                    PerformedBy  = reviewerId ?? Guid.Empty,
+                    TargetUserId = user.Id,
+                    Status       = "Success",
+                    CreatedAt    = DateTime.UtcNow,
+                    IpAddress    = ip
+                });
+                await _context.SaveChangesAsync();
+
                 await _email.SendAccessApprovedAsync(request.Email, request.FullName, request.EmployeeId);
 
-                return Ok(new { success = true, message = "Request approved and user account created" });
+                return Ok(new { success = true, message = "Request approved and user account created", txnId = txn });
             }
             else if (dto.Action == "Reject")
             {
                 request.Status          = "Rejected";
-                request.ReviewedBy      = reviewerName;
+                request.ReviewedBy      = reviewerId;
                 request.ReviewedAt      = DateTime.UtcNow;
                 request.RejectionReason = dto.RejectionReason;
 
                 await _context.SaveChangesAsync();
 
+                // Log transaction
+                _context.TransactionTrails.Add(new TransactionTrail {
+                    Id        = Guid.NewGuid(),
+                    TxnId     = txn,
+                    Action    = "Access Request Rejected",
+                    Module    = "Access Requests",
+                    Details   = $"Access request for {request.FullName} ({request.EmployeeId}) rejected. Reason: {dto.RejectionReason ?? "Not specified"}",
+                    PerformedBy = reviewerId ?? Guid.Empty,
+                    Status    = "Success",
+                    CreatedAt = DateTime.UtcNow,
+                    IpAddress = ip
+                });
+                await _context.SaveChangesAsync();
+
                 await _email.SendAccessRejectedAsync(request.Email, request.FullName, dto.RejectionReason);
 
-                return Ok(new { success = true, message = "Request rejected" });
+                return Ok(new { success = true, message = "Request rejected", txnId = txn });
             }
 
             return BadRequest(new { success = false, message = "Invalid action. Use 'Approve' or 'Reject'" });

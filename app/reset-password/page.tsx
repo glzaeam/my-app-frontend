@@ -119,7 +119,7 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="min-h-screen w-full flex" style={{ backgroundImage:'linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0.5)),url(/images/bgg.jpg)',backgroundSize:'cover',backgroundPosition:'center',backgroundAttachment:'fixed',fontFamily:"'Open Sans',sans-serif" }}>
+    <div className="min-h-screen w-full flex" style={{ backgroundImage:'linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0.5)),url(/images/bgg.jpg)',backgroundSize:'cover',backgroundPosition:'center',backgroundAttachment:'fixed',fontFamily:"var(--font-dm-sans, 'DM Sans', sans-serif)" }}>
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12">
         <div><img src="/images/logolgn.png" alt="Nexum" className="h-40 object-contain mb-2" style={{ maxWidth:'400px',filter:'brightness(1.8)' }}/></div>
         <div>

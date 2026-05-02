@@ -7,9 +7,9 @@ import TopBar from '@/app/components/TopBar';
 import {
   CheckCircle, XCircle, Lock, Search, Activity,
   ChevronLeft, ChevronRight, Filter, ChevronDown,
-  RefreshCw, Shield, AlertTriangle,
+  Shield, AlertTriangle,
 } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -89,24 +89,21 @@ export default function LoginAttempts() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage]   = useState(1);
   const [showBlockedIps, setShowBlockedIps] = useState(false);
-  const itemsPerPage = 8;
+  const itemsPerPage = 10;
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const token = auth.getToken();
-      const [logsRes, summaryRes, ipsRes] = await Promise.all([
-        fetch(`${API}/security/failed-logins`,      { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/login-attempts/summary`,       { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/login-attempts/blocked-ips`,   { headers: { Authorization: `Bearer ${token}` } }),
+      const [logsData, summaryRes, ipsData] = await Promise.all([
+        fetchArray(`${API}/security/failed-logins`),
+        fetch(`${API}/login-attempts/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
+        fetchArray(`${API}/login-attempts/blocked-ips`),
       ]);
-      const logsData    = await logsRes.json();
       const summaryData = await summaryRes.json();
-      const ipsData     = await ipsRes.json();
 
-      setLogs(Array.isArray(logsData) ? logsData : []);
+      setLogs(logsData);
       setSummary(summaryData);
-      setBlockedIps(Array.isArray(ipsData) ? ipsData : []);
+      setBlockedIps(ipsData);
     } catch {}
     finally { setLoading(false); }
   }, []);
@@ -157,7 +154,7 @@ export default function LoginAttempts() {
     { label: 'Total Attempts', value: summary?.total      ?? logs.length, accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Activity size={20} />    },
     { label: 'Failed',         value: summary?.failed     ?? 0,           accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)',   icon: <XCircle size={20} />     },
     { label: 'Blocked',        value: summary?.blocked    ?? 0,           accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)',  icon: <Lock size={20} />        },
-    { label: 'Today',          value: summary?.todayCount ?? 0,           accent: '#2db9a3', iconBg: 'rgba(45,185,163,0.1)',  icon: <CheckCircle size={20} /> },
+    { label: 'Today',          value: summary?.todayCount ?? 0,           accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)',  icon: <CheckCircle size={20} /> },
     { label: 'Blocked IPs',    value: summary?.blockedIps ?? 0,           accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)',   icon: <Shield size={20} />      },
   ];
 
@@ -166,7 +163,7 @@ export default function LoginAttempts() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        .la-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:'DM Sans',sans-serif;}
+        .la-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);}
         .la-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
         .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .la-scroll::-webkit-scrollbar{width:6px;}
@@ -182,7 +179,7 @@ export default function LoginAttempts() {
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
         .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;}
-        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:'DM Sans',sans-serif;outline:none;}
+        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);outline:none;}
         .search-input:focus{border-color:#2db9a3;}
         .table-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);margin-bottom:18px;}
         .table-card-header{padding:16px 22px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9;}
@@ -204,8 +201,8 @@ export default function LoginAttempts() {
         .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
         .pg-btn.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
         .pg-counter{min-width:50px;text-align:center;font-size:13px;color:#475569;font-weight:500;}
-        .la-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'DM Sans',sans-serif;color:#64748b;cursor:pointer;}
-        .refresh-btn:hover{background:#f5f7fa;}
+        .la-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);color:#64748b;cursor:pointer;}
+
         .ip-table{width:100%;border-collapse:collapse;}
         .ip-table th{padding:10px 16px;text-align:left;font-size:10.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
         .ip-table td{padding:11px 16px;font-size:13px;color:#1e293b;border-bottom:1px solid #f8fafc;}
@@ -222,13 +219,9 @@ export default function LoginAttempts() {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
               <div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2db9a3' }} />Authentication
-                </div>
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Login Attempts</h1>
                 <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor login attempt history — failures trigger audit logs and security alerts</p>
               </div>
-              <button className="refresh-btn" onClick={fetchAll}><RefreshCw size={13} /> Refresh</button>
             </div>
 
             {/* Stats */}

@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { AlertTriangle, Ban, Lock, ShieldAlert, Search, Filter, ChevronLeft, ChevronRight, RefreshCw, ChevronDown } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { AlertTriangle, Ban, Lock, ShieldAlert, Search, Filter, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -158,12 +158,12 @@ export default function FailedLoginsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [logsRes, sumRes] = await Promise.all([
-        fetch(`${API}/security/failed-logins`,         { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
-        fetch(`${API}/security/failed-logins/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
+      const [logsData, sumData] = await Promise.all([
+        fetchArray(`${API}/security/failed-logins`),
+        fetch(`${API}/security/failed-logins/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }).then(r => r.json()),
       ]);
-      setLogs(await logsRes.json());
-      setSummary(await sumRes.json());
+      setLogs(logsData);
+      setSummary(sumData);
     } catch { setToast({ msg: 'Failed to load data', type: 'error' }); }
     finally { setLoading(false); }
   }, []);
@@ -265,8 +265,7 @@ export default function FailedLoginsPage() {
         .pg-btn:hover:not(:disabled){border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
         .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
         .pg-counter{font-size:13px;color:#475569;font-weight:600;min-width:45px;text-align:center;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'Open Sans',sans-serif;color:#64748b;cursor:pointer;margin-left:auto;}
-        .refresh-btn:hover{background:#f5f7fa;}
+
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
@@ -284,7 +283,7 @@ export default function FailedLoginsPage() {
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Failed Logins</h1>
                 <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Track and investigate failed login attempts</p>
               </div>
-              <button className="refresh-btn" onClick={fetchData}><RefreshCw size={13} /> Refresh</button>
+
             </div>
 
             <div className="stats-grid">

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using NexumAPI.Data;
 using NexumAPI.Models;
 using NexumAPI.Services;
+using NexumAPI.Helpers;
 
 namespace NexumAPI.Controllers
 {
@@ -23,11 +24,23 @@ namespace NexumAPI.Controllers
         // GET /api/users — BranchManager and above
         [HttpGet]
         [Authorize(Policy = "BranchManager")]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var users = await _context.Users
+            page     = PaginationHelper.ValidatePage(page);
+            pageSize = PaginationHelper.ValidatePageSize(pageSize);
+
+            var query = _context.Users
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .AsQueryable();
+
+            var totalItems = await query.CountAsync();
+
+            var users = await query
                 .OrderBy(u => u.Name)
+                .Skip(PaginationHelper.CalculateSkip(page, pageSize))
+                .Take(pageSize)
                 .Select(u => new {
                     u.Id,
                     u.EmployeeId,
@@ -42,7 +55,12 @@ namespace NexumAPI.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(users);
+            return Ok(new PaginatedResponse<dynamic>(
+                users.Cast<dynamic>().ToList(),
+                page,
+                pageSize,
+                totalItems
+            ));
         }
 
         // GET /api/users/{id} — BranchManager and above
@@ -120,6 +138,26 @@ namespace NexumAPI.Controllers
 
             await _context.SaveChangesAsync();
 
+            // Log transaction — extract claim BEFORE query to avoid CS8072
+            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId  = Guid.Parse(subClaim);
+            var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
+
+            _context.TransactionTrails.Add(new TransactionTrail {
+                Id           = Guid.NewGuid(),
+                TxnId        = txn,
+                Action       = "User Created",
+                Module       = "Users",
+                Details      = $"New user '{user.Name}' ({user.EmployeeId}) created in {user.Department ?? "No Department"}",
+                PerformedBy  = adminUser?.Id ?? Guid.Empty,
+                TargetUserId = user.Id,
+                Status       = "Success",
+                CreatedAt    = DateTime.UtcNow,
+                IpAddress    = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+            });
+            await _context.SaveChangesAsync();
+
             await _email.SendWelcomeEmailAsync(user.Email, user.Name, user.EmployeeId, dto.Password);
 
             return Ok(new { success = true, message = "User created successfully", userId = user.Id });
@@ -183,14 +221,32 @@ namespace NexumAPI.Controllers
             user.Status = "Inactive";
             await _context.SaveChangesAsync();
 
+            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId  = Guid.Parse(subClaim);
+            var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
+
             _context.AuditLogs.Add(new AuditLog {
                 UserId    = id,
                 Action    = "User Deactivated",
                 Module    = "Users",
-                Details   = $"Reason: {dto.Reason ?? "Not specified"}",
+                Details   = $"Reason: {dto.Reason ?? "Not specified"} TXN: {txn}",
                 Status    = "Success",
                 CreatedAt = DateTime.UtcNow,
                 IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+            });
+
+            _context.TransactionTrails.Add(new TransactionTrail {
+                Id           = Guid.NewGuid(),
+                TxnId        = txn,
+                Action       = "User Deactivated",
+                Module       = "Users",
+                Details      = $"User deactivated. Reason: {dto.Reason ?? "Not specified"}",
+                PerformedBy  = adminUser?.Id ?? Guid.Empty,
+                TargetUserId = id,
+                Status       = "Success",
+                CreatedAt    = DateTime.UtcNow,
+                IpAddress    = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
             });
             await _context.SaveChangesAsync();
 
@@ -217,6 +273,26 @@ namespace NexumAPI.Controllers
                 ExpiresAt = DateTime.UtcNow.AddHours(24),
                 Used      = false,
                 CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            // Log transaction — extract claim BEFORE query to avoid CS8072
+            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId  = Guid.Parse(subClaim);
+            var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
+
+            _context.TransactionTrails.Add(new TransactionTrail {
+                Id           = Guid.NewGuid(),
+                TxnId        = txn,
+                Action       = "Password Reset Initiated",
+                Module       = "Users",
+                Details      = $"Password reset link sent to {user.Email}",
+                PerformedBy  = adminUser?.Id ?? Guid.Empty,
+                TargetUserId = id,
+                Status       = "Success",
+                CreatedAt    = DateTime.UtcNow,
+                IpAddress    = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
             });
             await _context.SaveChangesAsync();
 
@@ -284,7 +360,6 @@ namespace NexumAPI.Controllers
 
             user.MfaEnabled = dto.MfaEnabled;
 
-            // Also update MfaSettings table
             var mfaSetting = await _context.MfaSettings.FirstOrDefaultAsync(m => m.UserId == id);
             if (mfaSetting != null)
             {

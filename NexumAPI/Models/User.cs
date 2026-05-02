@@ -18,12 +18,16 @@ public class User
     public string? Phone { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
     public string? Department { get; set; }
-    public string? ProfileImageUrl { get; set; }   // ← NEW
+    public string? ProfileImageUrl { get; set; }
     public Guid? BranchId { get; set; }
     public string Status { get; set; } = "active";
     public bool MfaEnabled { get; set; }
     public DateTime? LastLogin { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // ✅ Tracks how many grace logins this user has used
+    public int GraceLogins { get; set; } = 0;
+
     // Navigation
     public Branch? Branch { get; set; }
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
@@ -33,4 +37,5 @@ public class User
     public ICollection<SecurityAlert> SecurityAlerts { get; set; } = new List<SecurityAlert>();
     public ICollection<LoginAttempt> LoginAttempts { get; set; } = new List<LoginAttempt>();
     public ICollection<MfaSetting> MfaSettings { get; set; } = new List<MfaSetting>();
+    public ICollection<MfaConfig> MfaConfigs { get; set; } = new List<MfaConfig>();
 }

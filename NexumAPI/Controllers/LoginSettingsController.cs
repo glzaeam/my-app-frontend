@@ -21,24 +21,25 @@ namespace NexumAPI.Controllers
             _lockout = lockout;
         }
 
-        // GET /api/login-settings
         [HttpGet]
         public async Task<IActionResult> Get()
         {
             var settings = await _context.LoginSettings.FirstOrDefaultAsync();
             if (settings == null)
                 return Ok(new {
-                    maxFailedAttempts      = 5,
-                    lockoutDuration        = 15,
-                    ipWhitelistEnabled     = false,
-                    allowedIps             = "",
-                    sessionTimeoutMinutes  = 480,
-                    maxConcurrentSessions  = 3
+                    maxFailedAttempts     = 5,
+                    lockoutDuration       = 15,
+                    captchaAfter          = 3,
+                    ipWhitelistEnabled    = false,
+                    allowedIps            = "",
+                    sessionTimeoutMinutes = 480,
+                    maxConcurrentSessions = 3
                 });
 
             return Ok(new {
                 settings.MaxFailedAttempts,
                 settings.LockoutDuration,
+                settings.CaptchaAfter,
                 settings.IpWhitelistEnabled,
                 settings.AllowedIps,
                 settings.SessionTimeoutMinutes,
@@ -46,13 +47,12 @@ namespace NexumAPI.Controllers
             });
         }
 
-        // PUT /api/login-settings
+        // ✅ Fixed: was [Authorize(Roles = "Admin")] which blocked "System Admin"
         [HttpPut]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "System Admin")]
         public async Task<IActionResult> Update([FromBody] UpdateLoginSettingsRequest dto)
         {
             var settings = await _context.LoginSettings.FirstOrDefaultAsync();
-
             if (settings == null)
             {
                 settings = new LoginSetting { Id = Guid.NewGuid() };
@@ -61,6 +61,7 @@ namespace NexumAPI.Controllers
 
             settings.MaxFailedAttempts     = dto.MaxFailedAttempts;
             settings.LockoutDuration       = dto.LockoutDuration;
+            settings.CaptchaAfter          = dto.CaptchaAfter;
             settings.IpWhitelistEnabled    = dto.IpWhitelistEnabled;
             settings.AllowedIps            = dto.AllowedIps;
             settings.SessionTimeoutMinutes = dto.SessionTimeoutMinutes;
@@ -68,7 +69,7 @@ namespace NexumAPI.Controllers
 
             await _context.SaveChangesAsync();
 
-            // Apply new settings to LockoutService
+            // ✅ Update in-memory lockout service immediately
             _lockout.UpdateSettings(dto.MaxFailedAttempts, dto.LockoutDuration, dto.CaptchaAfter);
 
             return Ok(new { success = true, message = "Settings saved successfully" });
@@ -79,10 +80,10 @@ namespace NexumAPI.Controllers
     {
         public int    MaxFailedAttempts     { get; set; } = 5;
         public int    LockoutDuration       { get; set; } = 15;
+        public int    CaptchaAfter          { get; set; } = 3;
         public bool   IpWhitelistEnabled    { get; set; }
         public string? AllowedIps           { get; set; }
         public int    SessionTimeoutMinutes { get; set; } = 480;
         public int    MaxConcurrentSessions { get; set; } = 3;
-        public int    CaptchaAfter          { get; set; } = 3;
     }
 }

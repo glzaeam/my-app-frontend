@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { Lock, Unlock, Eye, RefreshCw } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { Lock, Unlock, Eye } from 'lucide-react';
+import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const ROWS_PER_PAGE = 10;
@@ -45,15 +45,14 @@ export default function ModuleAccess() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const token = auth.getToken();
-      const [rolesRes, modsRes, permRes] = await Promise.all([
-        fetch(`${API}/roles`,               { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/permissions/modules`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/permissions/matrix`,  { headers: { Authorization: `Bearer ${token}` } }),
+      const [rolesData, modsData, permData] = await Promise.all([
+        fetchArray(`${API}/roles`),
+        fetchArray(`${API}/permissions/modules`),
+        fetchArray(`${API}/permissions/matrix`),
       ]);
-      setRoles(await rolesRes.json());
-      setModules(await modsRes.json());
-      setPerms(await permRes.json());
+      setRoles(rolesData);
+      setModules(modsData);
+      setPerms(permData);
     } catch {}
     finally { setLoading(false); }
   }, []);
@@ -91,7 +90,7 @@ export default function ModuleAccess() {
         .legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid #f1f5f9;background:#fafbfc;}
         .legend-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-right:8px;}
         .legend-item{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'Open Sans',sans-serif;color:#64748b;cursor:pointer;}
+
         .info-box{background:#f0fdf9;border:1px solid #a7f3d0;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#059669;}
       `}</style>
 
@@ -108,7 +107,7 @@ export default function ModuleAccess() {
                 <h1 style={{ fontSize:22, fontWeight:700, color:'#1a2332', margin:'0 0 4px' }}>Module Access</h1>
                 <p style={{ fontSize:13, color:'#8a9ab0', margin:0 }}>Read-only summary of Permission Matrix — determines Sidebar visibility per role</p>
               </div>
-              <button className="refresh-btn" onClick={fetchAll}><RefreshCw size={13}/> Refresh</button>
+
             </div>
 
             <div className="info-box">

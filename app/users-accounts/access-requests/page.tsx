@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { CheckCircle2, XCircle, Clock, RefreshCw, X, Filter, ChevronDown } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, X, Filter, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -321,7 +321,6 @@ export default function AccessRequestsPage() {
                 onChange={setFilter}
               />
               <span style={{ fontSize: 13, color: '#8a9ab0' }}>{requests.length} requests</span>
-              <button className="ar-refresh-btn" onClick={fetchRequests}><RefreshCw size={13} /> Refresh</button>
             </div>
 
             <div className="ar-card">

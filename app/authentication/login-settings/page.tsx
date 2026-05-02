@@ -4,15 +4,17 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { AlertCircle, Shield, Clock, Globe, Plus, ChevronDown, X, RefreshCw } from 'lucide-react';
+import { AlertCircle, Shield, Clock, Globe, Plus, ChevronDown, X } from 'lucide-react';
 import { auth } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-function CustomSelect({ options, value, onChange }: {
+function CustomSelect({ options, value, onChange, disabled }: {
   options: { value: string; label: string }[];
   value: string;
   onChange: (val: string) => void;
+  disabled?: boolean; // ✅ added
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -26,11 +28,25 @@ function CustomSelect({ options, value, onChange }: {
 
   return (
     <div ref={ref} style={{ position: 'relative', width: '100%' }}>
-      <button type="button" onClick={() => setOpen(v => !v)} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13.5, color: '#1e293b', background: open ? '#fff' : '#f8fafc', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontWeight: 400, outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: open ? '0 0 0 3px rgba(45,185,163,0.1)' : 'none', transition: 'all 0.18s' }}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(v => !v)}
+        style={{
+          width: '100%', padding: '10px 14px', borderRadius: 10,
+          border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`,
+          fontSize: 13.5, color: disabled ? '#94a3b8' : '#1e293b',
+          background: disabled ? '#f8fafc' : open ? '#fff' : '#f8fafc',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          fontFamily: "'DM Sans',sans-serif", fontWeight: 400, outline: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          boxShadow: open && !disabled ? '0 0 0 3px rgba(45,185,163,0.1)' : 'none',
+          transition: 'all 0.18s', opacity: disabled ? 0.7 : 1,
+        }}
+      >
         <span>{selected?.label ?? 'Select'}</span>
         <ChevronDown size={15} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
-      {open && (
+      {open && !disabled && (
         <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999, overflow: 'hidden' }}>
           {options.map(opt => (
             <button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }}
@@ -57,23 +73,26 @@ function Toast({ msg, type, onDone }: { msg: string; type: 'success' | 'error'; 
 
 export default function LoginSettings() {
   const router = useRouter();
-  const [activeMenu, setActiveMenu]   = useState('login-settings');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
-  const [toast, setToast]             = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  // Settings state
-  const [maxAttempts, setMaxAttempts]       = useState('5');
+  // ✅ Pull canEdit from AuthContext — driven by Permission Matrix in DB
+  const { canEdit } = useAuth();
+  const isEditable = canEdit('authentication'); // true only if DB says CanEdit = true
+
+  const [activeMenu, setActiveMenu]     = useState('login-settings');
+  const [sidebarOpen, setSidebarOpen]   = useState(true);
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(false);
+  const [toast, setToast]               = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  const [maxAttempts, setMaxAttempts]         = useState('5');
   const [lockoutDuration, setLockoutDuration] = useState('15');
-  const [captchaAfter, setCaptchaAfter]     = useState('3');
-  const [sessionTimeout, setSessionTimeout] = useState('480');
-  const [maxSessions, setMaxSessions]       = useState('3');
-  const [ipWhitelisting, setIpWhitelisting] = useState(false);
-  const [allowedIps, setAllowedIps]         = useState<string[]>([]);
-  const [newIp, setNewIp]                   = useState('');
-  const [newIpLabel, setNewIpLabel]         = useState('');
-  const [showAddIp, setShowAddIp]           = useState(false);
+  const [sessionTimeout, setSessionTimeout]   = useState('480');
+  const [maxSessions, setMaxSessions]         = useState('3');
+  const [ipWhitelisting, setIpWhitelisting]   = useState(false);
+  const [allowedIps, setAllowedIps]           = useState<string[]>([]);
+  const [newIp, setNewIp]                     = useState('');
+  const [newIpLabel, setNewIpLabel]           = useState('');
+  const [showAddIp, setShowAddIp]             = useState(false);
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -95,19 +114,19 @@ export default function LoginSettings() {
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
 
   const handleSave = async () => {
+    if (!isEditable) return; // ✅ guard: ignore if no edit permission
     setSaving(true);
     try {
       const res  = await fetch(`${API}/login-settings`, {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
         body: JSON.stringify({
-          maxFailedAttempts:    parseInt(maxAttempts),
-          lockoutDuration:      parseInt(lockoutDuration),
-          captchaAfter:         parseInt(captchaAfter),
+          maxFailedAttempts:     parseInt(maxAttempts),
+          lockoutDuration:       parseInt(lockoutDuration),
           sessionTimeoutMinutes: parseInt(sessionTimeout),
           maxConcurrentSessions: parseInt(maxSessions),
-          ipWhitelistEnabled:   ipWhitelisting,
-          allowedIps:           allowedIps.join(','),
+          ipWhitelistEnabled:    ipWhitelisting,
+          allowedIps:            allowedIps.join(','),
         }),
       });
       const data = await res.json();
@@ -118,17 +137,19 @@ export default function LoginSettings() {
   };
 
   const addIp = () => {
-    if (!newIp.trim()) return;
+    if (!newIp.trim() || !isEditable) return;
     const entry = newIpLabel.trim() ? `${newIp.trim()} (${newIpLabel.trim()})` : newIp.trim();
     setAllowedIps(prev => [...prev, entry]);
     setNewIp(''); setNewIpLabel(''); setShowAddIp(false);
   };
 
-  const removeIp = (i: number) => setAllowedIps(prev => prev.filter((_, idx) => idx !== i));
+  const removeIp = (i: number) => {
+    if (!isEditable) return;
+    setAllowedIps(prev => prev.filter((_, idx) => idx !== i));
+  };
 
   const maxAttemptsOptions    = [{ value:'3', label:'3 attempts' }, { value:'5', label:'5 attempts' }, { value:'10', label:'10 attempts' }];
   const lockoutOptions        = [{ value:'15', label:'15 minutes' }, { value:'30', label:'30 minutes' }, { value:'60', label:'1 hour' }, { value:'1440', label:'24 hours' }];
-  const captchaOptions        = [{ value:'1', label:'After 1 attempt' }, { value:'3', label:'After 3 attempts' }, { value:'5', label:'After 5 attempts' }, { value:'0', label:'Disable' }];
   const sessionTimeoutOptions = [{ value:'60', label:'1 hour' }, { value:'240', label:'4 hours' }, { value:'480', label:'8 hours' }, { value:'1440', label:'24 hours' }];
   const maxSessionOptions     = [{ value:'1', label:'1 session' }, { value:'2', label:'2 sessions' }, { value:'3', label:'3 sessions' }, { value:'5', label:'5 sessions' }];
 
@@ -149,7 +170,7 @@ export default function LoginSettings() {
         .ls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px;margin-bottom:28px;}
         .ls-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.05);}
         .ls-card-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;color:#0f172a;margin-bottom:20px;}
-        .ls-card-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(45,185,163,0.1);color:#2db9a3;flex-shrink:0;}
+        .ls-card-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(45,185,163,0.15);color:#1D9E75;flex-shrink:0;box-shadow:0 0 12px rgba(45,185,163,0.2);}
         .ls-field{margin-bottom:16px;}
         .ls-field:last-child{margin-bottom:0;}
         .ls-label{font-size:11.5px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:7px;display:block;}
@@ -158,7 +179,7 @@ export default function LoginSettings() {
         .ls-toggle-row:first-child{padding-top:0;}
         .ls-toggle-info h3{font-size:13.5px;font-weight:500;color:#1e293b;margin-bottom:3px;}
         .ls-toggle-info p{font-size:12px;color:#94a3b8;}
-        .ls-toggle{width:46px;height:26px;border-radius:13px;background:#e2e8f0;position:relative;cursor:pointer;transition:background 0.25s;flex-shrink:0;border:none;outline:none;}
+        .ls-toggle{width:46px;height:26px;border-radius:13px;background:#e2e8f0;position:relative;transition:background 0.25s;flex-shrink:0;border:none;outline:none;}
         .ls-toggle.on{background:#2db9a3;}
         .ls-toggle-thumb{width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left 0.25s;box-shadow:0 1px 4px rgba(0,0,0,0.18);}
         .ls-toggle.on .ls-toggle-thumb{left:23px;}
@@ -178,6 +199,7 @@ export default function LoginSettings() {
         .ls-btn-save{padding:11px 28px;border-radius:10px;border:none;background:#2db9a3;color:#fff;cursor:pointer;font-size:13.5px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all 0.18s;box-shadow:0 2px 10px rgba(45,185,163,0.3);}
         .ls-btn-save:hover:not(:disabled){background:#28a593;}
         .ls-btn-save:disabled{opacity:0.6;cursor:not-allowed;}
+        .readonly-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#64748b;background:#f1f5f9;padding:5px 12px;border-radius:20px;border:1px solid #e2e8f0;}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
@@ -188,13 +210,20 @@ export default function LoginSettings() {
           <TopBar title="Login Settings" />
           <div className="ls-scroll">
             <div className="ls-header">
-              <div className="ls-eyebrow"><span style={{ width:6,height:6,borderRadius:'50%',background:'#2db9a3',display:'inline-block' }}/>Configuration</div>
+              {/* ✅ Show read-only badge if user cannot edit */}
+              {!isEditable && (
+                <span className="readonly-badge">👁 View Only</span>
+              )}
               <h1>Login Settings</h1>
-              <p>Configure authentication settings — changes apply immediately to all login attempts.</p>
+              <p>
+                {isEditable
+                  ? 'Configure authentication settings — changes apply immediately to all login attempts.'
+                  : 'You have read-only access to these settings.'}
+              </p>
             </div>
 
             {loading ? (
-              <div style={{ textAlign:'center',padding:'60px 0',color:'#94a3b8' }}>Loading settings...</div>
+              <div style={{ textAlign:'center', padding:'60px 0', color:'#94a3b8' }}>Loading settings...</div>
             ) : (
               <>
                 <div className="ls-grid">
@@ -206,15 +235,12 @@ export default function LoginSettings() {
                     </div>
                     <div className="ls-field">
                       <label className="ls-label">Max Failed Attempts Before Lockout</label>
-                      <CustomSelect options={maxAttemptsOptions} value={maxAttempts} onChange={setMaxAttempts}/>
+                      {/* ✅ disabled when view-only */}
+                      <CustomSelect options={maxAttemptsOptions} value={maxAttempts} onChange={setMaxAttempts} disabled={!isEditable}/>
                     </div>
                     <div className="ls-field">
                       <label className="ls-label">Account Lockout Duration</label>
-                      <CustomSelect options={lockoutOptions} value={lockoutDuration} onChange={setLockoutDuration}/>
-                    </div>
-                    <div className="ls-field">
-                      <label className="ls-label">Show CAPTCHA After Failed Attempts</label>
-                      <CustomSelect options={captchaOptions} value={captchaAfter} onChange={setCaptchaAfter}/>
+                      <CustomSelect options={lockoutOptions} value={lockoutDuration} onChange={setLockoutDuration} disabled={!isEditable}/>
                     </div>
                   </div>
 
@@ -226,11 +252,11 @@ export default function LoginSettings() {
                     </div>
                     <div className="ls-field">
                       <label className="ls-label">Session Timeout</label>
-                      <CustomSelect options={sessionTimeoutOptions} value={sessionTimeout} onChange={setSessionTimeout}/>
+                      <CustomSelect options={sessionTimeoutOptions} value={sessionTimeout} onChange={setSessionTimeout} disabled={!isEditable}/>
                     </div>
                     <div className="ls-field">
                       <label className="ls-label">Max Concurrent Sessions Per User</label>
-                      <CustomSelect options={maxSessionOptions} value={maxSessions} onChange={setMaxSessions}/>
+                      <CustomSelect options={maxSessionOptions} value={maxSessions} onChange={setMaxSessions} disabled={!isEditable}/>
                     </div>
                   </div>
 
@@ -245,13 +271,18 @@ export default function LoginSettings() {
                         <h3>IP Whitelisting</h3>
                         <p>Restrict login to pre-approved IP addresses only</p>
                       </div>
-                      <button className={`ls-toggle ${ipWhitelisting ? 'on' : ''}`} onClick={() => setIpWhitelisting(v => !v)}>
+                      {/* ✅ Toggle disabled when view-only */}
+                      <button
+                        className={`ls-toggle ${ipWhitelisting ? 'on' : ''}`}
+                        onClick={() => isEditable && setIpWhitelisting(v => !v)}
+                        style={{ cursor: isEditable ? 'pointer' : 'not-allowed', opacity: isEditable ? 1 : 0.6 }}
+                      >
                         <div className="ls-toggle-thumb"/>
                       </button>
                     </div>
                     {ipWhitelisting && (
-                      <div style={{ marginTop:12,padding:'12px',background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.2)',borderRadius:10 }}>
-                        <p style={{ fontSize:12,color:'#d97706',fontWeight:600 }}>⚠️ Only IPs in the whitelist below can log in. Make sure your current IP is included.</p>
+                      <div style={{ marginTop:12, padding:'12px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:10 }}>
+                        <p style={{ fontSize:12, color:'#d97706', fontWeight:600 }}>⚠️ Only IPs in the whitelist below can log in. Make sure your current IP is included.</p>
                       </div>
                     )}
                   </div>
@@ -261,39 +292,49 @@ export default function LoginSettings() {
                     <div className="ls-card-title">
                       <div className="ls-card-icon"><Globe size={16}/></div>
                       Whitelisted IPs
-                      {!ipWhitelisting && <span style={{ fontSize:11,fontWeight:600,color:'#94a3b8',marginLeft:'auto' }}>IP whitelisting is disabled</span>}
+                      {!ipWhitelisting && <span style={{ fontSize:11, fontWeight:600, color:'#94a3b8', marginLeft:'auto' }}>IP whitelisting is disabled</span>}
                     </div>
 
                     {allowedIps.length === 0 ? (
-                      <p style={{ fontSize:13,color:'#94a3b8',textAlign:'center',padding:'16px 0' }}>No IPs whitelisted</p>
+                      <p style={{ fontSize:13, color:'#94a3b8', textAlign:'center', padding:'16px 0' }}>No IPs whitelisted</p>
                     ) : allowedIps.map((ip, i) => (
                       <div key={i} className="ls-ip-row">
                         <span className="ls-ip-code">{ip}</span>
-                        <button className="ls-ip-remove" onClick={() => removeIp(i)}><X size={13}/></button>
+                        {/* ✅ Hide remove button when view-only */}
+                        {isEditable && (
+                          <button className="ls-ip-remove" onClick={() => removeIp(i)}><X size={13}/></button>
+                        )}
                       </div>
                     ))}
 
-                    {showAddIp ? (
-                      <div className="ls-add-ip-form">
-                        <input className="ls-mini-input" placeholder="IP or CIDR e.g. 192.168.1.0/24" value={newIp} onChange={e => setNewIp(e.target.value)}/>
-                        <input className="ls-mini-input" placeholder="Label (optional)" value={newIpLabel} onChange={e => setNewIpLabel(e.target.value)}/>
-                        <div style={{ display:'flex',gap:8 }}>
-                          <button onClick={addIp} style={{ flex:1,height:34,borderRadius:8,border:'none',background:'#2db9a3',color:'#fff',fontSize:13,fontWeight:500,fontFamily:"'DM Sans',sans-serif",cursor:'pointer' }}>Add</button>
-                          <button onClick={() => { setShowAddIp(false); setNewIp(''); setNewIpLabel(''); }} style={{ flex:1,height:34,borderRadius:8,border:'1px solid #e2e8f0',background:'#fff',color:'#64748b',fontSize:13,fontWeight:500,fontFamily:"'DM Sans',sans-serif",cursor:'pointer' }}>Cancel</button>
+                    {/* ✅ Hide Add IP button when view-only */}
+                    {isEditable && (
+                      showAddIp ? (
+                        <div className="ls-add-ip-form">
+                          <input className="ls-mini-input" placeholder="IP or CIDR e.g. 192.168.1.0/24" value={newIp} onChange={e => setNewIp(e.target.value)}/>
+                          <input className="ls-mini-input" placeholder="Label (optional)" value={newIpLabel} onChange={e => setNewIpLabel(e.target.value)}/>
+                          <div style={{ display:'flex', gap:8 }}>
+                            <button onClick={addIp} style={{ flex:1, height:34, borderRadius:8, border:'none', background:'#2db9a3', color:'#fff', fontSize:13, fontWeight:500, fontFamily:"'DM Sans',sans-serif", cursor:'pointer' }}>Add</button>
+                            <button onClick={() => { setShowAddIp(false); setNewIp(''); setNewIpLabel(''); }} style={{ flex:1, height:34, borderRadius:8, border:'1px solid #e2e8f0', background:'#fff', color:'#64748b', fontSize:13, fontWeight:500, fontFamily:"'DM Sans',sans-serif", cursor:'pointer' }}>Cancel</button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <button className="ls-add-ip-btn" onClick={() => setShowAddIp(true)}>
-                        <Plus size={14}/> Add IP Range
-                      </button>
+                      ) : (
+                        <button className="ls-add-ip-btn" onClick={() => setShowAddIp(true)}>
+                          <Plus size={14}/> Add IP Range
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
 
-                <div className="ls-footer">
-                  <button className="ls-btn-cancel" onClick={fetchSettings}><RefreshCw size={13} style={{ marginRight:6,verticalAlign:'middle' }}/>Reset</button>
-                  <button className="ls-btn-save" disabled={saving} onClick={handleSave}>{saving ? 'Saving...' : 'Save Settings'}</button>
-                </div>
+                {/* ✅ Hide Save button entirely when view-only */}
+                {isEditable && (
+                  <div className="ls-footer">
+                    <button className="ls-btn-save" disabled={saving} onClick={handleSave}>
+                      {saving ? 'Saving...' : 'Save Settings'}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>

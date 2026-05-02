@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexumAPI.Data;
 using NexumAPI.Models;
+using NexumAPI.Helpers;
 
 namespace NexumAPI.Controllers
 {
@@ -17,9 +18,15 @@ namespace NexumAPI.Controllers
         // GET /api/login-attempts
         [HttpGet]
         public async Task<IActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
             [FromQuery] string? status = null,
             [FromQuery] string? search = null)
         {
+            // Validate pagination parameters
+            page = PaginationHelper.ValidatePage(page);
+            pageSize = PaginationHelper.ValidatePageSize(pageSize);
+
             var query = _context.LoginAttempts
                 .Include(l => l.User)
                 .AsQueryable();
@@ -33,9 +40,13 @@ namespace NexumAPI.Controllers
                     (l.User != null && l.User.EmployeeId.Contains(search)) ||
                     (l.IpAddress != null && l.IpAddress.Contains(search)));
 
+            // Get total count before pagination
+            var totalItems = await query.CountAsync();
+
             var logs = await query
                 .OrderByDescending(l => l.AttemptedAt)
-                .Take(500)
+                .Skip(PaginationHelper.CalculateSkip(page, pageSize))
+                .Take(pageSize)
                 .Select(l => new {
                     l.Id,
                     IpAddress     = l.IpAddress == "::1" ? "127.0.0.1 (localhost)" : l.IpAddress,
@@ -47,7 +58,12 @@ namespace NexumAPI.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(logs);
+            return Ok(new PaginatedResponse<dynamic>(
+                logs.Cast<dynamic>().ToList(),
+                page,
+                pageSize,
+                totalItems
+            ));
         }
 
         // GET /api/login-attempts/summary

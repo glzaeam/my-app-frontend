@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
-        fontFamily: "'Open Sans', sans-serif",
+        fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
       }}
     >
       {/* Left Sidebar */}

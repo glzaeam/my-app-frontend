@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
 import SelectDropdown from '@/app/components/SelectDropdown';
-import { Search, UserX, AlertTriangle, Shield, RefreshCw } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { Search, UserX, AlertTriangle, Shield } from 'lucide-react';
+import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const ROWS_PER_PAGE = 10;
@@ -49,8 +49,7 @@ export default function DeactivateUser() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await fetch(`${API}/users`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
-      const data = await res.json();
+      const data = await fetchArray(`${API}/users`);
       setUsers(data.filter((u: ApiUser) => u.status.toLowerCase() !== 'inactive'));
       setDeactivated(data.filter((u: ApiUser) => u.status.toLowerCase() === 'inactive'));
     } catch { setToast({ msg: 'Failed to load users', type: 'error' }); }
@@ -159,7 +158,6 @@ export default function DeactivateUser() {
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Deactivate User</h1>
                 <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Deactivate user accounts and revoke system access</p>
               </div>
-              <button className="du-refresh-btn" onClick={fetchUsers}><RefreshCw size={13} /> Refresh</button>
             </div>
 
             <div className="du-grid">

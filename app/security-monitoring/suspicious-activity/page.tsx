@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { AlertTriangle, Clock, RefreshCw, CheckCircle, Filter, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Filter, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -24,7 +24,7 @@ const severityCfg: Record<string, { color: string; bg: string; border: string; d
   critical: { color: '#dc2626', bg: '#fff5f5', border: '#fca5a5', dot: '#ef4444', iconBg: 'rgba(239,68,68,0.1)'  },
   high:     { color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', dot: '#f97316', iconBg: 'rgba(249,115,22,0.1)' },
   medium:   { color: '#d97706', bg: '#fffbeb', border: '#fde68a', dot: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)' },
-  low:      { color: '#2db9a3', bg: '#f0fdf9', border: '#a7f3d0', dot: '#10b981', iconBg: 'rgba(45,185,163,0.1)'  },
+  low:      { color: '#1D9E75', bg: '#f0fdf9', border: '#a7f3d0', dot: '#10b981', iconBg: 'rgba(45,185,163,0.15)'  },
 };
 
 function Toast({ msg, type, onDone }: { msg: string; type: 'success' | 'error'; onDone: () => void }) {
@@ -176,7 +176,7 @@ export default function SuspiciousActivity() {
     { label: 'Critical', value: alerts.filter(a => a.severity === 'critical').length, accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)' },
     { label: 'High',     value: alerts.filter(a => a.severity === 'high').length,     accent: '#ea580c', iconBg: 'rgba(234,88,12,0.1)'  },
     { label: 'Medium',   value: alerts.filter(a => a.severity === 'medium').length,   accent: '#d97706', iconBg: 'rgba(217,119,6,0.1)'  },
-    { label: 'Low',      value: alerts.filter(a => a.severity === 'low').length,      accent: '#2db9a3', iconBg: 'rgba(45,185,163,0.1)' },
+    { label: 'Low',      value: alerts.filter(a => a.severity === 'low').length,      accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)' },
   ];
 
   const formatTime = (d: string) => {
@@ -221,8 +221,7 @@ export default function SuspiciousActivity() {
         .resolve-btn{padding:5px 14px;border-radius:7px;border:1.5px solid #2db9a3;background:#fff;color:#2db9a3;font-size:12px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;transition:all 0.15s;}
         .resolve-btn:hover{background:#2db9a3;color:#fff;}
         .resolve-btn:disabled{opacity:0.5;cursor:not-allowed;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'Open Sans',sans-serif;color:#64748b;cursor:pointer;margin-left:auto;}
-        .refresh-btn:hover{background:#f5f7fa;}
+
         .empty-state{text-align:center;padding:40px 0;color:#94a3b8;font-size:13px;}
       `}</style>
 
@@ -254,7 +253,7 @@ export default function SuspiciousActivity() {
                 value={severityFilter}
                 onChange={setSeverityFilter}
               />
-              <button className="refresh-btn" onClick={fetchAlerts}><RefreshCw size={14} /> Refresh</button>
+
             </div>
 
             {loading ? (

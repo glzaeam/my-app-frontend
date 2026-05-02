@@ -51,7 +51,7 @@ const SelectDropdown = ({
             border: value ? '2px solid #2db9a3' : '1px solid #e2e8f0',
             background: value ? '#f0fdf9' : '#fff',
             fontSize: '13px',
-            fontFamily: "'Open Sans',sans-serif",
+            fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
             color: value ? '#1a2332' : '#94a3b8',
             cursor: 'pointer',
             transition: 'all 0.18s',

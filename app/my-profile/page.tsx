@@ -99,15 +99,6 @@ function Toast({ msg, type, onDone }: { msg: string; type: 'success' | 'error'; 
 
 function capitalizeFirst(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 
-const ACTIVITY_LOG = [
-  { icon: Lock,         color: '#7c3aed', bg: '#ede9fe', text: 'Password changed',       sub: 'Security update',    time: '2 hours ago' },
-  { icon: Edit3,        color: '#1d4ed8', bg: '#eff6ff', text: 'Profile info updated',    sub: 'Name & department',  time: 'Yesterday'   },
-  { icon: CheckCircle2, color: '#15803d', bg: '#dcfce7', text: 'Login successful',        sub: 'Davao City, PH',     time: '2 days ago'  },
-  { icon: Camera,       color: '#0d9488', bg: '#ccfbf1', text: 'Profile photo updated',   sub: 'New photo uploaded', time: '3 days ago'  },
-  { icon: AlertCircle,  color: '#d97706', bg: '#fef9c3', text: 'Login from new device',   sub: 'Chrome on Windows',  time: '5 days ago'  },
-  { icon: ShieldCheck,  color: '#15803d', bg: '#dcfce7', text: 'MFA verification passed', sub: 'Two-factor auth',    time: '1 week ago'  },
-];
-
 const MyProfile = () => {
   const router = useRouter();
   const { refreshUser }               = useAuth();
@@ -119,7 +110,6 @@ const MyProfile = () => {
   const [profile, setProfile]         = useState<UserProfile | null>(null);
   const [loading, setLoading]         = useState(true);
   const [saving, setSaving]           = useState(false);
-  const [mfaLoading, setMfaLoading]   = useState(false);
   const [uploading, setUploading]     = useState(false);
   const [toast, setToast]             = useState<{ msg: string; type: 'success'|'error' } | null>(null);
   const fileInputRef                  = useRef<HTMLInputElement>(null);
@@ -133,6 +123,10 @@ const MyProfile = () => {
   const [showPw, setShowPw]           = useState({ current: false, newPw: false, confirm: false });
   const [pwError, setPwError]         = useState<string | null>(null);
 
+  const [activities, setActivities]     = useState<any[]>([]);
+  const [actSummary, setActSummary]     = useState({ totalLogins: 0, lastLogin: null as string | null, deviceCount: 0 });
+  const [actLoading, setActLoading]     = useState(false);
+
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
@@ -142,7 +136,23 @@ const MyProfile = () => {
     finally  { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchProfile(); }, [fetchProfile]);
+  const fetchActivity = useCallback(async () => {
+    setActLoading(true);
+    try {
+      const res  = await fetch(`${API}/audit/my-activity?limit=20`, {
+        headers: { Authorization: `Bearer ${auth.getToken()}` }
+      });
+      const data = await res.json();
+      setActivities(data.activities ?? []);
+      setActSummary(data.summary ?? { totalLogins: 0, lastLogin: null, deviceCount: 0 });
+    } catch {}
+    finally { setActLoading(false); }
+  }, []);
+
+  useEffect(() => { 
+    fetchProfile(); 
+    fetchActivity(); 
+  }, [fetchProfile, fetchActivity]);
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -223,32 +233,6 @@ const MyProfile = () => {
       } else setPwError(data.message || 'Failed to change password.');
     } catch { setPwError('Server error.'); }
     finally  { setSaving(false); }
-  };
-
-  // ── MFA Toggle ─────────────────────────────────────────────────────────────
-  const handleToggleMfa = async () => {
-    if (!profile) return;
-    setMfaLoading(true);
-    const newMfaValue = !profile.mfaEnabled;
-    try {
-      const res  = await fetch(`${API}/users/${profile.id}/toggle-mfa`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
-        body: JSON.stringify({ mfaEnabled: newMfaValue }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        // ✅ Update local state immediately so UI reflects instantly
-        setProfile(prev => prev ? { ...prev, mfaEnabled: newMfaValue } : prev);
-        setToast({ msg: `MFA ${newMfaValue ? 'enabled' : 'disabled'} successfully!`, type: 'success' });
-        // Then sync with server
-        await fetchProfile();
-        await refreshUser();
-      } else {
-        setToast({ msg: data.message || 'Failed to update MFA', type: 'error' });
-      }
-    } catch { setToast({ msg: 'Server error', type: 'error' }); }
-    finally  { setMfaLoading(false); }
   };
 
   return (
@@ -499,7 +483,7 @@ const MyProfile = () => {
                         <div className="card">
                           <div className="card-title">Security Settings</div>
 
-                          {/* MFA row with toggle button */}
+                          {/* MFA row — read only, controlled by System Admin */}
                           <div className="sec-row">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div className="i-icon" style={{ background: profile.mfaEnabled ? '#f0fdf4' : '#fef9c3' }}>
@@ -509,21 +493,14 @@ const MyProfile = () => {
                               </div>
                               <div>
                                 <div className="i-label">Two-Factor Auth (MFA)</div>
-                                <div className="i-value">{profile.mfaEnabled ? 'Your account is protected' : 'Not configured — enable for security'}</div>
+                                <div className="i-value">{profile.mfaEnabled ? 'Your account is protected' : 'Disabled by administrator'}</div>
                               </div>
                             </div>
-                            <button
-                              className={`mfa-toggle-btn ${profile.mfaEnabled ? 'mfa-disable' : 'mfa-enable'}`}
-                              onClick={handleToggleMfa}
-                              disabled={mfaLoading}
-                            >
-                              {mfaLoading
-                                ? <><Loader2 size={13} className="spin" />Updating…</>
-                                : profile.mfaEnabled
-                                  ? <><ShieldOff size={13} />Disable MFA</>
-                                  : <><ShieldCheck size={13} />Enable MFA</>
-                              }
-                            </button>
+                            {/* ✅ Read-only badge — only System Admin can change this */}
+                            <span className={`badge ${profile.mfaEnabled ? 'bg-green' : 'bg-amber'}`}>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: profile.mfaEnabled ? '#16a34a' : '#d97706' }} />
+                              {profile.mfaEnabled ? 'Enabled' : 'Disabled'}
+                            </span>
                           </div>
 
                           {/* Password row */}
@@ -583,16 +560,55 @@ const MyProfile = () => {
                       <div>
                         <div className="card">
                           <div className="card-title">Recent Activity</div>
-                          {ACTIVITY_LOG.map((a, i) => {
-                            const Icon = a.icon as React.ElementType;
+                          {actLoading ? (
+                            <div style={{ textAlign: 'center', padding: '30px 0', color: '#65676b' }}>Loading...</div>
+                          ) : activities.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '30px 0', color: '#9ca3af', fontSize: 13 }}>No activity yet.</div>
+                          ) : activities.map((a, i) => {
+                            // Pick icon and color based on action
+                            const isLogin    = a.action?.toLowerCase().includes('login');
+                            const isSuccess  = a.status === 'Success';
+                            const isFailed   = a.status === 'Failed';
+                            const isPassword = a.action?.toLowerCase().includes('password');
+                            const isProfile  = a.action?.toLowerCase().includes('profile') || a.action?.toLowerCase().includes('update');
+                            const isMfa      = a.action?.toLowerCase().includes('mfa') || a.action?.toLowerCase().includes('otp');
+
+                            const iconColor = isSuccess ? '#15803d' : isFailed ? '#dc2626' : '#1d4ed8';
+                            const iconBg    = isSuccess ? '#dcfce7' : isFailed ? '#fee2e2' : '#eff6ff';
+                            const Icon      = isPassword ? KeyRound
+                                            : isProfile  ? Edit3
+                                            : isMfa      ? ShieldCheck
+                                            : isLogin    ? (isSuccess ? CheckCircle2 : AlertCircle)
+                                            : Activity;
+
+                            // Format time
+                            const date     = new Date(a.createdAt);
+                            const now      = new Date();
+                            const diffMs   = now.getTime() - date.getTime();
+                            const diffMins = Math.floor(diffMs / 60000);
+                            const diffHrs  = Math.floor(diffMins / 60);
+                            const diffDays = Math.floor(diffHrs / 24);
+                            const timeStr  = diffMins < 1   ? 'Just now'
+                                           : diffMins < 60  ? `${diffMins}m ago`
+                                           : diffHrs < 24   ? `${diffHrs}h ago`
+                                           : diffDays < 7   ? `${diffDays}d ago`
+                                           : date.toLocaleDateString();
+
                             return (
                               <div key={i} className="act-item">
-                                <div className="act-icon" style={{ background: a.bg }}><Icon size={17} color={a.color} /></div>
-                                <div style={{ flex: 1 }}>
-                                  <div className="act-text">{a.text}</div>
-                                  <div className="act-sub">{a.sub}</div>
+                                <div className="act-icon" style={{ background: iconBg }}>
+                                  <Icon size={17} color={iconColor} />
                                 </div>
-                                <div className="act-time"><Clock size={11} />{a.time}</div>
+                                <div style={{ flex: 1 }}>
+                                  <div className="act-text">{a.action}</div>
+                                  <div className="act-sub">
+                                    {a.module && <span style={{ marginRight: 8 }}>{a.module}</span>}
+                                    {a.ipAddress && <span style={{ color: '#9ca3af' }}>{a.ipAddress}</span>}
+                                  </div>
+                                </div>
+                                <div className="act-time">
+                                  <Clock size={11} />{timeStr}
+                                </div>
                               </div>
                             );
                           })}
@@ -603,12 +619,12 @@ const MyProfile = () => {
                         <div className="detail-title">Activity Summary</div>
                         <div className="detail-grid">
                           {[
-                            { label: 'Total Logins',      value: '42' },
-                            { label: 'Last Login',        value: 'Today, 9:14 AM' },
-                            { label: 'Profile Edits',     value: '3' },
-                            { label: 'Password Changes',  value: '2' },
-                            { label: 'Devices Used',      value: '2' },
-                            { label: 'Location',          value: 'Davao City, PH' },
+                            { label: 'Total Logins',   value: actSummary.totalLogins.toString() },
+                            { label: 'Last Login',     value: actSummary.lastLogin
+                                ? new Date(actSummary.lastLogin).toLocaleString()
+                                : '—' },
+                            { label: 'Devices Used',  value: actSummary.deviceCount.toString() },
+                            { label: 'Location',      value: 'Davao City, PH' },
                           ].map(s => (
                             <div key={s.label} className="d-item">
                               <div className="d-label">{s.label}</div>
@@ -618,7 +634,7 @@ const MyProfile = () => {
                         </div>
                         <div style={{ height: 1, background: '#e4e6eb', margin: '18px 0' }} />
                         <div style={{ fontSize: 13, color: '#65676b' }}>
-                          Activity data is refreshed in real-time. Unusual login attempts are flagged automatically.
+                          Activity data pulled from your real audit logs. Unusual login attempts are flagged automatically.
                         </div>
                       </div>
                     </>

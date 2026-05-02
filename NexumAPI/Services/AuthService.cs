@@ -107,7 +107,7 @@ namespace NexumAPI.Services
                 var (locked, _) = _lockout.RecordFailedAttempt(ip, loginDto.EmployeeId);
                 int failCount   = _lockout.GetAccountFailedAttempts(loginDto.EmployeeId);
                 return new { success = false, locked, requireCaptcha = failCount >= 3,
-                             attemptsLeft = Math.Max(0, 5 - failCount),
+                             attemptsLeft = Math.Max(0, _lockout.MaxAttempts - failCount),
                              remainingMinutes = locked ? 15 : 0, message = "Invalid credentials." };
             }
 
@@ -146,7 +146,7 @@ namespace NexumAPI.Services
                 }
 
                 return new { success = false, locked, requireCaptcha = failCount >= 3,
-                             attemptsLeft = Math.Max(0, 5 - failCount),
+                             attemptsLeft = Math.Max(0, _lockout.MaxAttempts - failCount),
                              remainingMinutes = locked ? 15 : 0, message = "Invalid credentials." };
             }
 
@@ -156,13 +156,43 @@ namespace NexumAPI.Services
 
             _lockout.ResetAttempts(ip, loginDto.EmployeeId);
 
-            var otp       = await GenerateOtpAsync(user.Id);
+            // ✅ Check if user has Authenticator App MFA enabled — skip OTP, ask for TOTP instead
+            var authenticatorSetting = await _context.MfaSettings
+                .FirstOrDefaultAsync(m => m.UserId == user.Id
+                                        && m.Method == "Authenticator"
+                                        && m.IsEnabled == true);
+
+            if (authenticatorSetting != null)
+            {
+                await RecordLoginAttemptAsync(user.Id, ip, "Success", null);
+                return new { success = true, locked = false, requiresOtp = false,
+                             requiresTotp = true,
+                             userId = user.Id.ToString(),
+                             message = "Enter the code from your Authenticator app" };
+            }
+
+            // ✅ Normal OTP flow (SMS / Email)
+            var otp = await GenerateOtpAsync(user.Id);
+
+            var mfaConfig = await _context.MfaConfigs.FirstOrDefaultAsync();
+
+            var userRole = user.UserRoles.FirstOrDefault()?.Role;
+            var roleAllowedMethods = (userRole?.AllowedMfaMethods ?? "SMS,Email")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(m => m.Trim().ToLower())
+                .ToList();
+
             var smsSent   = false;
             var emailSent = false;
 
-            if (!string.IsNullOrEmpty(user.Phone))
+            if ((mfaConfig?.SmsEnabled ?? true)
+                && roleAllowedMethods.Contains("sms")
+                && !string.IsNullOrEmpty(user.Phone))
                 smsSent = await _sms.SendOtpAsync(user.Phone, otp);
-            if (!string.IsNullOrEmpty(user.Email))
+
+            if ((mfaConfig?.EmailEnabled ?? true)
+                && roleAllowedMethods.Contains("email")
+                && !string.IsNullOrEmpty(user.Email))
                 emailSent = await _email.SendOtpAsync(user.Email, user.Name, otp);
 
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -174,6 +204,37 @@ namespace NexumAPI.Services
 
             return new { success = true, locked = false, requiresOtp = true,
                          userId = user.Id.ToString(), message = "OTP sent via SMS and Email" };
+        }
+
+        // ── Shared helper: enforce concurrent session limit ───────────────────
+        private async Task<object?> EnforceConcurrentSessionsAsync(Guid userId)
+        {
+            var settings     = await _context.LoginSettings.FirstOrDefaultAsync();
+            int maxSessions  = settings?.MaxConcurrentSessions ?? 3;
+            bool forceLogout = settings?.ForceLogoutOnNew      ?? true;
+
+            if (maxSessions <= 0) return null; // 0 = unlimited
+
+            var activeSessions = await _context.Sessions
+                .Where(s => s.UserId == userId && s.Status == "Active")
+                .OrderBy(s => s.StartedAt)
+                .ToListAsync();
+
+            if (activeSessions.Count < maxSessions) return null; // under limit — OK
+
+            if (!forceLogout)
+            {
+                // Block the new login
+                return new { success = false,
+                             message = $"Maximum of {maxSessions} concurrent session(s) reached. Please log out from another device first." };
+            }
+
+            // Force-logout the oldest session(s) to make room
+            int toRemove = activeSessions.Count - maxSessions + 1;
+            for (int i = 0; i < toRemove; i++)
+                activeSessions[i].Status = "Ended";
+
+            return null; // allow login to continue
         }
 
         public async Task<object> VerifyOtpAsync(string userId, string code)
@@ -201,11 +262,14 @@ namespace NexumAPI.Services
             if (user == null)
                 return new { success = false, message = "User not found" };
 
+            // ✅ Enforce concurrent session limit
+            var concurrentError = await EnforceConcurrentSessionsAsync(userGuid);
+            if (concurrentError != null) return concurrentError;
+
             var token     = GenerateJwtToken(user);
             var userAgent = _httpContextAccessor.HttpContext?
                 .Request.Headers["User-Agent"].ToString() ?? "unknown";
 
-            // Parse browser and OS from user agent
             string browser = userAgent.Contains("Edg/")     ? "Edge"
                            : userAgent.Contains("Chrome/")  ? "Chrome"
                            : userAgent.Contains("Firefox/") ? "Firefox"
@@ -223,24 +287,26 @@ namespace NexumAPI.Services
                               : userAgent.Contains("Tablet")  || userAgent.Contains("iPad") ? "tablet"
                               : "desktop";
 
-            // Create session
+            // ✅ Session duration from settings
+            var loginSettings = await _context.LoginSettings.FirstOrDefaultAsync();
+            int sessionHours  = loginSettings?.MaxSessionDurationHours > 0
+                                ? loginSettings.MaxSessionDurationHours : 8;
+
             _context.Sessions.Add(new Session
             {
                 UserId     = user.Id,
                 IpAddress  = ip,
                 DeviceInfo = userAgent,
                 StartedAt  = DateTime.UtcNow,
-                ExpiresAt  = DateTime.UtcNow.AddHours(8),
+                ExpiresAt  = DateTime.UtcNow.AddHours(sessionHours),
                 Status     = "Active"
             });
 
-            // Create fingerprint from full user agent
             var uaFingerprint = Convert.ToHexString(
                 System.Security.Cryptography.SHA256.HashData(
                     System.Text.Encoding.UTF8.GetBytes(userAgent)
                 )).ToLower()[..16];
 
-            // Check if device already known (fingerprint-based)
             var existingDevice = await _context.Devices
                 .FirstOrDefaultAsync(d => d.UserId == user.Id
                                        && d.Fingerprint == uaFingerprint);
@@ -256,7 +322,6 @@ namespace NexumAPI.Services
             }
             else
             {
-                // Register new device
                 _context.Devices.Add(new Device
                 {
                     Id          = Guid.NewGuid(),
@@ -273,7 +338,6 @@ namespace NexumAPI.Services
                     Status      = "active",
                 });
 
-                // Create Live Alert for new device
                 _context.SecurityAlerts.Add(new SecurityAlert
                 {
                     Id          = Guid.NewGuid(),
@@ -289,11 +353,9 @@ namespace NexumAPI.Services
             user.LastLogin = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            // Send new device email alert
             if (isNewDevice && !string.IsNullOrEmpty(user.Email))
                 await _email.SendNewDeviceAlertAsync(user.Email, user.Name, ip, userAgent);
 
-            // ✅ Get first role for roleId
             var firstRole = user.UserRoles.FirstOrDefault();
 
             return new
@@ -307,8 +369,152 @@ namespace NexumAPI.Services
                     user.Department,
                     user.Status,
                     user.ProfileImageUrl,
-                    roleId = firstRole?.RoleId.ToString(), // ✅ ADDED — needed for dynamic permissions fetch
-                    roles  = user.UserRoles.Select(ur => ur.Role?.Name).ToList() // ✅ already existed, kept
+                    roleId = firstRole?.RoleId.ToString(),
+                    roles  = user.UserRoles.Select(ur => ur.Role?.Name).ToList()
+                }
+            };
+        }
+
+        // ✅ Verify TOTP code from Google/Microsoft Authenticator
+        public async Task<object> VerifyTotpAsync(string userId, string code)
+        {
+            var ip = _httpContextAccessor.HttpContext?
+                .Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            if (!Guid.TryParse(userId, out var userGuid))
+                return new { success = false, message = "Invalid user" };
+
+            var setting = await _context.MfaSettings
+                .FirstOrDefaultAsync(m => m.UserId == userGuid
+                                        && m.Method == "Authenticator"
+                                        && m.IsEnabled == true);
+
+            if (setting?.SecretKey == null)
+                return new { success = false, message = "Authenticator not set up for this account." };
+
+            var secretBytes = OtpNet.Base32Encoding.ToBytes(setting.SecretKey);
+            var totp        = new OtpNet.Totp(secretBytes);
+            var valid       = totp.VerifyTotp(code, out _, new OtpNet.VerificationWindow(2, 2));
+
+            if (!valid)
+                return new { success = false, message = "Invalid or expired code. Try again." };
+
+            var user = await _context.Users
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == userGuid);
+
+            if (user == null)
+                return new { success = false, message = "User not found" };
+
+            // ✅ Enforce concurrent session limit
+            var concurrentError = await EnforceConcurrentSessionsAsync(userGuid);
+            if (concurrentError != null) return concurrentError;
+
+            var token     = GenerateJwtToken(user);
+            var userAgent = _httpContextAccessor.HttpContext?
+                .Request.Headers["User-Agent"].ToString() ?? "unknown";
+
+            string browser = userAgent.Contains("Edg/")     ? "Edge"
+                           : userAgent.Contains("Chrome/")  ? "Chrome"
+                           : userAgent.Contains("Firefox/") ? "Firefox"
+                           : userAgent.Contains("Safari/")  ? "Safari"
+                           : "Browser";
+
+            string os = userAgent.Contains("Windows") ? "Windows"
+                      : userAgent.Contains("Mac")     ? "macOS"
+                      : userAgent.Contains("iPhone")  ? "iPhone"
+                      : userAgent.Contains("Android") ? "Android"
+                      : userAgent.Contains("Linux")   ? "Linux"
+                      : "Unknown OS";
+
+            string deviceType = userAgent.Contains("Mobile")  || userAgent.Contains("iPhone") || userAgent.Contains("Android") ? "mobile"
+                              : userAgent.Contains("Tablet")  || userAgent.Contains("iPad") ? "tablet"
+                              : "desktop";
+
+            // ✅ Session duration from settings
+            var loginSettings = await _context.LoginSettings.FirstOrDefaultAsync();
+            int sessionHours  = loginSettings?.MaxSessionDurationHours > 0
+                                ? loginSettings.MaxSessionDurationHours : 8;
+
+            _context.Sessions.Add(new Session
+            {
+                UserId     = user.Id,
+                IpAddress  = ip,
+                DeviceInfo = userAgent,
+                StartedAt  = DateTime.UtcNow,
+                ExpiresAt  = DateTime.UtcNow.AddHours(sessionHours),
+                Status     = "Active"
+            });
+
+            var uaFingerprint = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(userAgent)
+                )).ToLower()[..16];
+
+            var existingDevice = await _context.Devices
+                .FirstOrDefaultAsync(d => d.UserId == user.Id
+                                       && d.Fingerprint == uaFingerprint);
+
+            bool isNewDevice = existingDevice == null;
+
+            if (existingDevice != null)
+            {
+                existingDevice.LastUsed  = DateTime.UtcNow;
+                existingDevice.IpAddress = ip;
+                if (existingDevice.Status == "revoked")
+                    existingDevice.Status = "active";
+            }
+            else
+            {
+                _context.Devices.Add(new Device
+                {
+                    Id          = Guid.NewGuid(),
+                    UserId      = user.Id,
+                    DeviceName  = $"{browser} on {os}",
+                    DeviceType  = deviceType,
+                    OS          = os,
+                    Browser     = browser,
+                    IpAddress   = ip,
+                    Fingerprint = uaFingerprint,
+                    Location    = "Unknown",
+                    IsTrusted   = false,
+                    LastUsed    = DateTime.UtcNow,
+                    Status      = "active",
+                });
+
+                _context.SecurityAlerts.Add(new SecurityAlert
+                {
+                    Id          = Guid.NewGuid(),
+                    UserId      = user.Id,
+                    AlertType   = "New Device Login",
+                    Severity    = "medium",
+                    Description = $"User '{user.Name}' ({user.EmployeeId}) logged in from a new device: {browser} on {os}. IP: {ip}",
+                    Status      = "active",
+                    CreatedAt   = DateTime.UtcNow,
+                });
+            }
+
+            user.LastLogin = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            if (isNewDevice && !string.IsNullOrEmpty(user.Email))
+                await _email.SendNewDeviceAlertAsync(user.Email, user.Name, ip, userAgent);
+
+            var firstRole = user.UserRoles.FirstOrDefault();
+
+            return new
+            {
+                success = true, token,
+                user = new {
+                    id              = user.Id.ToString(),
+                    user.EmployeeId,
+                    user.Name,
+                    user.Email,
+                    user.Department,
+                    user.Status,
+                    user.ProfileImageUrl,
+                    roleId = firstRole?.RoleId.ToString(),
+                    roles  = user.UserRoles.Select(ur => ur.Role?.Name).ToList()
                 }
             };
         }
@@ -385,7 +591,7 @@ namespace NexumAPI.Services
             };
             foreach (var ur in user.UserRoles)
                 if (ur.Role?.Name != null)
-                    claims.Add(new Claim(ClaimTypes.Role, ur.Role.Name));
+                    claims.Add(new Claim("role", ur.Role.Name)); // ✅ FIXED: use "role" instead of ClaimTypes.Role
 
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var creds      = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
@@ -401,7 +607,6 @@ namespace NexumAPI.Services
 
         private async Task RecordLoginAttemptAsync(Guid? userId, string ip, string status, string? reason)
         {
-            // 1. Save login attempt
             _context.LoginAttempts.Add(new LoginAttempt
             {
                 UserId        = userId,
@@ -411,7 +616,6 @@ namespace NexumAPI.Services
                 AttemptedAt   = DateTime.UtcNow
             });
 
-            // 2. Write to audit log
             _context.AuditLogs.Add(new AuditLog
             {
                 UserId    = userId,
@@ -423,7 +627,6 @@ namespace NexumAPI.Services
                 IpAddress = ip,
             });
 
-            // 3. Check threshold → create security alert
             if (status == "Failed" && ip != "unknown")
             {
                 var settings  = await _context.LoginSettings.FirstOrDefaultAsync();

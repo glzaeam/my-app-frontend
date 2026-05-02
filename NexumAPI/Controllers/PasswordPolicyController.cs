@@ -14,14 +14,15 @@ namespace NexumAPI.Controllers
         private readonly NexumDbContext _context;
         public PasswordPolicyController(NexumDbContext context) => _context = context;
 
-        // GET /api/password-policy
+        // GET /api/password-policy — AllowAnonymous so Request Access page can fetch rules
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> Get()
         {
             var policy = await _context.PasswordPolicies.FirstOrDefaultAsync();
             if (policy == null)
                 return Ok(new {
-                    minLength         = 12,   // changed from 8
+                    minLength         = 12,
                     requireUppercase  = true,
                     requireLowercase  = true,
                     requireNumbers    = true,
@@ -45,10 +46,9 @@ namespace NexumAPI.Controllers
 
         // PUT /api/password-policy
         [HttpPut]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "System Admin")]
         public async Task<IActionResult> Save([FromBody] PasswordPolicyRequest dto)
         {
-            // Enforce minimum of 12
             if (dto.MinLength < 12) dto.MinLength = 12;
 
             var policy = await _context.PasswordPolicies.FirstOrDefaultAsync();
@@ -77,6 +77,30 @@ namespace NexumAPI.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(new { success = true, message = "Password policy saved" });
+        }
+
+        // GET /api/password-policy/history
+        [HttpGet("history")]
+        public async Task<IActionResult> GetHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var query = _context.PasswordHistories
+                .OrderByDescending(h => h.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(h => new {
+                    h.Id,
+                    EmployeeId   = h.User != null ? h.User.EmployeeId : "",
+                    EmployeeName = h.User != null ? h.User.Name : "",
+                    ChangedAt    = h.CreatedAt,
+                    ChangedBy    = h.ChangedBy ?? "System",
+                    Reason       = h.Reason ?? "Manual change",
+                })
+                .ToListAsync();
+
+            return Ok(new { totalCount, items });
         }
 
         // GET /api/password-policy/roles
@@ -115,7 +139,7 @@ namespace NexumAPI.Controllers
             var policy = await _context.PasswordPolicies.FirstOrDefaultAsync();
             var errors = new List<string>();
 
-            int minLen = Math.Max(12, policy?.MinLength ?? 12); // never below 12
+            int minLen = Math.Max(12, policy?.MinLength ?? 12);
             int maxLen = 128;
 
             if (dto.Password.Length < minLen)

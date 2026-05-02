@@ -4,15 +4,17 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
-import { Clock, Monitor, X, ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
+import { Clock, Monitor, LogOut, XCircle, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-function CustomSelect({ options, value, onChange }: {
+function CustomSelect({ options, value, onChange, disabled }: {
   options: { value: string; label: string }[];
   value: string;
   onChange: (val: string) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -24,11 +26,24 @@ function CustomSelect({ options, value, onChange }: {
   }, []);
   return (
     <div ref={ref} style={{ position: 'relative', width: '100%' }}>
-      <button type="button" onClick={() => setOpen(v => !v)} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13.5, color: '#1e293b', background: open ? '#fff' : '#f8fafc', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontWeight: 400, outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.18s' }}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(v => !v)}
+        style={{
+          width: '100%', padding: '10px 14px', borderRadius: 10,
+          border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`,
+          fontSize: 13.5, color: disabled ? '#94a3b8' : '#1e293b',
+          background: disabled ? '#f8fafc' : open ? '#fff' : '#f8fafc',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          fontFamily: "'DM Sans',sans-serif", fontWeight: 400, outline: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          transition: 'all 0.18s', opacity: disabled ? 0.7 : 1,
+        }}
+      >
         <span>{selected?.label ?? 'Select'}</span>
         <ChevronDown size={15} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
-      {open && (
+      {open && !disabled && (
         <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999, overflow: 'hidden' }}>
           {options.map(opt => (
             <button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }}
@@ -65,22 +80,24 @@ interface ActiveSession {
 
 export default function SessionSettings() {
   const router = useRouter();
-  const [activeMenu, setActiveMenu]   = useState('session-settings');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
-  const [toast, setToast]             = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  // Settings
-  const [idleTimeout, setIdleTimeout]           = useState('15');
-  const [maxSessionHours, setMaxSessionHours]   = useState('8');
+  const { canEdit } = useAuth();
+  const isEditable = canEdit('authentication');
+
+  const [activeMenu, setActiveMenu]     = useState('session-settings');
+  const [sidebarOpen, setSidebarOpen]   = useState(true);
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(false);
+  const [toast, setToast]               = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  const [idleTimeout, setIdleTimeout]               = useState('15');
+  const [maxSessionHours, setMaxSessionHours]       = useState('8');
   const [concurrentSessions, setConcurrentSessions] = useState('3');
-  const [forceLogout, setForceLogout]           = useState(true);
+  const [forceLogout, setForceLogout]               = useState(true);
 
-  // Sessions
-  const [sessions, setSessions]   = useState<ActiveSession[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [sessions, setSessions]         = useState<ActiveSession[]>([]);
+  const [currentPage, setCurrentPage]   = useState(1);
+  const itemsPerPage = 10;
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -105,9 +122,10 @@ export default function SessionSettings() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const handleSave = async () => {
+    if (!isEditable) return;
     setSaving(true);
     try {
-      const res  = await fetch(`${API}/sessions/settings`, {
+      const res = await fetch(`${API}/sessions/settings`, {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
         body: JSON.stringify({
@@ -125,6 +143,7 @@ export default function SessionSettings() {
   };
 
   const handleTerminate = async (id: string) => {
+    if (!isEditable) return;
     try {
       const res  = await fetch(`${API}/sessions/${id}`, {
         method:  'DELETE',
@@ -139,6 +158,7 @@ export default function SessionSettings() {
   };
 
   const handleTerminateAll = async () => {
+    if (!isEditable) return;
     try {
       const res  = await fetch(`${API}/sessions/terminate-all`, {
         method:  'DELETE',
@@ -159,26 +179,19 @@ export default function SessionSettings() {
 
   const formatDate = (iso: string) => {
     if (!iso) return '—';
-    // Ensure the string is parsed as UTC (append Z if missing)
     const utcString = iso.endsWith('Z') ? iso : iso + 'Z';
     const d = new Date(utcString);
     const today = new Date();
     const isToday = d.toDateString() === today.toDateString();
-    
     const timeStr = d.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      hour: '2-digit', minute: '2-digit', hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
-    
     if (isToday) return `Today ${timeStr}`;
-    
     return d.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
+      month: 'short', day: 'numeric',
       year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     }) + ' ' + timeStr;
   };
 
@@ -195,7 +208,7 @@ export default function SessionSettings() {
         .top-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-bottom:18px;}
         .card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;padding:24px;box-shadow:0 4px 12px rgba(0,0,0,0.06);}
         .card-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;color:#0f172a;margin-bottom:20px;}
-        .card-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(45,185,163,0.1);color:#2db9a3;flex-shrink:0;}
+        .card-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(45,185,163,0.15);color:#1D9E75;flex-shrink:0;box-shadow:0 0 12px rgba(45,185,163,0.2);}
         .field-group{margin-bottom:16px;}
         .field-group:last-child{margin-bottom:0;}
         .field-label{font-size:12px;font-weight:500;color:#475569;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:7px;display:block;}
@@ -203,7 +216,7 @@ export default function SessionSettings() {
         .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid #f1f5f9;margin-top:4px;}
         .toggle-info h3{font-size:13.5px;font-weight:500;color:#1e293b;margin-bottom:3px;}
         .toggle-info p{font-size:12px;color:#94a3b8;}
-        .toggle{width:46px;height:26px;border-radius:13px;background:#e2e8f0;position:relative;cursor:pointer;transition:background 0.25s;flex-shrink:0;border:none;outline:none;}
+        .toggle{width:46px;height:26px;border-radius:13px;background:#e2e8f0;position:relative;transition:background 0.25s;flex-shrink:0;border:none;outline:none;}
         .toggle.on{background:#2db9a3;}
         .toggle-thumb{width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left 0.25s;box-shadow:0 1px 4px rgba(0,0,0,0.18);}
         .toggle.on .toggle-thumb{left:23px;}
@@ -212,21 +225,15 @@ export default function SessionSettings() {
         table{width:100%;border-collapse:collapse;table-layout:fixed;}
         thead tr{background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
         thead th{padding:11px 20px;text-align:center;font-size:10.5px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.09em;}
-        thead th:nth-child(1){width:18%;text-align:center;}
-        thead th:nth-child(2){width:11%;}
-        thead th:nth-child(3){width:14%;}
-        thead th:nth-child(4){width:17%;}
-        thead th:nth-child(5){width:14%;}
-        thead th:nth-child(6){width:14%;}
-        thead th:nth-child(7){width:12%;}
         tbody tr{border-bottom:1px solid #f8fafc;transition:background 0.13s;}
         tbody tr:last-child{border-bottom:none;}
         tbody tr:hover{background:#fafbfd;}
         tbody td{padding:13px 20px;font-size:13px;color:#1e293b;font-weight:500;vertical-align:middle;text-align:center;}
-        .terminate-btn{width:28px;height:28px;border-radius:8px;border:1.5px solid #fee2e2;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#ef4444;transition:all 0.15s;margin:0 auto;overflow:hidden;text-overflow:ellipsis;}
-        .terminate-btn:hover{background:#fee2e2;}
+        .terminate-btn{width:30px;height:30px;border-radius:8px;border:1.5px solid #fee2e2;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#ef4444;transition:all 0.15s;margin:0 auto;}
+        .terminate-btn:hover{background:#fee2e2;border-color:#fca5a5;}
         .terminate-all-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:#ef4444;background:#fee2e2;border:1.5px solid #fecaca;border-radius:8px;padding:6px 14px;cursor:pointer;transition:all 0.18s;font-family:'DM Sans',sans-serif;}
         .terminate-all-btn:hover{background:#fecaca;}
+        .terminate-all-btn:disabled{opacity:0.45;cursor:not-allowed;}
         .pagination-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-top:1px solid #f1f5f9;background:#fafbfc;}
         .pagination-info{font-size:13px;color:#94a3b8;}
         .pagination-info strong{color:#475569;font-weight:600;}
@@ -234,15 +241,13 @@ export default function SessionSettings() {
         .pg-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#64748b;transition:all 0.15s;}
         .pg-btn:hover:not(:disabled){border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
         .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
-        .pg-btn.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
         .pg-counter{min-width:50px;text-align:center;font-size:13px;color:#475569;font-weight:500;}
         .footer-actions{display:flex;justify-content:flex-end;gap:12px;}
         .btn-cancel{padding:11px 28px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;font-size:13.5px;font-weight:500;font-family:'DM Sans',sans-serif;}
         .btn-save{padding:11px 28px;border-radius:10px;border:none;background:#2db9a3;color:#fff;cursor:pointer;font-size:13.5px;font-weight:600;font-family:'DM Sans',sans-serif;box-shadow:0 2px 10px rgba(45,185,163,0.3);}
         .btn-save:disabled{opacity:0.6;cursor:not-allowed;}
         .btn-save:hover:not(:disabled){background:#28a593;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'DM Sans',sans-serif;color:#64748b;cursor:pointer;}
-        .refresh-btn:hover{background:#f5f7fa;}
+        .readonly-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#64748b;background:#f1f5f9;padding:5px 12px;border-radius:20px;border:1px solid #e2e8f0;}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
@@ -255,13 +260,18 @@ export default function SessionSettings() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
               <div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2db9a3' }} />Authentication
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  {!isEditable && (
+                    <span className="readonly-badge">👁 View Only</span>
+                  )}
                 </div>
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Session Settings</h1>
-                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Configure session timeouts and manage active sessions</p>
+                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>
+                  {isEditable
+                    ? 'Configure session timeouts and manage active sessions'
+                    : 'Read-only view of session configuration and active sessions'}
+                </p>
               </div>
-              <button className="refresh-btn" onClick={fetchAll}><RefreshCw size={13} /> Refresh</button>
             </div>
 
             {loading ? (
@@ -271,12 +281,15 @@ export default function SessionSettings() {
                 <div className="top-grid">
                   {/* Timeout Settings */}
                   <div className="card">
-                    <div className="card-title"><div className="card-icon"><Clock size={16} /></div>Timeout Settings</div>
+                    <div className="card-title">
+                      <div className="card-icon"><Clock size={16} /></div>
+                      Timeout Settings
+                    </div>
                     <div className="field-group">
                       <label className="field-label">Idle Timeout</label>
                       <CustomSelect
                         options={[{ value:'5', label:'5 minutes' }, { value:'10', label:'10 minutes' }, { value:'15', label:'15 minutes' }, { value:'30', label:'30 minutes' }, { value:'60', label:'60 minutes' }]}
-                        value={idleTimeout} onChange={setIdleTimeout}
+                        value={idleTimeout} onChange={setIdleTimeout} disabled={!isEditable}
                       />
                       <p className="field-desc">Auto-logout users after this inactivity period</p>
                     </div>
@@ -284,7 +297,7 @@ export default function SessionSettings() {
                       <label className="field-label">Max Session Duration</label>
                       <CustomSelect
                         options={[{ value:'4', label:'4 hours' }, { value:'6', label:'6 hours' }, { value:'8', label:'8 hours' }, { value:'12', label:'12 hours' }, { value:'24', label:'24 hours' }]}
-                        value={maxSessionHours} onChange={setMaxSessionHours}
+                        value={maxSessionHours} onChange={setMaxSessionHours} disabled={!isEditable}
                       />
                       <p className="field-desc">Force re-login after this duration regardless of activity</p>
                     </div>
@@ -292,12 +305,15 @@ export default function SessionSettings() {
 
                   {/* Session Policies */}
                   <div className="card">
-                    <div className="card-title"><div className="card-icon"><Monitor size={16} /></div>Session Policies</div>
+                    <div className="card-title">
+                      <div className="card-icon"><Monitor size={16} /></div>
+                      Session Policies
+                    </div>
                     <div className="field-group">
                       <label className="field-label">Concurrent Sessions Allowed</label>
                       <CustomSelect
                         options={[{ value:'1', label:'1 session' }, { value:'2', label:'2 sessions' }, { value:'3', label:'3 sessions' }, { value:'5', label:'5 sessions' }, { value:'0', label:'Unlimited' }]}
-                        value={concurrentSessions} onChange={setConcurrentSessions}
+                        value={concurrentSessions} onChange={setConcurrentSessions} disabled={!isEditable}
                       />
                       <p className="field-desc">Max simultaneous logins per user — enforced in Device Tracking</p>
                     </div>
@@ -306,7 +322,11 @@ export default function SessionSettings() {
                         <h3>Force Logout on New Session</h3>
                         <p>Terminate oldest session when limit is reached</p>
                       </div>
-                      <button className={`toggle ${forceLogout ? 'on' : ''}`} onClick={() => setForceLogout(v => !v)}>
+                      <button
+                        className={`toggle ${forceLogout ? 'on' : ''}`}
+                        onClick={() => isEditable && setForceLogout(v => !v)}
+                        style={{ cursor: isEditable ? 'pointer' : 'not-allowed', opacity: isEditable ? 1 : 0.5 }}
+                      >
                         <div className="toggle-thumb" />
                       </button>
                     </div>
@@ -322,33 +342,49 @@ export default function SessionSettings() {
                         {sessions.length} session{sessions.length !== 1 ? 's' : ''} currently active
                       </div>
                     </div>
-                    <button className="terminate-all-btn" onClick={handleTerminateAll} disabled={sessions.length === 0}>
-                      <X size={13} /> Terminate All
-                    </button>
+                    {isEditable && (
+                      <button className="terminate-all-btn" onClick={handleTerminateAll} disabled={sessions.length === 0}>
+                        <XCircle size={13} /> Terminate All
+                      </button>
+                    )}
                   </div>
                   <table>
                     <thead>
-                      <tr><th>User</th><th>Role</th><th>Device</th><th>IP Address</th><th>Started</th><th>Expires</th><th>Action</th></tr>
+                      <tr>
+                        <th style={{ width: '18%' }}>User</th>
+                        <th style={{ width: '11%' }}>Role</th>
+                        <th style={{ width: '14%' }}>Device</th>
+                        <th style={{ width: '17%' }}>IP Address</th>
+                        <th style={{ width: '14%' }}>Started</th>
+                        <th style={{ width: isEditable ? '14%' : '26%' }}>Expires</th>
+                        {isEditable && <th style={{ width: '12%' }}>Action</th>}
+                      </tr>
                     </thead>
                     <tbody>
                       {sessions.length === 0 ? (
-                        <tr><td colSpan={7} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No active sessions.</td></tr>
+                        <tr>
+                          <td colSpan={isEditable ? 7 : 6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>
+                            No active sessions.
+                          </td>
+                        </tr>
                       ) : paged.map(s => (
                         <tr key={s.id}>
-                          <td style={{ textAlign: 'center' }}>
+                          <td>
                             <div style={{ fontWeight: 600, color: '#0f172a' }}>{s.userName}</div>
                             <div style={{ fontSize: 11, color: '#94a3b8' }}>{s.employeeId}</div>
                           </td>
-                          <td style={{ fontSize: 12, color: '#64748b', textAlign: 'center' }}>{s.role}</td>
-                          <td style={{ fontSize: 12, color: '#475569', textAlign: 'center' }}>{s.deviceInfo || '—'}</td>
-                          <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64748b', textAlign: 'center' }}>{s.ipAddress || '—'}</td>
-                          <td style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>{formatDate(s.startedAt)}</td>
-                          <td style={{ fontSize: 12, color: '#475569', textAlign: 'center' }}>{s.expiresAt ? formatDate(s.expiresAt) : '—'}</td>
-                          <td style={{ textAlign: 'center' }}>
-                            <button className="terminate-btn" onClick={() => handleTerminate(s.id)} title="Terminate session">
-                              <X size={13} />
-                            </button>
-                          </td>
+                          <td style={{ fontSize: 12, color: '#64748b' }}>{s.role}</td>
+                          <td style={{ fontSize: 12, color: '#475569' }}>{s.deviceInfo || '—'}</td>
+                          <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64748b' }}>{s.ipAddress || '—'}</td>
+                          <td style={{ fontSize: 12, color: '#94a3b8' }}>{formatDate(s.startedAt)}</td>
+                          <td style={{ fontSize: 12, color: '#475569' }}>{s.expiresAt ? formatDate(s.expiresAt) : '—'}</td>
+                          {isEditable && (
+                            <td>
+                              <button className="terminate-btn" onClick={() => handleTerminate(s.id)} title="Terminate session">
+                                <LogOut size={13} />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -365,12 +401,14 @@ export default function SessionSettings() {
                   </div>
                 </div>
 
-                <div className="footer-actions">
-                  <button className="btn-cancel" onClick={fetchAll}>Reset</button>
-                  <button className="btn-save" disabled={saving} onClick={handleSave}>
-                    {saving ? 'Saving...' : 'Save Session Settings'}
-                  </button>
-                </div>
+                {isEditable && (
+                  <div className="footer-actions">
+                    <button className="btn-cancel" onClick={fetchAll}>Reset</button>
+                    <button className="btn-save" disabled={saving} onClick={handleSave}>
+                      {saving ? 'Saving...' : 'Save Session Settings'}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>

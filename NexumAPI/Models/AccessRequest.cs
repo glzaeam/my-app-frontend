@@ -11,7 +11,8 @@ namespace NexumAPI.Models
         public string? RequestedRole { get; set; }
         public string PasswordHash { get; set; } = string.Empty;
         public string Status { get; set; } = "Pending"; // Pending, Approved, Rejected
-        public string? ReviewedBy { get; set; }
+        public Guid? ReviewedBy { get; set; }
+        public User? Reviewer { get; set; }
         public string? RejectionReason { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? ReviewedAt { get; set; }

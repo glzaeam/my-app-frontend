@@ -1,0 +1,529 @@
+/**
+ * Nexum Unified Table Styling System
+ * Provides consistent design, typography, and color scheme across all tables
+ * 
+ * Color System:
+ * - Primary: #1D9E75 (teal/green accent)
+ * - Text Primary: #171717 (dark text)
+ * - Text Secondary: #6B7280 (medium gray)
+ * - Text Tertiary: #9CA3AF (light gray)
+ * - Background Primary: #FFFFFF
+ * - Background Secondary: #F8FAFC (light gray)
+ * - Border: #E5E7EB (light gray)
+ * 
+ * Typography:
+ * - Font Family: DM Sans (system fallback)
+ * - Header: 13px, 600 weight, letter-spacing: -0.01em
+ * - Cell: 13px, 400 weight, letter-spacing: 0
+ * - Muted: 12px, 400 weight
+ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Root CSS Variables
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Color Palette */
+  --table-color-primary: #1D9E75;
+  --table-color-success: #10B981;
+  --table-color-error: #EF4444;
+  --table-color-warning: #F59E0B;
+  --table-color-info: #3B82F6;
+  --table-color-pending: #8B5CF6;
+
+  /* Text Colors */
+  --table-text-primary: #171717;
+  --table-text-secondary: #6B7280;
+  --table-text-tertiary: #9CA3AF;
+  --table-text-muted: #D1D5DB;
+
+  /* Background Colors */
+  --table-bg-primary: #FFFFFF;
+  --table-bg-secondary: #F8FAFC;
+  --table-bg-hover: #F3F4F6;
+  --table-bg-disabled: #F9FAFB;
+
+  /* Border Colors */
+  --table-border-default: #E5E7EB;
+  --table-border-light: #F3F4F6;
+  --table-border-dark: #D1D5DB;
+
+  /* Spacing & Sizing */
+  --table-padding-h: 14px;
+  --table-padding-v: 13px;
+  --table-gap: 0px;
+  --table-border-radius: 12px;
+  --table-header-height: 40px;
+  --table-row-height: 44px;
+
+  /* Typography */
+  --table-font-family: var(--font-sans, 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  --table-font-size-header: 13px;
+  --table-font-size-cell: 13px;
+  --table-font-size-muted: 12px;
+  --table-font-weight-header: 600;
+  --table-font-weight-cell: 400;
+  --table-letter-spacing-header: -0.01em;
+  --table-letter-spacing-cell: 0;
+
+  /* Line Height */
+  --table-line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Main Table Container
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.nexum-table-wrapper {
+  width: 100%;
+  background: var(--table-bg-primary);
+  border: 1px solid var(--table-border-default);
+  border-radius: var(--table-border-radius);
+  overflow: hidden;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.2s ease;
+}
+
+.nexum-table-wrapper:hover {
+  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Table Element
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.nexum-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--table-font-family);
+  font-size: var(--table-font-size-cell);
+  color: var(--table-text-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Table Header
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.nexum-table thead {
+  background: var(--table-bg-secondary);
+  border-bottom: 1px solid var(--table-border-default);
+}
+
+.nexum-table thead tr {
+  height: var(--table-header-height);
+}
+
+.nexum-table th {
+  padding: calc(var(--table-padding-v) - 2px) var(--table-padding-h);
+  text-align: left;
+  font-size: var(--table-font-size-header);
+  font-weight: var(--table-font-weight-header);
+  color: var(--table-text-secondary);
+  letter-spacing: var(--table-letter-spacing-header);
+  line-height: var(--table-line-height);
+  white-space: nowrap;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.nexum-table th.sortable {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.nexum-table th.sortable:hover {
+  color: var(--table-text-primary);
+  background: var(--table-bg-hover);
+}
+
+.nexum-table .sort-indicator {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.nexum-table th.sortable:hover .sort-indicator {
+  opacity: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Table Body & Rows
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.nexum-table tbody tr {
+  height: var(--table-row-height);
+  border-bottom: 1px solid var(--table-border-light);
+  transition: background-color 0.12s ease;
+}
+
+.nexum-table tbody tr:hover {
+  background: var(--table-bg-hover);
+}
+
+.nexum-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.nexum-table tbody tr.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.nexum-table tbody tr.selected {
+  background: rgba(29, 158, 117, 0.05);
+}
+
+.nexum-table tbody tr.error {
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.nexum-table tbody tr.warning {
+  background: rgba(245, 158, 11, 0.03);
+}
+
+.nexum-table tbody tr.success {
+  background: rgba(16, 185, 129, 0.03);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Table Cells
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.nexum-table td {
+  padding: var(--table-padding-v) var(--table-padding-h);
+  text-align: left;
+  font-size: var(--table-font-size-cell);
+  font-weight: var(--table-font-weight-cell);
+  color: var(--table-text-primary);
+  letter-spacing: var(--table-letter-spacing-cell);
+  line-height: var(--table-line-height);
+  vertical-align: middle;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.nexum-table td:first-child {
+  padding-left: var(--table-padding-h);
+}
+
+.nexum-table td:last-child {
+  padding-right: var(--table-padding-h);
+}
+
+/* Numeric alignment */
+.nexum-table td.numeric {
+  text-align: right;
+  font-family: var(--table-font-family);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Secondary text */
+.nexum-table td.secondary {
+  color: var(--table-text-secondary);
+}
+
+/* Muted text */
+.nexum-table td.muted {
+  color: var(--table-text-tertiary);
+  font-size: var(--table-font-size-muted);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   User Cell Component
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.table-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.table-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--table-border-default);
+}
+
+.table-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.table-user-name {
+  font-size: var(--table-font-size-cell);
+  font-weight: 500;
+  color: var(--table-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-user-cell.emphasized .table-user-name {
+  font-weight: 600;
+  color: var(--table-text-primary);
+}
+
+.table-user-email {
+  font-size: var(--table-font-size-muted);
+  color: var(--table-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Status Badge Component
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.table-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: var(--table-font-size-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.table-status-badge .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* Status variants */
+.table-status-badge.status-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.table-status-badge.status-success .status-dot {
+  background: #10B981;
+}
+
+.table-status-badge.status-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #DC2626;
+}
+
+.table-status-badge.status-error .status-dot {
+  background: #EF4444;
+}
+
+.table-status-badge.status-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #D97706;
+}
+
+.table-status-badge.status-warning .status-dot {
+  background: #F59E0B;
+}
+
+.table-status-badge.status-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1D4ED8;
+}
+
+.table-status-badge.status-info .status-dot {
+  background: #3B82F6;
+}
+
+.table-status-badge.status-pending {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7C3AED;
+}
+
+.table-status-badge.status-pending .status-dot {
+  background: #8B5CF6;
+}
+
+/* Size variants */
+.table-status-badge.size-sm {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.table-status-badge.size-sm .status-dot {
+  width: 4px;
+  height: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Empty State & Loading States
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.table-empty-state {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--table-text-tertiary);
+  font-size: var(--table-font-size-cell);
+  background: var(--table-bg-primary);
+}
+
+.table-loading {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--table-text-secondary);
+  font-size: var(--table-font-size-cell);
+  background: var(--table-bg-primary);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Responsive Design
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .nexum-table th,
+  .nexum-table td {
+    padding: calc(var(--table-padding-v) - 3px) calc(var(--table-padding-h) - 4px);
+    font-size: 12px;
+  }
+
+  .nexum-table th {
+    font-size: 12px;
+  }
+
+  .table-user-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .nexum-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .nexum-table {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .nexum-table th,
+  .nexum-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .nexum-table thead {
+    display: none;
+  }
+
+  .nexum-table,
+  .nexum-table thead,
+  .nexum-table tbody,
+  .nexum-table th,
+  .nexum-table td,
+  .nexum-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .nexum-table tbody tr {
+    margin-bottom: 16px;
+    border: 1px solid var(--table-border-default);
+    border-radius: var(--table-border-radius);
+    display: block;
+    overflow: hidden;
+  }
+
+  .nexum-table tbody tr:hover {
+    background: var(--table-bg-primary);
+  }
+
+  .nexum-table td {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    border: none;
+    border-bottom: 1px solid var(--table-border-light);
+    padding: 10px;
+    text-align: right;
+  }
+
+  .nexum-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--table-text-secondary);
+    grid-column: 1;
+    text-align: left;
+  }
+
+  .table-user-cell {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Accessibility
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.nexum-table:focus {
+  outline: 2px solid var(--table-color-primary);
+  outline-offset: 2px;
+}
+
+.nexum-table th:focus,
+.nexum-table td:focus {
+  outline: 2px solid var(--table-color-primary);
+  outline-offset: -2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .nexum-table-wrapper,
+  .nexum-table tbody tr,
+  .nexum-table th.sortable {
+    transition: none;
+  }
+
+  .table-loading {
+    animation: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Dark Mode Support (Future)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --table-text-primary: #f5f5f5;
+    --table-text-secondary: #d1d5db;
+    --table-text-tertiary: #9ca3af;
+    --table-bg-primary: #1a1a1a;
+    --table-bg-secondary: #2d2d2d;
+    --table-bg-hover: #3a3a3a;
+    --table-border-default: #3f3f3f;
+    --table-border-light: #2a2a2a;
+  }
+
+  .nexum-table thead {
+    background: var(--table-bg-secondary);
+    border-bottom-color: var(--table-border-default);
+  }
+
+  .nexum-table td {
+    border-bottom-color: var(--table-border-light);
+  }
+}

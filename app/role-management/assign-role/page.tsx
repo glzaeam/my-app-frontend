@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
 import SelectDropdown from '@/app/components/SelectDropdown';
-import { Search, User, ChevronRight, RefreshCw } from 'lucide-react';
+import { Search, User, ChevronRight } from 'lucide-react';
 import { auth } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -16,6 +16,7 @@ interface ApiUser {
   employeeId: string;
   department: string | null;
   roles: string[];
+  status: string;
 }
 
 interface ApiRole {
@@ -58,19 +59,35 @@ export default function AssignRole() {
   const fetchData = useCallback(async () => {
     try {
       const [uRes, rRes] = await Promise.all([
-        fetch(`${API}/users`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
-        fetch(`${API}/roles`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
+        fetch(`${API}/users?page=1&pageSize=1000`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
+        fetch(`${API}/roles?page=1&pageSize=100`,  { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
       ]);
-      setUsers(await uRes.json());
-      setRoles(await rRes.json());
-    } catch { setToast({ msg: 'Failed to load data', type: 'error' }); }
+      const uData = await uRes.json();
+      const rData = await rRes.json();
+
+      // Handle paginated response: { items: [...], totalItems, ... }
+      const userList = Array.isArray(uData)
+        ? uData
+        : (uData.items ?? uData.users ?? uData.data ?? []);
+
+      const roleList = Array.isArray(rData)
+        ? rData
+        : (rData.items ?? rData.roles ?? rData.data ?? []);
+
+      setUsers(userList);
+      setRoles(roleList);
+    } catch {
+      setToast({ msg: 'Failed to load data', type: 'error' });
+    }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Only show active users, filtered by search
   const filtered = users.filter(u =>
-    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.employeeId.toLowerCase().includes(searchTerm.toLowerCase())
+    u.status?.toLowerCase() === 'active' &&
+    (u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     u.employeeId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleAssign = async () => {
@@ -81,8 +98,8 @@ export default function AssignRole() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
         body: JSON.stringify({
-          userId:  selectedUser.id,
-          roleId:  newRoleId,
+          userId: selectedUser.id,
+          roleId: newRoleId,
         }),
       });
       const data = await res.json();
@@ -94,8 +111,11 @@ export default function AssignRole() {
         setNewRoleName('');
         fetchData();
       } else setToast({ msg: data.message || 'Failed to assign', type: 'error' });
-    } catch { setToast({ msg: 'Server error', type: 'error' }); }
-    finally { setSubmitting(false); }
+    } catch {
+      setToast({ msg: 'Server error', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -130,7 +150,6 @@ export default function AssignRole() {
         .assign-btn:disabled{opacity:0.5;cursor:not-allowed;}
         .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 20px;text-align:center;}
         .txn-box{background:#f0fdf9;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;margin-top:16px;}
-        .refresh-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:'Open Sans',sans-serif;color:#64748b;cursor:pointer;}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
@@ -142,17 +161,13 @@ export default function AssignRole() {
           <div className="asr-scroll">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24 }}>
               <div>
-                <div style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#2db9a3', background:'rgba(45,185,163,0.08)', padding:'4px 10px', borderRadius:20, marginBottom:8 }}>
-                  <span style={{ width:6, height:6, borderRadius:'50%', background:'#2db9a3' }}/>Role Management
-                </div>
                 <h1 style={{ fontSize:22, fontWeight:700, color:'#1a2332', margin:'0 0 4px' }}>Assign Role</h1>
                 <p style={{ fontSize:13, color:'#8a9ab0', margin:0 }}>Assign or change roles — logged in Audit Logs with a TXN ID</p>
               </div>
-              <button className="refresh-btn" onClick={fetchData}><RefreshCw size={13}/> Refresh</button>
             </div>
 
             <div className="content-grid">
-              {/* User List */}
+              {/* User List — active users only */}
               <div className="card">
                 <div className="card-header">
                   <div className="card-title">Select User</div>
@@ -163,7 +178,7 @@ export default function AssignRole() {
                 </div>
                 <div className="user-list">
                   {filtered.length === 0 ? (
-                    <div className="empty-state"><p style={{ fontSize:13, color:'#94a3b8' }}>No users found.</p></div>
+                    <div className="empty-state"><p style={{ fontSize:13, color:'#94a3b8' }}>No active users found.</p></div>
                   ) : filtered.map((u, i) => (
                     <div key={u.id} className={`user-item${selectedUser?.id===u.id?' active':''}`} onClick={() => { setSelectedUser(u); setNewRoleId(''); setNewRoleName(''); }}>
                       <div className="u-avatar" style={{ background:GRADIENTS[i%GRADIENTS.length] }}>{getInitials(u.name)}</div>

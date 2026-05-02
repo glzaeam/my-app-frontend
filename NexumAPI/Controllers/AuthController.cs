@@ -42,6 +42,13 @@ namespace NexumAPI.Controllers
             return Ok(result);
         }
 
+        [HttpPost("verify-totp")]
+        public async Task<IActionResult> VerifyTotp([FromBody] VerifyOtpDto dto)
+        {
+            var result = await _authService.VerifyTotpAsync(dto.UserId, dto.Code);
+            return Ok(result);
+        }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
@@ -54,6 +61,15 @@ namespace NexumAPI.Controllers
         {
             var result = await _authService.LogoutAsync(userId);
             return Ok(result);
+        }
+
+        // ✅ Returns OTP expiry time from MfaConfigs — used by 2FA page countdown timer
+        [HttpGet("otp-expiry")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetOtpExpiry()
+        {
+            var config = await _context.MfaConfigs.FirstOrDefaultAsync();
+            return Ok(new { codeExpiryMinutes = config?.CodeExpiryMinutes ?? 5 });
         }
 
         [HttpGet("me")]
@@ -84,8 +100,8 @@ namespace NexumAPI.Controllers
                 user.Department,
                 user.Status,
                 user.ProfileImageUrl,
-                user.MfaEnabled,                        // ✅ added — needed for profile page MFA toggle
-                roleId = firstRole?.RoleId.ToString(),  // ✅ needed for dynamic permissions
+                user.MfaEnabled,
+                roleId = firstRole?.RoleId.ToString(),
                 roles  = user.UserRoles.Select(ur => ur.Role?.Name).ToList()
             });
         }

@@ -111,4 +111,14 @@ app.UseAuthorization();
 app.UseMiddleware<AuditMiddleware>();
 app.MapControllers();
 
+// ✅ Load LoginSettings from DB into LockoutService on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db      = scope.ServiceProvider.GetRequiredService<NexumDbContext>();
+    var lockout = scope.ServiceProvider.GetRequiredService<LockoutService>();
+    var s       = await db.LoginSettings.FirstOrDefaultAsync();
+    if (s != null)
+        lockout.Initialize(s.MaxFailedAttempts, s.LockoutDuration, s.CaptchaAfter);
+}
+
 app.Run();

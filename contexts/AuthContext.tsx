@@ -16,7 +16,8 @@ interface User {
   role: UserRole;
   roles: string[];
   profileImageUrl?: string | null;
-  permissions: string[]; // module names where canView = true
+  permissions: string[];
+  editPermissions: string[];
 }
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   logout: () => void;
   hasAccess: (module: string) => boolean;
+  canEdit: (module: string) => boolean;
   loading: boolean;
 }
 
@@ -32,41 +34,50 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function normalizeRole(roles: string[]): UserRole {
   const raw = roles?.[0] ?? '';
-
   if (raw === 'System Admin')   return 'System Admin';
   if (raw === 'Branch Manager') return 'Branch Manager';
   if (raw === 'Auditor')        return 'Auditor';
   if (raw === 'Bank Teller')    return 'Bank Teller';
-
   const lower = raw.toLowerCase();
   if (lower.includes('admin'))   return 'System Admin';
   if (lower.includes('manager')) return 'Branch Manager';
   if (lower.includes('auditor')) return 'Auditor';
   if (lower.includes('teller'))  return 'Bank Teller';
-
   return 'Bank Teller';
 }
 
-// ✅ Fetch permissions from the new /api/permissions/my endpoint
-// Works for ALL roles including Bank Teller
-async function fetchMyPermissions(token: string): Promise<string[]> {
+async function fetchMyPermissions(token: string): Promise<{
+  permissions: string[];
+  editPermissions: string[];
+}> {
   try {
     const res = await fetch(`${API_BASE}/permissions/my`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { permissions: [], editPermissions: [] };
 
     const data = await res.json();
 
-    // System Admin gets wildcard
-    if (data.isSystemAdmin === true) return ['*'];
+    // System Admin wildcard
+    if (data.isSystemAdmin === true) {
+      return { permissions: ['*'], editPermissions: ['*'] };
+    }
 
-    // Other roles get their canView modules from DB
-    return (data.permissions ?? [])
+    // ✅ Your API returns { isSystemAdmin, permissions: [...] }
+    // Each item: { module, canView, canEdit, canDelete }
+    const list = data.permissions ?? [];
+
+    const permissions = list
       .filter((p: any) => p.canView === true)
       .map((p: any) => p.module as string);
+
+    const editPermissions = list
+      .filter((p: any) => p.canEdit === true)
+      .map((p: any) => p.module as string);
+
+    return { permissions, editPermissions };
   } catch {
-    return [];
+    return { permissions: [], editPermissions: [] };
   }
 }
 
@@ -89,14 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         auth.clear();
         setUser(null);
+        setLoading(false);
         return;
       }
 
       const data         = await res.json();
       const resolvedRole = normalizeRole(data.roles ?? []);
-
-      // ✅ Fetch permissions from DB for all roles
-      const permissions = await fetchMyPermissions(token);
+      const { permissions, editPermissions } = await fetchMyPermissions(token);
 
       const normalized: User = {
         id:              data.id,
@@ -109,17 +119,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role:            resolvedRole,
         profileImageUrl: data.profileImageUrl ?? null,
         permissions,
+        editPermissions,
       };
 
       setUser(normalized);
+      // ✅ Always save the FULL normalized user so editPermissions persists on refresh
       auth.saveToken(token, normalized);
     } catch {
+      // ✅ On network error, fall back to localStorage but guarantee both arrays exist
       const stored = auth.getUser();
       if (stored) {
         setUser({
           ...stored,
-          role:        normalizeRole(stored.roles ?? []),
-          permissions: stored.permissions ?? [],
+          role:            normalizeRole(stored.roles ?? []),
+          permissions:     stored.permissions     ?? [],
+          editPermissions: stored.editPermissions ?? [],
         });
       }
     } finally {
@@ -132,7 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  // ✅ Dynamic check — reads from DB permissions set by System Admin
   const checkAccess = (module: string): boolean => {
     if (!user) return false;
     if (user.role === 'System Admin') return true;
@@ -140,20 +153,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user.permissions.includes(module);
   };
 
+  const checkCanEdit = (module: string): boolean => {
+    if (!user) return false;
+    if (user.role === 'System Admin') return true;
+    if (user.editPermissions?.includes('*')) return true;
+    return user.editPermissions?.includes(module) ?? false;
+  };
+
   useEffect(() => {
+    // ✅ On mount: load stored user immediately (avoids flash),
+    // then refreshUser() fetches fresh permissions from API
     const stored = auth.getUser();
     if (stored) {
       setUser({
         ...stored,
-        role:        normalizeRole(stored.roles ?? []),
-        permissions: stored.permissions ?? [],
+        role:            normalizeRole(stored.roles ?? []),
+        permissions:     stored.permissions     ?? [],
+        editPermissions: stored.editPermissions ?? [],
       });
     }
     refreshUser();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, refreshUser, logout, hasAccess: checkAccess, loading }}>
+    <AuthContext.Provider value={{
+      user, setUser, refreshUser, logout,
+      hasAccess: checkAccess,
+      canEdit:   checkCanEdit,
+      loading,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexumAPI.Data;
 using NexumAPI.Models;
+using NexumAPI.Helpers;
 
 namespace NexumAPI.Controllers
 {
@@ -149,12 +150,25 @@ namespace NexumAPI.Controllers
         // GET /api/security/failed-logins — BranchManager and above
         [HttpGet("failed-logins")]
         [Authorize(Policy = "BranchManager")]
-        public async Task<IActionResult> GetFailedLogins()
+        public async Task<IActionResult> GetFailedLogins(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var logs = await _context.LoginAttempts
+            // Validate pagination parameters
+            page = PaginationHelper.ValidatePage(page);
+            pageSize = PaginationHelper.ValidatePageSize(pageSize);
+
+            var query = _context.LoginAttempts
                 .Include(l => l.User)
+                .AsQueryable();
+
+            // Get total count before pagination
+            var totalItems = await query.CountAsync();
+
+            var logs = await query
                 .OrderByDescending(l => l.AttemptedAt)
-                .Take(500)
+                .Skip(PaginationHelper.CalculateSkip(page, pageSize))
+                .Take(pageSize)
                 .Select(l => new {
                     l.Id,
                     IpAddress = l.IpAddress == "::1" ? "127.0.0.1 (localhost)" : l.IpAddress,
@@ -166,7 +180,12 @@ namespace NexumAPI.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(logs);
+            return Ok(new PaginatedResponse<dynamic>(
+                logs.Cast<dynamic>().ToList(),
+                page,
+                pageSize,
+                totalItems
+            ));
         }
 
         // GET /api/security/failed-logins/summary — BranchManager and above

@@ -62,14 +62,16 @@ namespace NexumAPI.Migrations
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("ReviewedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReviewedBy");
 
                     b.ToTable("AccessRequests");
                 });
@@ -232,6 +234,12 @@ namespace NexumAPI.Migrations
                     b.Property<string>("AllowedIps")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("CaptchaAfter")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ForceLogoutOnNew")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IpWhitelistEnabled")
                         .HasColumnType("bit");
 
@@ -242,6 +250,9 @@ namespace NexumAPI.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("MaxFailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxSessionDurationHours")
                         .HasColumnType("int");
 
                     b.Property<int>("SessionTimeoutMinutes")
@@ -276,7 +287,12 @@ namespace NexumAPI.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("MfaConfigs");
                 });
@@ -369,11 +385,17 @@ namespace NexumAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ChangedBy")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reason")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("UserId")
@@ -419,7 +441,12 @@ namespace NexumAPI.Migrations
                     b.Property<bool>("RequireUppercase")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
 
                     b.ToTable("PasswordPolicies");
                 });
@@ -682,6 +709,9 @@ namespace NexumAPI.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("GraceLogins")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("LastLogin")
                         .HasColumnType("datetime2");
 
@@ -755,6 +785,16 @@ namespace NexumAPI.Migrations
                     b.ToTable("UserRoles");
                 });
 
+            modelBuilder.Entity("NexumAPI.Models.AccessRequest", b =>
+                {
+                    b.HasOne("NexumAPI.Models.User", "Reviewer")
+                        .WithMany()
+                        .HasForeignKey("ReviewedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Reviewer");
+                });
+
             modelBuilder.Entity("NexumAPI.Models.AuditLog", b =>
                 {
                     b.HasOne("NexumAPI.Models.User", "User")
@@ -782,6 +822,16 @@ namespace NexumAPI.Migrations
                         .WithMany("LoginAttempts")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("NexumAPI.Models.MfaConfig", b =>
+                {
+                    b.HasOne("NexumAPI.Models.User", "User")
+                        .WithMany("MfaConfigs")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("User");
                 });
@@ -817,6 +867,16 @@ namespace NexumAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("NexumAPI.Models.PasswordPolicy", b =>
+                {
+                    b.HasOne("NexumAPI.Models.Role", "Role")
+                        .WithMany("PasswordPolicies")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("NexumAPI.Models.PasswordResetToken", b =>
@@ -947,6 +1007,8 @@ namespace NexumAPI.Migrations
 
             modelBuilder.Entity("NexumAPI.Models.Role", b =>
                 {
+                    b.Navigation("PasswordPolicies");
+
                     b.Navigation("Permissions");
 
                     b.Navigation("UserRoles");
@@ -959,6 +1021,8 @@ namespace NexumAPI.Migrations
                     b.Navigation("Devices");
 
                     b.Navigation("LoginAttempts");
+
+                    b.Navigation("MfaConfigs");
 
                     b.Navigation("MfaSettings");
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/Sidebar';
 import TopBar from '@/app/components/TopBar';
 import { Eye, Pencil, Archive, Shield, Save } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -49,18 +49,11 @@ export default function PermissionMatrix() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const token = auth.getToken();
-      const headers = { Authorization: `Bearer ${token}` };
-
-      const [rolesRes, modsRes, permRes] = await Promise.all([
-        fetch(`${API}/roles`,               { headers }),
-        fetch(`${API}/permissions/modules`, { headers }),
-        fetch(`${API}/permissions/matrix`,  { headers }),
+      const [rolesData, modsData, permData] = await Promise.all([
+        fetchArray(`${API}/roles`),
+        fetchArray(`${API}/permissions/modules`),
+        fetchArray(`${API}/permissions/matrix`),
       ]);
-
-      const rolesData: Role[]    = await rolesRes.json();
-      const modsData:  Module[]  = await modsRes.json();
-      const permData:  PermRow[] = await permRes.json();
 
       setRoles(rolesData);
       setModules(modsData);

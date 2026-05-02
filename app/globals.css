@@ -1,10 +1,10 @@
-/* System fonts - no external font imports needed */
+/* DM Sans is the primary font for the entire application */
 @import "tailwindcss";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: var(--font-dm-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
 }
 
 @theme inline {
@@ -40,29 +40,243 @@ body {
   font-family: inherit;
 }
 
-/* Select dropdown styling */
+/* Select dropdown styling - light theme */
 select {
-  color-scheme: dark;
-  color: white !important;
+  color-scheme: light;
+  color: #1a2332 !important;
+  background: #fff !important;
 }
 
 select option {
-  background: hsl(210, 15%, 25%) !important;
-  color: white !important;
+  background: #fff !important;
+  color: #1a2332 !important;
   padding: 10px 8px !important;
 }
 
 select option:hover {
-  background: hsl(170, 60%, 50%) !important;
-  color: white !important;
+  background: #f0fdf9 !important;
+  color: #2db9a3 !important;
 }
 
 select option:checked {
-  background: hsl(170, 60%, 50%) !important;
-  color: white !important;
+  background: #f0fdf9 !important;
+  color: #2db9a3 !important;
 }
 
 select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px hsl(170,60%,50%), 0 0 20px -4px hsl(170,60%,50%,0.3) !important;
+  border-color: #2db9a3 !important;
+  box-shadow: 0 0 0 2px rgba(45, 185, 163, 0.1) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   User Accounts Table Styling (Unified Design)
+   ───────────────────────────────────────────────────────────── */
+
+.ua-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  color: #1a2332;
+}
+
+.ua-table-wrap table thead {
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ua-table-wrap table th {
+  padding: 13px 14px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: -0.01em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ua-table-wrap table tbody tr {
+  border-bottom: 1px solid #f3f4f6;
+  height: 44px;
+  transition: background-color 0.12s ease;
+}
+
+.ua-table-wrap table tbody tr:hover {
+  background: #f3f4f6;
+}
+
+.ua-table-wrap table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.ua-table-wrap table td {
+  padding: 13px 14px;
+  text-align: left;
+  font-size: 13px;
+  color: #1a2332;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+/* Center specific columns */
+.ua-table-wrap table td:nth-child(2),  /* Employee ID */
+.ua-table-wrap table td:nth-child(4),  /* Department */
+.ua-table-wrap table td:nth-child(5),  /* MFA */
+.ua-table-wrap table td:nth-child(6),  /* Status */
+.ua-table-wrap table td:nth-child(7),  /* Last Login */
+.ua-table-wrap table td:nth-child(8) { /* Actions */
+  text-align: center;
+}
+
+/* Role badge styling */
+.ua-table-wrap table td:nth-child(3) {
+  text-align: center;
+}
+
+/* User avatars and names */
+.ua-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #2db9a3;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+}
+
+.ua-user-name {
+  font-weight: 600;
+  color: #1a2332;
+  font-size: 13px;
+}
+
+.ua-user-email {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* Badge styling */
+.ua-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Employee ID (monospace) */
+.ua-empid {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Action button */
+.ua-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.ua-action-btn:hover {
+  background: #f8fafc;
+  color: #2db9a3;
+  border-color: #2db9a3;
+}
+
+/* Pagination */
+.ua-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid #f3f4f6;
+  font-size: 13px;
+  color: #6b7280;
+  background: #fafbfc;
+}
+
+.ua-pag-info {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.ua-pag-info strong {
+  color: #1a2332;
+  font-weight: 600;
+}
+
+.ua-pag-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ua-pag-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.ua-pag-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #2db9a3;
+  color: #2db9a3;
+}
+
+.ua-pag-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ua-pag-counter {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
+}
+
+.ua-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }

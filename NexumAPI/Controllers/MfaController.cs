@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NexumAPI.Data;
 using NexumAPI.Models;
+using OtpNet;
 
 namespace NexumAPI.Controllers
 {
@@ -19,27 +20,40 @@ namespace NexumAPI.Controllers
         public async Task<IActionResult> GetConfig()
         {
             var config = await _context.MfaConfigs.FirstOrDefaultAsync();
+
+            var sub = User.FindFirst("sub")?.Value
+                   ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            bool userAuthenticatorEnabled = false;
+            if (sub != null && Guid.TryParse(sub, out var userId))
+            {
+                userAuthenticatorEnabled = await _context.MfaSettings
+                    .AnyAsync(m => m.UserId == userId
+                                && m.Method == "Authenticator"
+                                && m.IsEnabled == true);
+            }
+
             if (config == null)
                 return Ok(new {
                     smsEnabled           = true,
                     emailEnabled         = true,
-                    authenticatorEnabled = false,
+                    authenticatorEnabled = userAuthenticatorEnabled,
                     codeExpiryMinutes    = 5,
                     graceLogins          = 0
                 });
 
             return Ok(new {
-                config.SmsEnabled,
-                config.EmailEnabled,
-                config.AuthenticatorEnabled,
-                config.CodeExpiryMinutes,
-                config.GraceLogins
+                smsEnabled           = config.SmsEnabled,
+                emailEnabled         = config.EmailEnabled,
+                authenticatorEnabled = userAuthenticatorEnabled,
+                codeExpiryMinutes    = config.CodeExpiryMinutes,
+                graceLogins          = config.GraceLogins
             });
         }
 
         // PUT /api/mfa/config
         [HttpPut("config")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "System Admin")]
         public async Task<IActionResult> SaveConfig([FromBody] MfaConfigRequest dto)
         {
             var config = await _context.MfaConfigs.FirstOrDefaultAsync();
@@ -81,7 +95,7 @@ namespace NexumAPI.Controllers
 
         // PUT /api/mfa/roles/{id}
         [HttpPut("roles/{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "System Admin")]
         public async Task<IActionResult> UpdateRoleMfa(Guid id, [FromBody] RoleMfaRequest dto)
         {
             var role = await _context.Roles.FindAsync(id);
@@ -91,7 +105,6 @@ namespace NexumAPI.Controllers
             role.MfaRequired       = dto.MfaRequirement == "Required";
             role.AllowedMfaMethods = dto.AllowedMfaMethods;
 
-            // Update MfaEnabled on all users with this role
             var userIds = await _context.UserRoles
                 .Where(ur => ur.RoleId == id)
                 .Select(ur => ur.UserId)
@@ -105,10 +118,105 @@ namespace NexumAPI.Controllers
                 user.MfaEnabled = role.MfaRequired;
 
             await _context.SaveChangesAsync();
-
             return Ok(new { success = true, message = "Role MFA updated" });
         }
-    }
+
+        // POST /api/mfa/authenticator/setup
+        [HttpPost("authenticator/setup")]
+        public async Task<IActionResult> SetupAuthenticator()
+        {
+            var sub = User.FindFirst("sub")?.Value
+                   ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (sub == null) return Unauthorized();
+
+            var userId = Guid.Parse(sub);
+            var user   = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            var secretBytes = KeyGeneration.GenerateRandomKey(20);
+            var secret      = Base32Encoding.ToString(secretBytes);
+
+            var existing = await _context.MfaSettings
+                .FirstOrDefaultAsync(m => m.UserId == userId && m.Method == "Authenticator");
+
+            if (existing != null)
+            {
+                existing.SecretKey = secret;
+                existing.IsEnabled = false;
+            }
+            else
+            {
+                _context.MfaSettings.Add(new MfaSetting
+                {
+                    Id         = Guid.NewGuid(),
+                    UserId     = userId,
+                    Method     = "Authenticator",
+                    SecretKey  = secret,
+                    IsEnabled  = false,
+                    EnrolledAt = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
+            var issuer = "NexumBank";
+            var label  = Uri.EscapeDataString($"{issuer}:{user.Email}");
+            var qrUri  = $"otpauth://totp/{label}?secret={secret}&issuer={Uri.EscapeDataString(issuer)}&algorithm=SHA1&digits=6&period=30";
+
+            return Ok(new { secret, qrUri });
+        }
+
+        // POST /api/mfa/authenticator/verify
+        [HttpPost("authenticator/verify")]
+        public async Task<IActionResult> VerifyAuthenticator([FromBody] VerifyAuthenticatorRequest dto)
+        {
+            var sub = User.FindFirst("sub")?.Value
+                   ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (sub == null) return Unauthorized();
+
+            var userId  = Guid.Parse(sub);
+            var setting = await _context.MfaSettings
+                .FirstOrDefaultAsync(m => m.UserId == userId && m.Method == "Authenticator");
+
+            if (setting?.SecretKey == null)
+                return BadRequest(new { success = false, message = "No authenticator setup found. Run setup first." });
+
+            var secretBytes = Base32Encoding.ToBytes(setting.SecretKey);
+            var totp        = new Totp(secretBytes);
+            var valid       = totp.VerifyTotp(dto.Code, out _, new VerificationWindow(2, 2));
+
+            if (!valid)
+                return Ok(new { success = false, message = "Invalid or expired code. Try again." });
+
+            setting.IsEnabled  = true;
+            setting.EnrolledAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Authenticator app verified and enabled." });
+        }
+
+        // POST /api/mfa/authenticator/disable
+        [HttpPost("authenticator/disable")]
+        public async Task<IActionResult> DisableAuthenticator()
+        {
+            var sub = User.FindFirst("sub")?.Value
+                   ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (sub == null) return Unauthorized();
+
+            var userId  = Guid.Parse(sub);
+            var setting = await _context.MfaSettings
+                .FirstOrDefaultAsync(m => m.UserId == userId && m.Method == "Authenticator");
+
+            if (setting != null)
+            {
+                setting.IsEnabled = false;
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { success = true, message = "Authenticator disabled." });
+        }
+
+    }   // ← MfaController class ends here
 
     public class MfaConfigRequest
     {
@@ -123,5 +231,10 @@ namespace NexumAPI.Controllers
     {
         public string  MfaRequirement    { get; set; } = "Optional";
         public string? AllowedMfaMethods { get; set; }
+    }
+
+    public class VerifyAuthenticatorRequest
+    {
+        public string Code { get; set; } = string.Empty;
     }
 }

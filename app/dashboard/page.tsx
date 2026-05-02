@@ -29,7 +29,7 @@ export default function Dashboard() {
   );
   const router              = useRouter();
   const { user, loading }   = useAuth();
-  const itemsPerPage        = 5;
+  const itemsPerPage        = 10;
 
   // System Admin state
   const [metrics, setMetrics] = useState([
@@ -267,7 +267,7 @@ export default function Dashboard() {
   const styles = `
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    .db-root, .db-root * { font-family: 'DM Sans', sans-serif; }
+    .db-root, .db-root * { font-family: var(--font-dm-sans, 'DM Sans', sans-serif); }
     .db-root    { display: flex; height: 100vh; background: #ffffff; overflow: hidden; }
     .db-content { flex: 1; display: flex; flex-direction: column; overflow: visible; background: #ffffff; }
     .main-scroll { flex: 1; overflow-y: auto; padding: 32px 36px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }

@@ -9,4 +9,5 @@ public class Role
     public string? AllowedMfaMethods { get; set; } // comma-separated: SMS,Email,Authenticator
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<Permission> Permissions { get; set; } = new List<Permission>();
+    public ICollection<PasswordPolicy> PasswordPolicies { get; set; } = new List<PasswordPolicy>();
 }

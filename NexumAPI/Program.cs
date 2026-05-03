@@ -36,28 +36,25 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// ✅ RBAC Policies — use the exact claim type ASP.NET maps "role" to internally
+// ✅ RBAC Policies
 builder.Services.AddAuthorization(options =>
 {
     const string roleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
 
-    // System Admin only
     options.AddPolicy("SystemAdmin", policy =>
         policy.RequireClaim(roleClaimType, "System Admin"));
 
-    // System Admin + Branch Manager
     options.AddPolicy("BranchManager", policy =>
         policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager"));
 
-    // System Admin + Branch Manager + Auditor
     options.AddPolicy("Auditor", policy =>
         policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager", "Auditor"));
 
-    // All authenticated roles
     options.AddPolicy("BankTeller", policy =>
         policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager", "Auditor", "Bank Teller"));
 });
 
+// ✅ CORS — includes Vercel frontend URL
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -65,7 +62,8 @@ builder.Services.AddCors(options =>
             "http://localhost:3000",
             "https://localhost:3000",
             "http://localhost:3001",
-            "https://localhost:3001"
+            "https://localhost:3001",
+            "https://my-app-frontend-lake.vercel.app"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
@@ -121,6 +119,13 @@ using (var scope = app.Services.CreateScope())
     var s       = await db.LoginSettings.FirstOrDefaultAsync();
     if (s != null)
         lockout.Initialize(s.MaxFailedAttempts, s.LockoutDuration, s.CaptchaAfter);
+}
+
+// ✅ Auto-run migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<NexumDbContext>();
+    db.Database.Migrate();
 }
 
 app.Run();

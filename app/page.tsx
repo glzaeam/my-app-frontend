@@ -161,19 +161,7 @@ export default function LoginPage() {
             Enterprise-grade security with role-based access, real-time monitoring,
             and tamper-proof audit trails.
           </p>
-          <div className="flex gap-12">
-            {['256-bit Encryption', 'MFA Protected'].map((label) => (
-              <div key={label} className="flex items-center gap-2">
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ background: 'hsl(170,60%,50%)' }}
-                >
-                  <Check className="w-3 h-3" style={{ color: 'white' }} />
-                </div>
-                <span style={{ color: 'hsl(210,15%,70%)' }}>{label}</span>
-              </div>
-            ))}
-          </div>
+         
         </div>
         <p style={{ color: 'hsl(210,15%,40%)' }} className="text-sm">
           © 2026 Nexum Banking ERP · All rights reserved

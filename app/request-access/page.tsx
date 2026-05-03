@@ -248,17 +248,7 @@ export default function RequestAccessPage() {
             Enterprise-grade security with role-based access, real-time monitoring,
             and tamper-proof audit trails.
           </p>
-          <div className="flex gap-12">
-            {['256-bit Encryption', 'MFA Protected'].map((label) => (
-              <div key={label} className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ background: 'hsl(170,60%,50%)' }}>
-                  <span style={{ color: 'white', fontSize: '12px' }}>✔</span>
-                </div>
-                <span style={{ color: 'hsl(210,15%,70%)' }}>{label}</span>
-              </div>
-            ))}
-          </div>
+        
 
           <div style={{ marginTop: 32, padding: '16px 20px', background: 'rgba(45,185,163,0.1)', border: '1px solid rgba(45,185,163,0.3)', borderRadius: 12 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'hsl(170,60%,60%)', marginBottom: 8 }}>How it works</div>

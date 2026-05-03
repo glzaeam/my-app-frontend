@@ -63,11 +63,26 @@ namespace NexumAPI.Controllers
             ));
         }
 
-        // GET /api/users/{id} — BranchManager and above
+        // GET /api/users/{id} — BranchManager and above OR own profile
         [HttpGet("{id}")]
-        [Authorize(Policy = "BranchManager")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
+            var sub = HttpContext.User.FindFirst("sub")?.Value
+                   ?? HttpContext.User.FindFirst(
+                      System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (!Guid.TryParse(sub, out var callerId))
+                return Unauthorized();
+
+            var isAdminOrManager = HttpContext.User.Claims.Any(c =>
+                c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" &&
+                (c.Value == "System Admin" || c.Value == "Branch Manager"));
+
+            // Non-admin/manager can only fetch their own profile
+            if (!isAdminOrManager && callerId != id)
+                return Forbid();
+
             var user = await _context.Users
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.Id == id);
@@ -84,6 +99,9 @@ namespace NexumAPI.Controllers
                 user.MfaEnabled,
                 user.CreatedAt,
                 user.LastLogin,
+                user.ProfileImageUrl,
+                user.FirstName,
+                user.LastName,
                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
             });
         }
@@ -138,10 +156,9 @@ namespace NexumAPI.Controllers
 
             await _context.SaveChangesAsync();
 
-            // Log transaction — extract claim BEFORE query to avoid CS8072
-            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
-            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
-            var adminId  = Guid.Parse(subClaim);
+            var txn       = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim  = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId   = Guid.Parse(subClaim);
             var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
 
             _context.TransactionTrails.Add(new TransactionTrail {
@@ -163,11 +180,26 @@ namespace NexumAPI.Controllers
             return Ok(new { success = true, message = "User created successfully", userId = user.Id });
         }
 
-        // PUT /api/users/{id} — System Admin only
+        // PUT /api/users/{id} — System Admin can update anyone, others can only update themselves
         [HttpPut("{id}")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest dto)
         {
+            var sub = HttpContext.User.FindFirst("sub")?.Value
+                   ?? HttpContext.User.FindFirst(
+                      System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (!Guid.TryParse(sub, out var callerId))
+                return Unauthorized();
+
+            var isAdmin = HttpContext.User.Claims.Any(c =>
+                c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" &&
+                c.Value == "System Admin");
+
+            // Non-admins can only edit their own profile
+            if (!isAdmin && callerId != id)
+                return Forbid();
+
             var user = await _context.Users
                 .Include(u => u.UserRoles)
                 .FirstOrDefaultAsync(u => u.Id == id);
@@ -190,21 +222,36 @@ namespace NexumAPI.Controllers
             }
 
             if (!string.IsNullOrEmpty(dto.Department)) user.Department = dto.Department;
-            if (!string.IsNullOrEmpty(dto.Status))     user.Status     = dto.Status;
 
-            if (!string.IsNullOrEmpty(dto.Role))
+            // Only System Admin can change status and role
+            if (isAdmin)
             {
-                var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == dto.Role);
-                if (role != null)
+                if (!string.IsNullOrEmpty(dto.Status)) user.Status = dto.Status;
+
+                if (!string.IsNullOrEmpty(dto.Role))
                 {
-                    _context.UserRoles.RemoveRange(user.UserRoles);
-                    _context.UserRoles.Add(new UserRole {
-                        UserId     = user.Id,
-                        RoleId     = role.Id,
-                        AssignedAt = DateTime.UtcNow
-                    });
+                    var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == dto.Role);
+                    if (role != null)
+                    {
+                        _context.UserRoles.RemoveRange(user.UserRoles);
+                        _context.UserRoles.Add(new UserRole {
+                            UserId     = user.Id,
+                            RoleId     = role.Id,
+                            AssignedAt = DateTime.UtcNow
+                        });
+                    }
                 }
             }
+
+            _context.AuditLogs.Add(new AuditLog {
+                UserId    = callerId,
+                Action    = "Profile Updated",
+                Module    = "My Profile",
+                Details   = $"User '{user.Name}' updated their profile",
+                Status    = "Success",
+                CreatedAt = DateTime.UtcNow,
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+            });
 
             await _context.SaveChangesAsync();
             return Ok(new { success = true, message = "User updated successfully" });
@@ -221,9 +268,9 @@ namespace NexumAPI.Controllers
             user.Status = "Inactive";
             await _context.SaveChangesAsync();
 
-            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
-            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
-            var adminId  = Guid.Parse(subClaim);
+            var txn       = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim  = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId   = Guid.Parse(subClaim);
             var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
 
             _context.AuditLogs.Add(new AuditLog {
@@ -276,10 +323,9 @@ namespace NexumAPI.Controllers
             });
             await _context.SaveChangesAsync();
 
-            // Log transaction — extract claim BEFORE query to avoid CS8072
-            var txn      = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
-            var subClaim = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
-            var adminId  = Guid.Parse(subClaim);
+            var txn       = Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var subClaim  = HttpContext.User.FindFirst("sub")?.Value ?? "00000000-0000-0000-0000-000000000000";
+            var adminId   = Guid.Parse(subClaim);
             var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
 
             _context.TransactionTrails.Add(new TransactionTrail {
@@ -320,7 +366,6 @@ namespace NexumAPI.Controllers
                 return Ok(new { success = false, message = "Password must be at least 8 characters" });
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-            await _context.SaveChangesAsync();
 
             _context.AuditLogs.Add(new AuditLog {
                 UserId    = id,

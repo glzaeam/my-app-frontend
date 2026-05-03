@@ -1,4 +1,5 @@
 using NexumAPI.DTOs.Auth;
+using NexumAPI.Models;        
 
 namespace NexumAPI.Services.Interfaces
 {
@@ -10,5 +11,6 @@ namespace NexumAPI.Services.Interfaces
         Task<object> RegisterAsync(RegisterDto registerDto);
         Task<bool> LogoutAsync(string userId);
         Task<object> RefreshTokenAsync(string refreshToken);
+        string GenerateJwtToken(User user);   
     }
 }

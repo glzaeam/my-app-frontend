@@ -15,25 +15,17 @@ function getHDImageUrl(url: string | null | undefined, size = 400): string | nul
 }
 
 interface SidebarProps {
-  activeMenu: string;
-  setActiveMenu: (menu: string) => void;
-  sidebarOpen: boolean;
+  activeMenu:     string;
+  setActiveMenu:  (menu: string) => void;
+  sidebarOpen:    boolean;
   setSidebarOpen?: (open: boolean) => void;
-  onLogout: () => void;
+  onLogout:       () => void;
 }
 
-// Each id must match exactly the module Name in your Modules DB table
 const allMenuItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, submenu: null },
   {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard,
-    submenu: null,
-  },
-  {
-    id: 'authentication',
-    label: 'Authentication',
-    icon: Lock,
+    id: 'authentication', label: 'Authentication', icon: Lock,
     submenu: [
       { id: 'login-settings',   label: 'Login Settings',   icon: Settings    },
       { id: 'mfa-settings',     label: 'MFA Settings',     icon: Shield      },
@@ -43,9 +35,7 @@ const allMenuItems = [
     ],
   },
   {
-    id: 'role-management',
-    label: 'Role Management',
-    icon: Users,
+    id: 'role-management', label: 'Role Management', icon: Users,
     submenu: [
       { id: 'all-roles',      label: 'All Roles',      icon: Layers },
       { id: 'assign-role',    label: 'Assign Role',    icon: Users2 },
@@ -53,18 +43,14 @@ const allMenuItems = [
     ],
   },
   {
-    id: 'permissions',
-    label: 'Permissions',
-    icon: Key,
+    id: 'permissions', label: 'Permissions', icon: Key,
     submenu: [
       { id: 'permission-matrix', label: 'Permission Matrix', icon: Layers },
       { id: 'module-access',     label: 'Module Access',     icon: Lock   },
     ],
   },
   {
-    id: 'security-monitoring',
-    label: 'Security Monitoring',
-    icon: Eye,
+    id: 'security-monitoring', label: 'Security Monitoring', icon: Eye,
     submenu: [
       { id: 'live-alerts',         label: 'Live Alerts',         icon: AlertCircle },
       { id: 'failed-logins',       label: 'Failed Logins',       icon: AlertCircle },
@@ -73,9 +59,7 @@ const allMenuItems = [
     ],
   },
   {
-    id: 'audit-logs',
-    label: 'Audit Logs',
-    icon: FileText,
+    id: 'audit-logs', label: 'Audit Logs', icon: FileText,
     submenu: [
       { id: 'activity-logs',     label: 'Activity Logs',     icon: Activity   },
       { id: 'transaction-trail', label: 'Transaction Trail', icon: ArrowRight },
@@ -83,9 +67,7 @@ const allMenuItems = [
     ],
   },
   {
-    id: 'users-accounts',
-    label: 'Users & Accounts',
-    icon: Users,
+    id: 'users-accounts', label: 'Users & Accounts', icon: Users,
     submenu: [
       { id: 'access-requests', label: 'Access Requests', icon: UserPlus  },
       { id: 'user-accounts',   label: 'User Accounts',   icon: Users     },
@@ -120,17 +102,29 @@ const routeMap: Record<string, string> = {
 
 export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
   const router = useRouter();
-  const { user, hasAccess } = useAuth(); // ✅ reads from DB permissions
+  const { user, hasAccess, loading } = useAuth();
 
-  // ✅ Filter parent items — only show if user has access to that module id
-  const menuItems = allMenuItems.filter(item => hasAccess(item.id));
+  // ✅ Build visible menu:
+  // - Solo items (no submenu): show if hasAccess(item.id)
+  // - Parent items with submenu: show if AT LEAST ONE child is accessible
+  //   (parent group ids like "authentication" are never in DB — only children are)
+  const menuItems = allMenuItems
+    .map(item => {
+      if (!item.submenu) {
+        // Solo item — check direct access
+        return hasAccess(item.id) ? item : null;
+      }
+      // Parent with submenu — filter children first
+      const visibleSubs = item.submenu.filter(sub => hasAccess(sub.id));
+      // Show parent only if at least one child is visible
+      return visibleSubs.length > 0 ? { ...item, submenu: visibleSubs } : null;
+    })
+    .filter(Boolean) as typeof allMenuItems;
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     for (const item of menuItems) {
-      if (item.submenu?.some(s => s.id === activeMenu)) {
-        initial.add(item.id);
-      }
+      if (item.submenu?.some(s => s.id === activeMenu)) initial.add(item.id);
     }
     return initial;
   });
@@ -138,8 +132,7 @@ export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSid
   const toggleGroup = (id: string) => {
     setOpenGroups(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
@@ -161,11 +154,26 @@ export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSid
   };
 
   const initials = user?.name
-    ?.split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || 'U';
+    ?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
+
+  // ✅ Don't render nav until permissions are loaded — prevents flash of empty sidebar
+  if (loading) {
+    return (
+      <aside className={`sb-wrap ${!sidebarOpen ? 'closed' : ''}`}>
+        <div className="sb-header">
+          <img src="/images/logo.png" alt="Nexum" />
+        </div>
+        <nav className="sb-nav" style={{ padding: '20px 16px', gap: 8 }}>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} style={{
+              height: 36, borderRadius: 10,
+              background: '#f1f5f9', opacity: 1 - i * 0.1,
+            }} />
+          ))}
+        </nav>
+      </aside>
+    );
+  }
 
   return (
     <>
@@ -303,17 +311,14 @@ export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSid
             const hasActiveChild = hasSubmenuList && item.submenu!.some(s => s.id === activeMenu);
             const isSoloActive   = !hasSubmenuList && activeMenu === item.id;
 
-            // ✅ Filter submenus by DB permissions too
-            const visibleSubmenus = item.submenu?.filter(sub => hasAccess(sub.id)) ?? [];
-
             return (
               <div key={item.id}>
                 <div
                   className={[
                     'sb-parent',
-                    isSoloActive         ? 'solo-active'      : '',
-                    hasActiveChild       ? 'has-active-child' : '',
-                    isOpen && hasSubmenuList ? 'open'         : '',
+                    isSoloActive             ? 'solo-active'      : '',
+                    hasActiveChild           ? 'has-active-child' : '',
+                    isOpen && hasSubmenuList ? 'open'             : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => handleParentClick(item.id, hasSubmenuList)}
                 >
@@ -322,10 +327,10 @@ export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSid
                   {hasSubmenuList && <ChevronRight size={14} className="sb-chevron" />}
                 </div>
 
-                {hasSubmenuList && visibleSubmenus.length > 0 && (
+                {hasSubmenuList && item.submenu && item.submenu.length > 0 && (
                   <div className={`sb-sub-wrap ${isOpen ? 'open' : ''}`}>
                     <div className="sb-sub-inner">
-                      {visibleSubmenus.map(sub => {
+                      {item.submenu.map(sub => {
                         const SubIcon = sub.icon;
                         return (
                           <div

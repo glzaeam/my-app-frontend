@@ -378,9 +378,13 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
   const [pwErrors, setPwErrors] = useState<string[]>([]);
   const [validating, setValidating] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', employeeId: '', email: '', department: '',
-    branch: '', role: '', password: '', confirmPassword: '',
+    firstName: '', lastName: '', employeeId: '', email: '',
+    department: '', branch: '', role: '', password: '', confirmPassword: '',
   });
+
+  // Auto-capitalize every word as the user types
+  const autoCapitalize = (value: string) =>
+    value.split(' ').map(word => word.length > 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word).join(' ');
 
   useEffect(() => {
     if (!open) return;
@@ -401,8 +405,12 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
   }, [open]);
 
   const update = (field: string, value: string) => {
-    setFormData(p => ({ ...p, [field]: value }));
-    if (field === 'password') validatePasswordRealtime(value);
+    if (field === 'firstName' || field === 'lastName') {
+      setFormData(p => ({ ...p, [field]: autoCapitalize(value) }));
+    } else {
+      setFormData(p => ({ ...p, [field]: value }));
+      if (field === 'password') validatePasswordRealtime(value);
+    }
   };
 
   const validatePasswordRealtime = (pw: string) => {
@@ -419,12 +427,13 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
 
   const handleSubmit = async () => {
     setError(null);
-    if (!formData.name || !formData.employeeId || !formData.email || !formData.password)
-      return setError('Please fill in all required fields.');
-    if (formData.password !== formData.confirmPassword)
-      return setError('Passwords do not match.');
-    if (pwErrors.length > 0)
-      return setError('Password does not meet policy requirements.');
+    if (!formData.firstName.trim()) return setError('Please enter the first name.');
+    if (!formData.lastName.trim())  return setError('Please enter the last name.');
+    if (!formData.employeeId)       return setError('Please fill in all required fields.');
+    if (!formData.email)            return setError('Please fill in all required fields.');
+    if (!formData.password)         return setError('Please fill in all required fields.');
+    if (formData.password !== formData.confirmPassword) return setError('Passwords do not match.');
+    if (pwErrors.length > 0)        return setError('Password does not meet policy requirements.');
 
     setValidating(true);
     try {
@@ -442,15 +451,22 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
     } catch {}
     setValidating(false);
 
+    // Combine first + last into full name for the API
+    const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
+
     setLoading(true);
     try {
       const res = await fetch(`${API}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
         body: JSON.stringify({
-          name: formData.name, employeeId: formData.employeeId, email: formData.email,
-          password: formData.password, department: formData.department,
-          branch: formData.branch, role: formData.role,
+          name: fullName,
+          employeeId: formData.employeeId,
+          email: formData.email,
+          password: formData.password,
+          department: formData.department,
+          branch: formData.branch,
+          role: formData.role,
         }),
       });
       const data = await res.json();
@@ -458,7 +474,7 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
         setSuccess(true);
         setTimeout(() => {
           onSuccess(); onClose(); setSuccess(false);
-          setFormData({ name:'', employeeId:'', email:'', department:'', branch:'', role:'', password:'', confirmPassword:'' });
+          setFormData({ firstName:'', lastName:'', employeeId:'', email:'', department:'', branch:'', role:'', password:'', confirmPassword:'' });
         }, 1500);
       } else {
         setError(data.message || 'Failed to create user.');
@@ -473,7 +489,7 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
   const handleClose = () => {
     if (!loading) {
       onClose();
-      setFormData({ name:'', employeeId:'', email:'', department:'', branch:'', role:'', password:'', confirmPassword:'' });
+      setFormData({ firstName:'', lastName:'', employeeId:'', email:'', department:'', branch:'', role:'', password:'', confirmPassword:'' });
       setError(null); setPwErrors([]);
     }
   };
@@ -505,9 +521,27 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
             </div>
 
             <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16 }}>
+
+              {/* ✅ First Name — auto-capitalizes each word */}
               <div>
-                <label style={iLabel}>Full name <span style={{ color:'#0d9488' }}>*</span></label>
-                <input style={iInput} placeholder="John Doe" value={formData.name} onChange={e => update('name', e.target.value)} />
+                <label style={iLabel}>First name <span style={{ color:'#0d9488' }}>*</span></label>
+                <input
+                  style={iInput}
+                  placeholder="Juan"
+                  value={formData.firstName}
+                  onChange={e => update('firstName', e.target.value)}
+                />
+              </div>
+
+              {/* ✅ Last Name — auto-capitalizes each word */}
+              <div>
+                <label style={iLabel}>Last name <span style={{ color:'#0d9488' }}>*</span></label>
+                <input
+                  style={iInput}
+                  placeholder="Dela Cruz"
+                  value={formData.lastName}
+                  onChange={e => update('lastName', e.target.value)}
+                />
               </div>
 
               <div>
@@ -611,8 +645,8 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
 
             <div style={{ display:'flex',justifyContent:'flex-end',gap:10 }}>
               <button onClick={handleClose} disabled={loading} style={{ height:38,padding:'0 16px',border:'1px solid #e5e7eb',borderRadius:8,background:'#fff',color:'#6b7280',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:"'DM Sans', sans-serif" }}>Cancel</button>
-              <button onClick={handleSubmit} disabled={loading} style={{ height:38,padding:'0 18px',border:'none',borderRadius:8,background:'#0d9488',color:'#fff',fontSize:13,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontFamily:"'DM Sans', sans-serif" }}>
-                {loading?'Creating...':<><UserPlus size={14}/>Create User</>}
+              <button onClick={handleSubmit} disabled={loading||validating||pwErrors.length>0} style={{ height:38,padding:'0 18px',border:'none',borderRadius:8,background:'#0d9488',color:'#fff',fontSize:13,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontFamily:"'DM Sans', sans-serif",opacity:(loading||validating||pwErrors.length>0)?0.6:1 }}>
+                {loading||validating?'Creating...':<><UserPlus size={14}/>Create User</>}
               </button>
             </div>
           </>
@@ -621,7 +655,6 @@ function AddUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: ()
     </div>
   );
 }
-
 // ── Toast ─────────────────────────────────────────────────────
 function Toast({ msg, type, onDone }: { msg:string; type:'success'|'error'; onDone:()=>void }) {
   useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, [onDone]);

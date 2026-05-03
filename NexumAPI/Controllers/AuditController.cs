@@ -14,9 +14,19 @@ namespace NexumAPI.Controllers
         private readonly NexumDbContext _context;
         public AuditController(NexumDbContext context) => _context = context;
 
-       
+        // TEMP DEBUG — remove after fixing
+        [HttpGet("whoami")]
+        [AllowAnonymous]
+        public IActionResult WhoAmI()
+        {
+            var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+            var isAuth = User.Identity?.IsAuthenticated ?? false;
+            return Ok(new { isAuthenticated = isAuth, claims });
+        }
+
+        // GET /api/audit — Auditor and above
         [HttpGet]
-        [Authorize(Policy = "BranchManager")]
+        [Authorize(Policy = "Auditor")]
         public async Task<IActionResult> GetLogs(
             [FromQuery] int     page      = 1,
             [FromQuery] int     pageSize  = 10,
@@ -26,8 +36,7 @@ namespace NexumAPI.Controllers
             [FromQuery] string? module    = null,
             [FromQuery] string? dateRange = null)
         {
-            // Validate pagination parameters
-            page = PaginationHelper.ValidatePage(page);
+            page     = PaginationHelper.ValidatePage(page);
             pageSize = PaginationHelper.ValidatePageSize(pageSize);
 
             var query = _context.AuditLogs
@@ -67,7 +76,6 @@ namespace NexumAPI.Controllers
                     query = query.Where(a => a.CreatedAt >= from.Value);
             }
 
-            // Get total count before pagination
             var totalItems = await query.CountAsync();
 
             var logs = await query
@@ -98,7 +106,7 @@ namespace NexumAPI.Controllers
 
         // GET /api/audit/summary — Auditor and above
         [HttpGet("summary")]
-      [Authorize(Policy = "BranchManager")]
+        [Authorize(Policy = "Auditor")]
         public async Task<IActionResult> GetSummary()
         {
             var total   = await _context.AuditLogs.CountAsync();
@@ -119,8 +127,7 @@ namespace NexumAPI.Controllers
             [FromQuery] string? module    = null,
             [FromQuery] string? dateRange = null)
         {
-            // Validate pagination parameters
-            page = PaginationHelper.ValidatePage(page);
+            page     = PaginationHelper.ValidatePage(page);
             pageSize = PaginationHelper.ValidatePageSize(pageSize);
 
             var query = _context.TransactionTrails
@@ -132,7 +139,7 @@ namespace NexumAPI.Controllers
                 query = query.Where(t =>
                     t.TxnId.Contains(search)  ||
                     t.Action.Contains(search) ||
-                    (t.Details    != null && t.Details.Contains(search))    ||
+                    (t.Details    != null && t.Details.Contains(search))         ||
                     (t.Performer  != null && t.Performer.Name.Contains(search))  ||
                     (t.TargetUser != null && t.TargetUser.Name.Contains(search)));
 
@@ -153,7 +160,6 @@ namespace NexumAPI.Controllers
                     query = query.Where(t => t.CreatedAt >= from.Value);
             }
 
-            // Get total count before pagination
             var totalItems = await query.CountAsync();
 
             var trails = await query
@@ -286,7 +292,6 @@ namespace NexumAPI.Controllers
             var boldFont   = iText.Kernel.Font.PdfFontFactory.CreateFont(iText.IO.Font.Constants.StandardFonts.HELVETICA_BOLD);
             var normalFont = iText.Kernel.Font.PdfFontFactory.CreateFont(iText.IO.Font.Constants.StandardFonts.HELVETICA);
 
-            // Header
             var headerTable = new iText.Layout.Element.Table(new float[]{ 120, 1 })
                 .SetWidth(iText.Layout.Properties.UnitValue.CreatePercentValue(100))
                 .SetBorder(iText.Layout.Borders.Border.NO_BORDER)
@@ -492,7 +497,6 @@ namespace NexumAPI.Controllers
                 document.Add(table);
             }
 
-            // Footer
             document.Add(new iText.Layout.Element.LineSeparator(
                 new iText.Kernel.Pdf.Canvas.Draw.SolidLine(1f))
                 .SetStrokeColor(borderClr).SetMarginTop(10).SetMarginBottom(8));
@@ -508,7 +512,7 @@ namespace NexumAPI.Controllers
             return File(ms.ToArray(), "application/pdf", filename);
         }
 
-        // GET /api/audit/dashboard/login-trend — BankTeller and above
+        // GET /api/audit/dashboard/login-trend — all roles
         [HttpGet("dashboard/login-trend")]
         [Authorize(Policy = "BankTeller")]
         public async Task<IActionResult> LoginTrend()
@@ -522,16 +526,12 @@ namespace NexumAPI.Controllers
                     .CountAsync(l => l.AttemptedAt >= date && l.AttemptedAt < next && l.Status == "Success");
                 var failed  = await _context.LoginAttempts
                     .CountAsync(l => l.AttemptedAt >= date && l.AttemptedAt < next && l.Status == "Failed");
-                days.Add(new {
-                    day = date.ToString("ddd"),
-                    success,
-                    failed
-                });
+                days.Add(new { day = date.ToString("ddd"), success, failed });
             }
             return Ok(days);
         }
 
-        // GET /api/audit/dashboard/role-distribution — BankTeller and above
+        // GET /api/audit/dashboard/role-distribution — all roles
         [HttpGet("dashboard/role-distribution")]
         [Authorize(Policy = "BankTeller")]
         public async Task<IActionResult> RoleDistribution()
@@ -546,7 +546,7 @@ namespace NexumAPI.Controllers
             return Ok(roles);
         }
 
-        // GET /api/audit/dashboard/mfa-adoption — BankTeller and above
+        // GET /api/audit/dashboard/mfa-adoption — all roles
         [HttpGet("dashboard/mfa-adoption")]
         [Authorize(Policy = "BankTeller")]
         public async Task<IActionResult> MfaAdoption()
@@ -562,16 +562,14 @@ namespace NexumAPI.Controllers
                 var mfaCount = await _context.Users
                     .CountAsync(u => u.CreatedAt <= monthEnd && u.MfaEnabled && u.Status == "Active");
                 var rate     = total > 0 ? (int)Math.Round((double)mfaCount / total * 100) : 0;
-                months.Add(new {
-                    month = date.ToString("MMM"),
-                    rate
-                });
+                months.Add(new { month = date.ToString("MMM"), rate });
             }
             return Ok(months);
         }
 
-        // GET /api/audit/my-activity — any logged-in user sees their own activity
+        // GET /api/audit/my-activity — any logged-in user
         [HttpGet("my-activity")]
+        [Authorize]
         public async Task<IActionResult> GetMyActivity([FromQuery] int limit = 20)
         {
             var sub = User.FindFirst("sub")?.Value
@@ -590,17 +588,11 @@ namespace NexumAPI.Controllers
                 .OrderByDescending(a => a.CreatedAt)
                 .Take(limit)
                 .Select(a => new {
-                    a.Id,
-                    a.Action,
-                    a.Module,
-                    a.Details,
-                    a.Status,
-                    a.IpAddress,
-                    a.CreatedAt,
+                    a.Id, a.Action, a.Module,
+                    a.Details, a.Status, a.IpAddress, a.CreatedAt,
                 })
                 .ToListAsync();
 
-            // Also get recent login attempts
             var logins = await _context.LoginAttempts
                 .Where(l => l.UserId == userId)
                 .OrderByDescending(l => l.AttemptedAt)
@@ -616,21 +608,13 @@ namespace NexumAPI.Controllers
                 })
                 .ToListAsync();
 
-            // Merge and sort by date
             var combined = logs
-                .Select(a => new {
-                    a.Action, a.Module, a.Details,
-                    a.Status, a.IpAddress, a.CreatedAt
-                })
-                .Concat(logins.Select(l => new {
-                    l.Action, l.Module, l.Details,
-                    l.Status, l.IpAddress, l.CreatedAt
-                }))
+                .Select(a => new { a.Action, a.Module, a.Details, a.Status, a.IpAddress, a.CreatedAt })
+                .Concat(logins.Select(l => new { l.Action, l.Module, l.Details, l.Status, l.IpAddress, l.CreatedAt }))
                 .OrderByDescending(x => x.CreatedAt)
                 .Take(limit)
                 .ToList();
 
-            // Also get login count and last login
             var totalLogins = await _context.LoginAttempts
                 .CountAsync(l => l.UserId == userId && l.Status == "Success");
             var lastLogin = await _context.LoginAttempts
@@ -643,11 +627,7 @@ namespace NexumAPI.Controllers
 
             return Ok(new {
                 activities = combined,
-                summary = new {
-                    totalLogins,
-                    lastLogin,
-                    deviceCount,
-                }
+                summary    = new { totalLogins, lastLogin, deviceCount }
             });
         }
     }

@@ -56,7 +56,39 @@ export const api = {
   },
 };
 
-// Helper to unwrap API responses that may be arrays or wrapped objects
+// ✅ Dedicated permissions fetcher — never goes through fetchArray
+// so the { isSystemAdmin, permissions } envelope is preserved intact
+export async function fetchPermissions(token: string): Promise<{
+  isSystemAdmin: boolean;
+  permissions: { moduleId: string; module: string; canView: boolean; canEdit: boolean; canDelete: boolean }[];
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/permissions/my`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // ✅ Log clearly so you can see in console what's happening
+    console.log('[permissions/my]', res.status, res.statusText);
+
+    if (!res.ok) {
+      console.error('[permissions/my] failed — token may be invalid or expired');
+      return { isSystemAdmin: false, permissions: [] };
+    }
+
+    const data = await res.json();
+    console.log('[permissions/my] response:', data);
+
+    return {
+      isSystemAdmin: data.isSystemAdmin === true,
+      permissions:   Array.isArray(data.permissions) ? data.permissions : [],
+    };
+  } catch (err) {
+    console.error('[permissions/my] network error:', err);
+    return { isSystemAdmin: false, permissions: [] };
+  }
+}
+
+// ✅ fetchArray is only for LIST endpoints — never use it for /permissions/my
 export async function fetchArray(url: string): Promise<any[]> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${auth.getToken()}` },
@@ -69,13 +101,9 @@ export async function fetchArray(url: string): Promise<any[]> {
 
   const data = await res.json();
 
-  // Handle plain array
-  if (Array.isArray(data)) return data;
-
-  // Handle paginated wrapper: { data: [...], totalItems: N }
+  if (Array.isArray(data))      return data;
   if (Array.isArray(data.data)) return data.data;
 
-  // Handle other named keys
   return (
     data.roles        ??
     data.users        ??
@@ -90,11 +118,11 @@ export async function fetchArray(url: string): Promise<any[]> {
 }
 
 export const auth = {
- saveToken(token: string, user: object) {
-  localStorage.setItem('nexum_token', token);
-  localStorage.setItem('nexum_user', JSON.stringify(user));
-  localStorage.setItem('nexum_session_start', Date.now().toString()); // ✅ Max session duration timer
-},
+  saveToken(token: string, user: object) {
+    localStorage.setItem('nexum_token', token);
+    localStorage.setItem('nexum_user', JSON.stringify(user));
+    localStorage.setItem('nexum_session_start', Date.now().toString());
+  },
 
   savePendingUser(userId: string) {
     localStorage.setItem('nexum_pending_user', userId);
@@ -117,12 +145,12 @@ export const auth = {
     return u ? JSON.parse(u) : null;
   },
 
- clear() {
-  localStorage.removeItem('nexum_token');
-  localStorage.removeItem('nexum_user');
-  localStorage.removeItem('nexum_pending_user');
-  localStorage.removeItem('nexum_session_start'); // ✅ Clear session timer on logout
-},
+  clear() {
+    localStorage.removeItem('nexum_token');
+    localStorage.removeItem('nexum_user');
+    localStorage.removeItem('nexum_pending_user');
+    localStorage.removeItem('nexum_session_start');
+  },
 
   isLoggedIn(): boolean {
     return !!localStorage.getItem('nexum_token');

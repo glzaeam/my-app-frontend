@@ -156,30 +156,62 @@ namespace NexumAPI.Services
 
             _lockout.ResetAttempts(ip, loginDto.EmployeeId);
 
-            // ✅ Check if user has Authenticator App MFA enabled — skip OTP, ask for TOTP instead
-            var authenticatorSetting = await _context.MfaSettings
-                .FirstOrDefaultAsync(m => m.UserId == user.Id
-                                        && m.Method == "Authenticator"
-                                        && m.IsEnabled == true);
+            // ── Role-based MFA method check ───────────────────────────────────
+            var userRole       = user.UserRoles.FirstOrDefault()?.Role;
+            var mfaRequirement = userRole?.MfaRequirement ?? "Optional";
+            var allowedMethods = (userRole?.AllowedMfaMethods ?? "SMS,Email")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(m => m.Trim())
+                .ToList();
 
-            if (authenticatorSetting != null)
+            // If role allows Authenticator, check if this user has it set up
+            if (allowedMethods.Contains("Authenticator", StringComparer.OrdinalIgnoreCase))
             {
-                await RecordLoginAttemptAsync(user.Id, ip, "Success", null);
-                return new { success = true, locked = false, requiresOtp = false,
-                             requiresTotp = true,
-                             userId = user.Id.ToString(),
-                             message = "Enter the code from your Authenticator app" };
+                var authenticatorSetting = await _context.MfaSettings
+                    .FirstOrDefaultAsync(m => m.UserId == user.Id
+                                           && m.Method == "Authenticator"
+                                           && m.IsEnabled == true);
+
+                if (authenticatorSetting != null)
+                {
+                    // User already has TOTP set up — ask them to verify
+                    await RecordLoginAttemptAsync(user.Id, ip, "Success", null);
+                    return new
+                    {
+                        success           = true,
+                        locked            = false,
+                        requiresOtp       = false,
+                        requiresTotp      = true,
+                        requiresTotpSetup = false,
+                        userId            = user.Id.ToString(),
+                        message           = "Enter the code from your Authenticator app"
+                    };
+                }
+                else if (mfaRequirement == "Required")
+                {
+                    // Role requires Authenticator but user hasn't set it up yet
+                    // Create an OTP gate so /totp-setup endpoint can verify the user passed password check
+                    await GenerateOtpAsync(user.Id);
+                    await RecordLoginAttemptAsync(user.Id, ip, "Success", null);
+                    return new
+                    {
+                        success           = true,
+                        locked            = false,
+                        requiresOtp       = false,
+                        requiresTotp      = false,
+                        requiresTotpSetup = true,
+                        userId            = user.Id.ToString(),
+                        message           = "Your role requires Authenticator app setup. Please scan the QR code to continue."
+                    };
+                }
             }
 
-            // ✅ Normal OTP flow (SMS / Email)
-            var otp = await GenerateOtpAsync(user.Id);
-
+            // ── Normal OTP flow (SMS / Email) ─────────────────────────────────
+            var otp       = await GenerateOtpAsync(user.Id);
             var mfaConfig = await _context.MfaConfigs.FirstOrDefaultAsync();
 
-            var userRole = user.UserRoles.FirstOrDefault()?.Role;
-            var roleAllowedMethods = (userRole?.AllowedMfaMethods ?? "SMS,Email")
-                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(m => m.Trim().ToLower())
+            var roleAllowedMethods = allowedMethods
+                .Select(m => m.ToLower())
                 .ToList();
 
             var smsSent   = false;
@@ -202,8 +234,14 @@ namespace NexumAPI.Services
 
             await RecordLoginAttemptAsync(user.Id, ip, "Success", null);
 
-            return new { success = true, locked = false, requiresOtp = true,
-                         userId = user.Id.ToString(), message = "OTP sent via SMS and Email" };
+            return new
+            {
+                success     = true,
+                locked      = false,
+                requiresOtp = true,
+                userId      = user.Id.ToString(),
+                message     = "OTP sent via SMS and Email"
+            };
         }
 
         // ── Shared helper: enforce concurrent session limit ───────────────────
@@ -213,28 +251,24 @@ namespace NexumAPI.Services
             int maxSessions  = settings?.MaxConcurrentSessions ?? 3;
             bool forceLogout = settings?.ForceLogoutOnNew      ?? true;
 
-            if (maxSessions <= 0) return null; // 0 = unlimited
+            if (maxSessions <= 0) return null;
 
             var activeSessions = await _context.Sessions
                 .Where(s => s.UserId == userId && s.Status == "Active")
                 .OrderBy(s => s.StartedAt)
                 .ToListAsync();
 
-            if (activeSessions.Count < maxSessions) return null; // under limit — OK
+            if (activeSessions.Count < maxSessions) return null;
 
             if (!forceLogout)
-            {
-                // Block the new login
                 return new { success = false,
                              message = $"Maximum of {maxSessions} concurrent session(s) reached. Please log out from another device first." };
-            }
 
-            // Force-logout the oldest session(s) to make room
             int toRemove = activeSessions.Count - maxSessions + 1;
             for (int i = 0; i < toRemove; i++)
                 activeSessions[i].Status = "Ended";
 
-            return null; // allow login to continue
+            return null;
         }
 
         public async Task<object> VerifyOtpAsync(string userId, string code)
@@ -262,7 +296,6 @@ namespace NexumAPI.Services
             if (user == null)
                 return new { success = false, message = "User not found" };
 
-            // ✅ Enforce concurrent session limit
             var concurrentError = await EnforceConcurrentSessionsAsync(userGuid);
             if (concurrentError != null) return concurrentError;
 
@@ -283,11 +316,10 @@ namespace NexumAPI.Services
                       : userAgent.Contains("Linux")   ? "Linux"
                       : "Unknown OS";
 
-            string deviceType = userAgent.Contains("Mobile")  || userAgent.Contains("iPhone") || userAgent.Contains("Android") ? "mobile"
-                              : userAgent.Contains("Tablet")  || userAgent.Contains("iPad") ? "tablet"
+            string deviceType = userAgent.Contains("Mobile")   || userAgent.Contains("iPhone") || userAgent.Contains("Android") ? "mobile"
+                              : userAgent.Contains("Tablet")   || userAgent.Contains("iPad")   ? "tablet"
                               : "desktop";
 
-            // ✅ Session duration from settings
             var loginSettings = await _context.LoginSettings.FirstOrDefaultAsync();
             int sessionHours  = loginSettings?.MaxSessionDurationHours > 0
                                 ? loginSettings.MaxSessionDurationHours : 8;
@@ -375,7 +407,7 @@ namespace NexumAPI.Services
             };
         }
 
-        // ✅ Verify TOTP code from Google/Microsoft Authenticator
+        // Verify TOTP code from Google/Microsoft Authenticator
         public async Task<object> VerifyTotpAsync(string userId, string code)
         {
             var ip = _httpContextAccessor.HttpContext?
@@ -386,8 +418,8 @@ namespace NexumAPI.Services
 
             var setting = await _context.MfaSettings
                 .FirstOrDefaultAsync(m => m.UserId == userGuid
-                                        && m.Method == "Authenticator"
-                                        && m.IsEnabled == true);
+                                       && m.Method == "Authenticator"
+                                       && m.IsEnabled == true);
 
             if (setting?.SecretKey == null)
                 return new { success = false, message = "Authenticator not set up for this account." };
@@ -406,7 +438,6 @@ namespace NexumAPI.Services
             if (user == null)
                 return new { success = false, message = "User not found" };
 
-            // ✅ Enforce concurrent session limit
             var concurrentError = await EnforceConcurrentSessionsAsync(userGuid);
             if (concurrentError != null) return concurrentError;
 
@@ -427,11 +458,10 @@ namespace NexumAPI.Services
                       : userAgent.Contains("Linux")   ? "Linux"
                       : "Unknown OS";
 
-            string deviceType = userAgent.Contains("Mobile")  || userAgent.Contains("iPhone") || userAgent.Contains("Android") ? "mobile"
-                              : userAgent.Contains("Tablet")  || userAgent.Contains("iPad") ? "tablet"
+            string deviceType = userAgent.Contains("Mobile")   || userAgent.Contains("iPhone") || userAgent.Contains("Android") ? "mobile"
+                              : userAgent.Contains("Tablet")   || userAgent.Contains("iPad")   ? "tablet"
                               : "desktop";
 
-            // ✅ Session duration from settings
             var loginSettings = await _context.LoginSettings.FirstOrDefaultAsync();
             int sessionHours  = loginSettings?.MaxSessionDurationHours > 0
                                 ? loginSettings.MaxSessionDurationHours : 8;
@@ -580,7 +610,7 @@ namespace NexumAPI.Services
             return code;
         }
 
-        private string GenerateJwtToken(User user)
+       public string GenerateJwtToken(User user) 
         {
             var claims = new List<Claim>
             {
@@ -591,15 +621,15 @@ namespace NexumAPI.Services
             };
             foreach (var ur in user.UserRoles)
                 if (ur.Role?.Name != null)
-                    claims.Add(new Claim("role", ur.Role.Name)); // ✅ FIXED: use "role" instead of ClaimTypes.Role
+                    claims.Add(new Claim("role", ur.Role.Name));
 
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var creds      = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
             var token      = new JwtSecurityToken(
-                issuer:    _config["Jwt:Issuer"],
-                audience:  _config["Jwt:Audience"],
-                claims:    claims,
-                expires:   DateTime.UtcNow.AddHours(8),
+                issuer:             _config["Jwt:Issuer"],
+                audience:           _config["Jwt:Audience"],
+                claims:             claims,
+                expires:            DateTime.UtcNow.AddHours(8),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);

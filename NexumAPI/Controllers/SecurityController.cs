@@ -15,22 +15,17 @@ namespace NexumAPI.Controllers
         private readonly NexumDbContext _context;
         public SecurityController(NexumDbContext context) => _context = context;
 
-        // GET /api/security/alerts — BranchManager and above
+        // GET /api/security/alerts — Auditor and above
         [HttpGet("alerts")]
-        [Authorize(Policy = "BranchManager")]
+        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
         public async Task<IActionResult> GetAlerts()
         {
             var alerts = await _context.SecurityAlerts
                 .Include(a => a.User)
                 .OrderByDescending(a => a.CreatedAt)
                 .Select(a => new {
-                    a.Id,
-                    a.AlertType,
-                    a.Severity,
-                    a.Description,
-                    a.Status,
-                    a.CreatedAt,
-                    a.ResolvedAt,
+                    a.Id, a.AlertType, a.Severity,
+                    a.Description, a.Status, a.CreatedAt, a.ResolvedAt,
                     UserName   = a.User != null ? a.User.Name       : "Unknown",
                     EmployeeId = a.User != null ? a.User.EmployeeId : "—",
                 })
@@ -40,9 +35,8 @@ namespace NexumAPI.Controllers
         }
 
         // GET /api/security/alerts/summary — all authenticated users
-        // (used by topbar notification badge)
         [HttpGet("alerts/summary")]
-        [Authorize]
+        [Authorize]  // ✅ already correct
         public async Task<IActionResult> GetAlertSummary()
         {
             var total    = await _context.SecurityAlerts.CountAsync();
@@ -55,7 +49,7 @@ namespace NexumAPI.Controllers
 
         // PUT /api/security/alerts/{id}/resolve — System Admin only
         [HttpPut("alerts/{id}/resolve")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin")]  // ✅ already correct
         public async Task<IActionResult> ResolveAlert(Guid id)
         {
             var alert = await _context.SecurityAlerts.FindAsync(id);
@@ -79,7 +73,7 @@ namespace NexumAPI.Controllers
 
         // PUT /api/security/alerts/{id}/acknowledge — System Admin only
         [HttpPut("alerts/{id}/acknowledge")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin")]  // ✅ already correct
         public async Task<IActionResult> AcknowledgeAlert(Guid id)
         {
             var alert = await _context.SecurityAlerts.FindAsync(id);
@@ -102,7 +96,7 @@ namespace NexumAPI.Controllers
 
         // PUT /api/security/alerts/{id}/dismiss — System Admin only
         [HttpPut("alerts/{id}/dismiss")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin")]  // ✅ already correct
         public async Task<IActionResult> DismissAlert(Guid id)
         {
             var alert = await _context.SecurityAlerts.FindAsync(id);
@@ -126,7 +120,7 @@ namespace NexumAPI.Controllers
 
         // PUT /api/security/alerts/{id}/investigate — System Admin only
         [HttpPut("alerts/{id}/investigate")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin")]  // ✅ already correct
         public async Task<IActionResult> InvestigateAlert(Guid id)
         {
             var alert = await _context.SecurityAlerts.FindAsync(id);
@@ -147,22 +141,17 @@ namespace NexumAPI.Controllers
             return Ok(new { success = true, message = "Alert marked for investigation" });
         }
 
-        // GET /api/security/failed-logins — BranchManager and above
+        // GET /api/security/failed-logins — Auditor and above
         [HttpGet("failed-logins")]
-        [Authorize(Policy = "BranchManager")]
+        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
         public async Task<IActionResult> GetFailedLogins(
-            [FromQuery] int page = 1,
+            [FromQuery] int page     = 1,
             [FromQuery] int pageSize = 10)
         {
-            // Validate pagination parameters
-            page = PaginationHelper.ValidatePage(page);
+            page     = PaginationHelper.ValidatePage(page);
             pageSize = PaginationHelper.ValidatePageSize(pageSize);
 
-            var query = _context.LoginAttempts
-                .Include(l => l.User)
-                .AsQueryable();
-
-            // Get total count before pagination
+            var query      = _context.LoginAttempts.Include(l => l.User).AsQueryable();
             var totalItems = await query.CountAsync();
 
             var logs = await query
@@ -188,9 +177,9 @@ namespace NexumAPI.Controllers
             ));
         }
 
-        // GET /api/security/failed-logins/summary — BranchManager and above
+        // GET /api/security/failed-logins/summary — Auditor and above
         [HttpGet("failed-logins/summary")]
-        [Authorize(Policy = "BranchManager")]
+        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
         public async Task<IActionResult> GetFailedLoginSummary()
         {
             var total   = await _context.LoginAttempts.CountAsync(l => l.Status == "Failed");
@@ -201,25 +190,19 @@ namespace NexumAPI.Controllers
             return Ok(new { total, today, blocked, locked });
         }
 
-        // GET /api/security/devices — BranchManager and above
+        // GET /api/security/devices — Auditor and above
         [HttpGet("devices")]
-        [Authorize(Policy = "BranchManager")]
+        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
         public async Task<IActionResult> GetDevices()
         {
             var devices = await _context.Devices
                 .Include(d => d.User)
                 .OrderByDescending(d => d.LastUsed)
                 .Select(d => new {
-                    d.Id,
-                    d.DeviceName,
-                    d.DeviceType,
-                    d.OS,
-                    d.Browser,
+                    d.Id, d.DeviceName, d.DeviceType,
+                    d.OS, d.Browser,
                     IpAddress = d.IpAddress == "::1" ? "127.0.0.1 (localhost)" : d.IpAddress,
-                    d.Location,
-                    d.IsTrusted,
-                    d.LastUsed,
-                    d.Status,
+                    d.Location, d.IsTrusted, d.LastUsed, d.Status,
                     UserName   = d.User.Name,
                     EmployeeId = d.User.EmployeeId,
                 })
@@ -230,7 +213,7 @@ namespace NexumAPI.Controllers
 
         // PUT /api/security/devices/{id}/revoke — System Admin only
         [HttpPut("devices/{id}/revoke")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin")]  // ✅ already correct
         public async Task<IActionResult> RevokeDevice(Guid id)
         {
             var device = await _context.Devices
@@ -264,7 +247,7 @@ namespace NexumAPI.Controllers
 
         // PUT /api/security/devices/{id}/trust — System Admin only
         [HttpPut("devices/{id}/trust")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "SystemAdmin")]  // ✅ already correct
         public async Task<IActionResult> TrustDevice(Guid id)
         {
             var device = await _context.Devices
@@ -274,9 +257,8 @@ namespace NexumAPI.Controllers
             if (device == null) return NotFound(new { success = false, message = "Device not found" });
 
             var wasSuspicious = device.Status == "suspicious";
-
-            device.IsTrusted = true;
-            device.Status    = "active";
+            device.IsTrusted  = true;
+            device.Status     = "active";
 
             _context.AuditLogs.Add(new AuditLog {
                 UserId    = device.UserId,

@@ -37,6 +37,15 @@ interface UserProfile {
   roles: string[]; profileImageUrl?: string | null;
 }
 
+// ✅ Password policy fetched from backend
+interface PasswordPolicy {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumbers: boolean;
+  requireSpecial: boolean;
+}
+
 function getStrength(pw: string): { score: number; label: string; color: string } {
   if (!pw) return { score: 0, label: '', color: '#e4e6eb' };
   let s = 0;
@@ -72,8 +81,7 @@ function PasswordRule({ met, text }: { met: boolean; text: string }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: met ? '#15803d' : '#9ca3af', fontFamily: "'Outfit',sans-serif", marginBottom: 3 }}>
       {met
         ? <CheckCircle2 size={13} color="#15803d" />
-        : <div style={{ width: 13, height: 13, borderRadius: '50%', border: '1.5px solid #d1d5db', flexShrink: 0 }} />
-      }
+        : <div style={{ width: 13, height: 13, borderRadius: '50%', border: '1.5px solid #d1d5db', flexShrink: 0 }} />}
       {text}
     </div>
   );
@@ -82,15 +90,7 @@ function PasswordRule({ met, text }: { met: boolean; text: string }) {
 function Toast({ msg, type, onDone }: { msg: string; type: 'success' | 'error'; onDone: () => void }) {
   useEffect(() => { const t = setTimeout(onDone, 3200); return () => clearTimeout(t); }, [onDone]);
   return (
-    <div style={{
-      position: 'fixed', top: 80, right: 24, zIndex: 99999,
-      padding: '12px 18px', borderRadius: 12, fontSize: 13, fontWeight: 600,
-      fontFamily: "'Outfit',sans-serif", boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
-      background: type === 'success' ? '#f0fdf4' : '#fff1f2',
-      color: type === 'success' ? '#15803d' : '#dc2626',
-      border: `1px solid ${type === 'success' ? '#bbf7d0' : '#fecdd3'}`,
-      display: 'flex', alignItems: 'center', gap: 8,
-    }}>
+    <div style={{ position: 'fixed', top: 80, right: 24, zIndex: 99999, padding: '12px 18px', borderRadius: 12, fontSize: 13, fontWeight: 600, fontFamily: "'Outfit',sans-serif", boxShadow: '0 8px 32px rgba(0,0,0,0.13)', background: type === 'success' ? '#f0fdf4' : '#fff1f2', color: type === 'success' ? '#15803d' : '#dc2626', border: `1px solid ${type === 'success' ? '#bbf7d0' : '#fecdd3'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: type === 'success' ? '#15803d' : '#dc2626', flexShrink: 0 }} />
       {msg}
     </div>
@@ -115,17 +115,23 @@ const MyProfile = () => {
   const fileInputRef                  = useRef<HTMLInputElement>(null);
   const avatarInputRef                = useRef<HTMLInputElement>(null);
 
-  const [editForm, setEditForm]       = useState({ firstName: '', lastName: '', email: '', department: '' });
+  const [editForm, setEditForm]         = useState({ firstName: '', lastName: '', email: '', department: '' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl]   = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl]     = useState<string | null>(null);
 
-  const [pwForm, setPwForm]           = useState({ current: '', newPw: '', confirm: '' });
-  const [showPw, setShowPw]           = useState({ current: false, newPw: false, confirm: false });
-  const [pwError, setPwError]         = useState<string | null>(null);
+  const [pwForm, setPwForm]   = useState({ current: '', newPw: '', confirm: '' });
+  const [showPw, setShowPw]   = useState({ current: false, newPw: false, confirm: false });
+  const [pwError, setPwError] = useState<string | null>(null);
 
-  const [activities, setActivities]     = useState<any[]>([]);
-  const [actSummary, setActSummary]     = useState({ totalLogins: 0, lastLogin: null as string | null, deviceCount: 0 });
-  const [actLoading, setActLoading]     = useState(false);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [actSummary, setActSummary] = useState({ totalLogins: 0, lastLogin: null as string | null, deviceCount: 0 });
+  const [actLoading, setActLoading] = useState(false);
+
+  // ✅ Password policy from backend — used to show real requirements in Change Password modal
+  const [pwPolicy, setPwPolicy] = useState<PasswordPolicy>({
+    minLength: 8, requireUppercase: false, requireLowercase: false,
+    requireNumbers: false, requireSpecial: false,
+  });
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -139,9 +145,7 @@ const MyProfile = () => {
   const fetchActivity = useCallback(async () => {
     setActLoading(true);
     try {
-      const res  = await fetch(`${API}/audit/my-activity?limit=20`, {
-        headers: { Authorization: `Bearer ${auth.getToken()}` }
-      });
+      const res  = await fetch(`${API}/audit/my-activity?limit=20`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
       const data = await res.json();
       setActivities(data.activities ?? []);
       setActSummary(data.summary ?? { totalLogins: 0, lastLogin: null, deviceCount: 0 });
@@ -149,10 +153,37 @@ const MyProfile = () => {
     finally { setActLoading(false); }
   }, []);
 
-  useEffect(() => { 
-    fetchProfile(); 
-    fetchActivity(); 
-  }, [fetchProfile, fetchActivity]);
+  // ✅ Fetch password policy so Change Password modal shows real requirements
+  const fetchPwPolicy = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/password-policy`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+      if (!res.ok) return;
+      const data = await res.json();
+      setPwPolicy({
+        minLength:        data.minLength        ?? data.MinLength        ?? 8,
+        requireUppercase: data.requireUppercase ?? data.RequireUppercase ?? false,
+        requireLowercase: data.requireLowercase ?? data.RequireLowercase ?? false,
+        requireNumbers:   data.requireNumbers   ?? data.RequireNumbers   ?? false,
+        requireSpecial:   data.requireSpecial   ?? data.RequireSpecial   ?? false,
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+    fetchActivity();
+    fetchPwPolicy();
+  }, [fetchProfile, fetchActivity, fetchPwPolicy]);
+
+  // ✅ Validate new password against fetched policy
+  const validatePassword = (pw: string): string | null => {
+    if (pw.length < pwPolicy.minLength)              return `Password must be at least ${pwPolicy.minLength} characters.`;
+    if (pwPolicy.requireUppercase && !/[A-Z]/.test(pw)) return 'Password must contain at least one uppercase letter.';
+    if (pwPolicy.requireLowercase && !/[a-z]/.test(pw)) return 'Password must contain at least one lowercase letter.';
+    if (pwPolicy.requireNumbers   && !/[0-9]/.test(pw)) return 'Password must contain at least one number.';
+    if (pwPolicy.requireSpecial   && !/[^A-Za-z0-9]/.test(pw)) return 'Password must contain at least one special character.';
+    return null;
+  };
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -216,8 +247,10 @@ const MyProfile = () => {
 
   const handleChangePassword = async () => {
     setPwError(null);
-    if (!pwForm.current)                return setPwError('Enter your current password.');
-    if (pwForm.newPw.length < 8)        return setPwError('Password must be at least 8 characters.');
+    if (!pwForm.current) return setPwError('Enter your current password.');
+    // ✅ Validate against real policy from backend
+    const policyErr = validatePassword(pwForm.newPw);
+    if (policyErr) return setPwError(policyErr);
     if (pwForm.newPw !== pwForm.confirm) return setPwError('Passwords do not match.');
     if (!profile) return;
     setSaving(true);
@@ -334,12 +367,6 @@ const MyProfile = () => {
         .pw-eye:hover { color:#374151; }
         .pw-err { font-size:12.5px; color:rgb(252,165,165); background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:12px; padding:12px 16px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
         .pw-rules { background:#ffffff; border-radius:10px; padding:12px 14px; margin-top:10px; border:1px solid #e4e6eb; }
-        .mfa-toggle-btn { padding:8px 18px; border-radius:8px; border:none; font-size:13px; font-weight:700; font-family:'Outfit',sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all .18s; white-space:nowrap; }
-        .mfa-enable  { background:#f0fdf4; color:#15803d; border:1.5px solid #bbf7d0; }
-        .mfa-enable:hover  { background:#dcfce7; }
-        .mfa-disable { background:#fff1f2; color:#dc2626; border:1.5px solid #fecdd3; }
-        .mfa-disable:hover { background:#fee2e2; }
-        .mfa-toggle-btn:disabled { opacity:.6; cursor:not-allowed; }
         .spin { animation:spin 1s linear infinite; }
         @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
         @media(max-width:820px) {
@@ -366,7 +393,6 @@ const MyProfile = () => {
               <div style={{ textAlign: 'center', padding: '80px 0', color: '#dc2626', fontSize: 14 }}>Failed to load profile.</div>
             ) : (
               <>
-                {/* Cover + Identity */}
                 <div className="pr-cover-wrap">
                   <div className="pr-cover-img">
                     <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: .07 }} xmlns="http://www.w3.org/2000/svg">
@@ -376,7 +402,6 @@ const MyProfile = () => {
                       <rect width="100%" height="100%" fill="url(#dp)" />
                     </svg>
                   </div>
-
                   <div className="pr-identity-bar">
                     <div className="pr-identity-left">
                       <div className="pr-avatar-wrap" onClick={() => avatarInputRef.current?.click()}>
@@ -390,7 +415,6 @@ const MyProfile = () => {
                         </div>
                         <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleQuickAvatarChange} />
                       </div>
-
                       <div className="pr-name-block">
                         <h1 className="pr-name">{profile.name}</h1>
                         <div className="pr-sub">
@@ -402,13 +426,11 @@ const MyProfile = () => {
                         </div>
                       </div>
                     </div>
-
                     <div className="pr-actions">
                       <button className="btn-primary" onClick={openEdit}><Edit3 size={15} />Edit Profile</button>
                       <button className="btn-secondary" onClick={() => setPwOpen(true)}><KeyRound size={15} />Change Password</button>
                     </div>
                   </div>
-
                   <div className="pr-tabs">
                     {(['about', 'security', 'activity'] as const).map(t => (
                       <button key={t} className={`pr-tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
@@ -419,19 +441,17 @@ const MyProfile = () => {
                 </div>
 
                 <div className="pr-body">
-
-                  {/* ── ABOUT TAB ── */}
                   {activeTab === 'about' && (
                     <>
                       <div>
                         <div className="card">
                           <div className="card-title">Account Info</div>
                           {([
-                            { icon: User,        label: 'Full Name',   value: profile.name,               bg: '#f0fdf4', color: '#15803d' },
-                            { icon: KeyRound,    label: 'Employee ID', value: profile.employeeId,         bg: '#faf5ff', color: '#7c3aed' },
-                            { icon: Mail,        label: 'Email',       value: profile.email,              bg: '#eff6ff', color: '#1d4ed8' },
-                            { icon: Building,    label: 'Department',  value: profile.department ?? '—',  bg: '#fff7ed', color: '#c2410c' },
-                            { icon: ShieldCheck, label: 'Role',        value: profile.roles[0] ?? '—',    bg: '#f0fdf4', color: '#15803d' },
+                            { icon: User,        label: 'Full Name',   value: profile.name,              bg: '#f0fdf4', color: '#15803d' },
+                            { icon: KeyRound,    label: 'Employee ID', value: profile.employeeId,        bg: '#faf5ff', color: '#7c3aed' },
+                            { icon: Mail,        label: 'Email',       value: profile.email,             bg: '#eff6ff', color: '#1d4ed8' },
+                            { icon: Building,    label: 'Department',  value: profile.department ?? '—', bg: '#fff7ed', color: '#c2410c' },
+                            { icon: ShieldCheck, label: 'Role',        value: profile.roles[0] ?? '—',   bg: '#f0fdf4', color: '#15803d' },
                           ] as const).map(f => {
                             const Icon = f.icon as React.ElementType;
                             return (
@@ -443,16 +463,11 @@ const MyProfile = () => {
                           })}
                         </div>
                       </div>
-
                       <div className="detail-card">
                         <div className="detail-title">Profile Overview</div>
                         <div className="detail-grid">
                           {[
-                            { label: 'Status', value: (
-                              <span className="s-pill" style={{ background: '#dcfce7', color: '#15803d' }}>
-                                <div className="s-dot" style={{ background: '#16a34a' }} />{profile.status}
-                              </span>
-                            )},
+                            { label: 'Status',      value: <span className="s-pill" style={{ background: '#dcfce7', color: '#15803d' }}><div className="s-dot" style={{ background: '#16a34a' }} />{profile.status}</span> },
                             { label: 'Role',        value: <span className="badge bg-blue">{profile.roles[0] ?? '—'}</span> },
                             { label: 'Department',  value: profile.department ?? '—' },
                             { label: 'Employee ID', value: <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#7c3aed', fontWeight: 700 }}>{profile.employeeId}</span> },
@@ -476,34 +491,26 @@ const MyProfile = () => {
                     </>
                   )}
 
-                  {/* ── SECURITY TAB ── */}
                   {activeTab === 'security' && (
                     <>
                       <div>
                         <div className="card">
                           <div className="card-title">Security Settings</div>
-
-                          {/* MFA row — read only, controlled by System Admin */}
                           <div className="sec-row">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div className="i-icon" style={{ background: profile.mfaEnabled ? '#f0fdf4' : '#fef9c3' }}>
-                                {profile.mfaEnabled
-                                  ? <ShieldCheck size={17} color="#15803d" />
-                                  : <ShieldOff   size={17} color="#d97706" />}
+                                {profile.mfaEnabled ? <ShieldCheck size={17} color="#15803d" /> : <ShieldOff size={17} color="#d97706" />}
                               </div>
                               <div>
                                 <div className="i-label">Two-Factor Auth (MFA)</div>
                                 <div className="i-value">{profile.mfaEnabled ? 'Your account is protected' : 'Disabled by administrator'}</div>
                               </div>
                             </div>
-                            {/* ✅ Read-only badge — only System Admin can change this */}
                             <span className={`badge ${profile.mfaEnabled ? 'bg-green' : 'bg-amber'}`}>
                               <div style={{ width: 6, height: 6, borderRadius: '50%', background: profile.mfaEnabled ? '#16a34a' : '#d97706' }} />
                               {profile.mfaEnabled ? 'Enabled' : 'Disabled'}
                             </span>
                           </div>
-
-                          {/* Password row */}
                           <div className="sec-row">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div className="i-icon" style={{ background: '#ede9fe' }}><KeyRound size={17} color="#7c3aed" /></div>
@@ -513,8 +520,6 @@ const MyProfile = () => {
                               Change
                             </button>
                           </div>
-
-                          {/* Recovery Email row */}
                           <div className="sec-row">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div className="i-icon" style={{ background: '#eff6ff' }}><Mail size={17} color="#1d4ed8" /></div>
@@ -524,15 +529,14 @@ const MyProfile = () => {
                           </div>
                         </div>
                       </div>
-
                       <div className="detail-card">
                         <div className="detail-title">Security Overview</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                           {[
-                            { label: 'Account Status',   value: profile.status,                                      good: true },
-                            { label: 'MFA / 2FA',        value: profile.mfaEnabled ? 'Enabled' : 'Not configured',  good: profile.mfaEnabled },
-                            { label: 'Email Verified',   value: 'Verified',                                          good: true },
-                            { label: 'Session Security', value: 'JWT Token Active',                                  good: true },
+                            { label: 'Account Status',   value: profile.status,                                     good: true },
+                            { label: 'MFA / 2FA',        value: profile.mfaEnabled ? 'Enabled' : 'Not configured', good: profile.mfaEnabled },
+                            { label: 'Email Verified',   value: 'Verified',                                         good: true },
+                            { label: 'Session Security', value: 'JWT Token Active',                                 good: true },
                           ].map(r => (
                             <div key={r.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 9, background: '#f7f8fa', border: '1px solid #eaecef' }}>
                               <span style={{ fontSize: 13.5, fontWeight: 600, color: '#050505' }}>{r.label}</span>
@@ -554,7 +558,6 @@ const MyProfile = () => {
                     </>
                   )}
 
-                  {/* ── ACTIVITY TAB ── */}
                   {activeTab === 'activity' && (
                     <>
                       <div>
@@ -565,40 +568,24 @@ const MyProfile = () => {
                           ) : activities.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '30px 0', color: '#9ca3af', fontSize: 13 }}>No activity yet.</div>
                           ) : activities.map((a, i) => {
-                            // Pick icon and color based on action
                             const isLogin    = a.action?.toLowerCase().includes('login');
                             const isSuccess  = a.status === 'Success';
                             const isFailed   = a.status === 'Failed';
                             const isPassword = a.action?.toLowerCase().includes('password');
                             const isProfile  = a.action?.toLowerCase().includes('profile') || a.action?.toLowerCase().includes('update');
                             const isMfa      = a.action?.toLowerCase().includes('mfa') || a.action?.toLowerCase().includes('otp');
-
-                            const iconColor = isSuccess ? '#15803d' : isFailed ? '#dc2626' : '#1d4ed8';
-                            const iconBg    = isSuccess ? '#dcfce7' : isFailed ? '#fee2e2' : '#eff6ff';
-                            const Icon      = isPassword ? KeyRound
-                                            : isProfile  ? Edit3
-                                            : isMfa      ? ShieldCheck
-                                            : isLogin    ? (isSuccess ? CheckCircle2 : AlertCircle)
-                                            : Activity;
-
-                            // Format time
-                            const date     = new Date(a.createdAt);
-                            const now      = new Date();
-                            const diffMs   = now.getTime() - date.getTime();
-                            const diffMins = Math.floor(diffMs / 60000);
-                            const diffHrs  = Math.floor(diffMins / 60);
-                            const diffDays = Math.floor(diffHrs / 24);
-                            const timeStr  = diffMins < 1   ? 'Just now'
-                                           : diffMins < 60  ? `${diffMins}m ago`
-                                           : diffHrs < 24   ? `${diffHrs}h ago`
-                                           : diffDays < 7   ? `${diffDays}d ago`
-                                           : date.toLocaleDateString();
-
+                            const iconColor  = isSuccess ? '#15803d' : isFailed ? '#dc2626' : '#1d4ed8';
+                            const iconBg     = isSuccess ? '#dcfce7'  : isFailed ? '#fee2e2'  : '#eff6ff';
+                            const Icon       = isPassword ? KeyRound : isProfile ? Edit3 : isMfa ? ShieldCheck : isLogin ? (isSuccess ? CheckCircle2 : AlertCircle) : Activity;
+                            const date       = new Date(a.createdAt);
+                            const now        = new Date();
+                            const diffMins   = Math.floor((now.getTime() - date.getTime()) / 60000);
+                            const diffHrs    = Math.floor(diffMins / 60);
+                            const diffDays   = Math.floor(diffHrs / 24);
+                            const timeStr    = diffMins < 1 ? 'Just now' : diffMins < 60 ? `${diffMins}m ago` : diffHrs < 24 ? `${diffHrs}h ago` : diffDays < 7 ? `${diffDays}d ago` : date.toLocaleDateString();
                             return (
                               <div key={i} className="act-item">
-                                <div className="act-icon" style={{ background: iconBg }}>
-                                  <Icon size={17} color={iconColor} />
-                                </div>
+                                <div className="act-icon" style={{ background: iconBg }}><Icon size={17} color={iconColor} /></div>
                                 <div style={{ flex: 1 }}>
                                   <div className="act-text">{a.action}</div>
                                   <div className="act-sub">
@@ -606,23 +593,18 @@ const MyProfile = () => {
                                     {a.ipAddress && <span style={{ color: '#9ca3af' }}>{a.ipAddress}</span>}
                                   </div>
                                 </div>
-                                <div className="act-time">
-                                  <Clock size={11} />{timeStr}
-                                </div>
+                                <div className="act-time"><Clock size={11} />{timeStr}</div>
                               </div>
                             );
                           })}
                         </div>
                       </div>
-
                       <div className="detail-card">
                         <div className="detail-title">Activity Summary</div>
                         <div className="detail-grid">
                           {[
-                            { label: 'Total Logins',   value: actSummary.totalLogins.toString() },
-                            { label: 'Last Login',     value: actSummary.lastLogin
-                                ? new Date(actSummary.lastLogin).toLocaleString()
-                                : '—' },
+                            { label: 'Total Logins',  value: actSummary.totalLogins.toString() },
+                            { label: 'Last Login',    value: actSummary.lastLogin ? new Date(actSummary.lastLogin).toLocaleString() : '—' },
                             { label: 'Devices Used',  value: actSummary.deviceCount.toString() },
                             { label: 'Location',      value: 'Davao City, PH' },
                           ].map(s => (
@@ -639,7 +621,6 @@ const MyProfile = () => {
                       </div>
                     </>
                   )}
-
                 </div>
               </>
             )}
@@ -694,7 +675,7 @@ const MyProfile = () => {
         </div>
       </div>
 
-      {/* Change Password Modal */}
+      {/* Change Password Modal — shows real policy requirements from backend */}
       <div className={`overlay ${pwOpen ? 'open' : ''}`} onClick={() => { setPwOpen(false); setPwError(null); setPwForm({ current: '', newPw: '', confirm: '' }); }}>
         <div className="modal" onClick={e => e.stopPropagation()}>
           <div className="m-head">
@@ -704,15 +685,13 @@ const MyProfile = () => {
               </div>
               <div>
                 <div className="m-title">Change Password</div>
-                <div className="m-sub">Keep your account secure</div>
+                <div className="m-sub">Must meet the system password policy</div>
               </div>
             </div>
             <button className="m-x" onClick={() => { setPwOpen(false); setPwError(null); setPwForm({ current: '', newPw: '', confirm: '' }); }}><X size={14} /></button>
           </div>
-
           <div className="m-body">
             {pwError && <div className="pw-err"><AlertCircle size={14} />{pwError}</div>}
-
             <div className="f-grp">
               <label className="f-lbl">Current Password</label>
               <div className="pw-wrap">
@@ -722,7 +701,6 @@ const MyProfile = () => {
                 </button>
               </div>
             </div>
-
             <div className="f-grp">
               <label className="f-lbl">New Password</label>
               <div className="pw-wrap">
@@ -733,7 +711,6 @@ const MyProfile = () => {
               </div>
               <StrengthBar password={pwForm.newPw} />
             </div>
-
             <div className="f-grp">
               <label className="f-lbl">Confirm Password</label>
               <div className="pw-wrap">
@@ -751,17 +728,18 @@ const MyProfile = () => {
               )}
             </div>
 
+            {/* ✅ Password rules pulled from real backend policy */}
             {pwForm.newPw && (
               <div className="pw-rules">
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: '#374151', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Password Requirements</div>
-                <PasswordRule met={pwForm.newPw.length >= 8}           text="At least 8 characters" />
-                <PasswordRule met={/[A-Z]/.test(pwForm.newPw)}         text="One uppercase letter (A-Z)" />
-                <PasswordRule met={/[0-9]/.test(pwForm.newPw)}         text="One number (0-9)" />
-                <PasswordRule met={/[^A-Za-z0-9]/.test(pwForm.newPw)} text="One special character (!@#$...)" />
+                <PasswordRule met={pwForm.newPw.length >= pwPolicy.minLength}         text={`At least ${pwPolicy.minLength} characters`} />
+                {pwPolicy.requireUppercase && <PasswordRule met={/[A-Z]/.test(pwForm.newPw)}         text="One uppercase letter (A-Z)" />}
+                {pwPolicy.requireLowercase && <PasswordRule met={/[a-z]/.test(pwForm.newPw)}         text="One lowercase letter (a-z)" />}
+                {pwPolicy.requireNumbers   && <PasswordRule met={/[0-9]/.test(pwForm.newPw)}         text="One number (0-9)" />}
+                {pwPolicy.requireSpecial   && <PasswordRule met={/[^A-Za-z0-9]/.test(pwForm.newPw)} text="One special character (!@#$...)" />}
               </div>
             )}
           </div>
-
           <div className="m-foot">
             <button className="btn-cxl" onClick={() => { setPwOpen(false); setPwError(null); setPwForm({ current: '', newPw: '', confirm: '' }); }}>Cancel</button>
             <button className="btn-pw" onClick={handleChangePassword} disabled={saving}>

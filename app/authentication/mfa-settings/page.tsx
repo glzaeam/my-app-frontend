@@ -92,7 +92,6 @@ export default function MFASettings() {
   const [codeExpiry, setCodeExpiry]                     = useState('5');
   const [graceLogins, setGraceLogins]                   = useState('0');
 
-  // Authenticator App setup state
   const [showAuthSetup, setShowAuthSetup] = useState(false);
   const [qrUri, setQrUri]                = useState('');
   const [totpSecret, setTotpSecret]      = useState('');
@@ -118,13 +117,15 @@ export default function MFASettings() {
 
       setSmsEnabled(config.smsEnabled ?? true);
       setEmailEnabled(config.emailEnabled ?? true);
-      // ✅ Reads per-user authenticator status from backend (MfaSettings table)
       setAuthenticatorEnabled(config.authenticatorEnabled ?? false);
       setCodeExpiry(String(config.codeExpiryMinutes ?? 5));
       setGraceLogins(String(config.graceLogins ?? 0));
-      setRoles(rolesData);
-    } catch { setToast({ msg: 'Failed to load MFA settings', type: 'error' }); }
-    finally { setLoading(false); }
+      setRoles(Array.isArray(rolesData) ? rolesData : []);
+    } catch {
+      setToast({ msg: 'Failed to load MFA settings', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -145,8 +146,11 @@ export default function MFASettings() {
       const data = await res.json();
       if (data.success) setToast({ msg: 'MFA settings saved', type: 'success' });
       else setToast({ msg: data.message || 'Save failed', type: 'error' });
-    } catch { setToast({ msg: 'Server error', type: 'error' }); }
-    finally { setSaving(false); }
+    } catch {
+      setToast({ msg: 'Server error', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveRole = async (roleId: string) => {
@@ -162,21 +166,28 @@ export default function MFASettings() {
         setToast({ msg: 'Role MFA updated — user accounts updated', type: 'success' });
         setEditingRole(null);
         fetchData();
-      } else setToast({ msg: data.message || 'Update failed', type: 'error' });
-    } catch { setToast({ msg: 'Server error', type: 'error' }); }
+      } else {
+        setToast({ msg: data.message || 'Update failed', type: 'error' });
+      }
+    } catch {
+      setToast({ msg: 'Server error', type: 'error' });
+    }
   };
 
   const setupAuthenticator = async () => {
+    if (!isEditable) return;
     try {
       const res  = await fetch(`${API}/mfa/authenticator/setup`, {
-        method: 'POST', headers: { Authorization: `Bearer ${auth.getToken()}` }
+        method: 'POST', headers: { Authorization: `Bearer ${auth.getToken()}` },
       });
       const data = await res.json();
       setQrUri(data.qrUri);
       setTotpSecret(data.secret);
       setTotpCode('');
       setShowAuthSetup(true);
-    } catch { setToast({ msg: 'Failed to start authenticator setup', type: 'error' }); }
+    } catch {
+      setToast({ msg: 'Failed to start authenticator setup', type: 'error' });
+    }
   };
 
   const verifyAuthenticator = async () => {
@@ -185,27 +196,29 @@ export default function MFASettings() {
       const res  = await fetch(`${API}/mfa/authenticator/verify`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
-        body:    JSON.stringify({ code: totpCode })
+        body:    JSON.stringify({ code: totpCode }),
       });
       const data = await res.json();
       if (data.success) {
-        // ✅ Flip toggle ON immediately
         setAuthenticatorEnabled(true);
         setShowAuthSetup(false);
         setToast({ msg: 'Authenticator app enabled! Login will now use your Authenticator app.', type: 'success' });
       } else {
         setToast({ msg: data.message || 'Invalid code', type: 'error' });
       }
-    } catch { setToast({ msg: 'Server error', type: 'error' }); }
-    finally { setVerifying(false); }
+    } catch {
+      setToast({ msg: 'Server error', type: 'error' });
+    } finally {
+      setVerifying(false);
+    }
   };
 
-  // ✅ Calls backend to set IsEnabled = false in DB
   const disableAuthenticator = async () => {
+    if (!isEditable) return;
     try {
       const res  = await fetch(`${API}/mfa/authenticator/disable`, {
         method:  'POST',
-        headers: { Authorization: `Bearer ${auth.getToken()}` }
+        headers: { Authorization: `Bearer ${auth.getToken()}` },
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -230,9 +243,9 @@ export default function MFASettings() {
   };
 
   const authMethods = [
-    { icon: <Smartphone size={18} />, label: 'SMS OTP',          desc: 'Send one-time codes via SMS',      value: smsEnabled,           toggle: () => setSmsEnabled(v => !v),           accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)' },
-    { icon: <Mail size={18} />,       label: 'Email OTP',         desc: 'Send one-time codes via email',    value: emailEnabled,         toggle: () => setEmailEnabled(v => !v),         accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)' },
-    { icon: <Settings size={18} />,   label: 'Authenticator App', desc: 'Google / Microsoft Authenticator', value: authenticatorEnabled, toggle: () => {},                              accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)' },
+    { icon: <Smartphone size={18} />, label: 'SMS OTP',          desc: 'Send one-time codes via SMS',      value: smsEnabled,           toggle: () => setSmsEnabled(v => !v),   accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)' },
+    { icon: <Mail size={18} />,       label: 'Email OTP',         desc: 'Send one-time codes via email',    value: emailEnabled,         toggle: () => setEmailEnabled(v => !v), accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)'  },
+    { icon: <Settings size={18} />,   label: 'Authenticator App', desc: 'Google / Microsoft Authenticator', value: authenticatorEnabled, toggle: () => {},                      accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)'  },
   ];
 
   return (
@@ -319,7 +332,13 @@ export default function MFASettings() {
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
       <div className="mfa-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
+        <Sidebar
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          onLogout={() => { auth.clear(); router.push('/'); }}
+        />
         <div className="mfa-main">
           <TopBar title="Authentication" />
           <div className="mfa-scroll">
@@ -330,7 +349,9 @@ export default function MFASettings() {
                 </div>
                 <h1 style={{ fontSize: 22, fontWeight: 600, color: '#1a2332', margin: '0 0 4px' }}>MFA Settings</h1>
                 <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>
-                  {isEditable ? 'Configure multi-factor authentication methods and per-role policies' : 'Read-only view of MFA configuration'}
+                  {isEditable
+                    ? 'Configure multi-factor authentication methods and per-role policies'
+                    : 'Read-only view of MFA configuration'}
                 </p>
               </div>
             </div>
@@ -349,41 +370,55 @@ export default function MFASettings() {
                     {authMethods.map((m, i) => (
                       <div key={i} className="method-row">
                         <div className="method-icon" style={{ background: m.iconBg, color: m.accent }}>{m.icon}</div>
-                        <div className="method-info"><h3>{m.label}</h3><p>{m.desc}</p></div>
+                        <div className="method-info">
+                          <h3>{m.label}</h3>
+                          <p>{m.desc}</p>
+                        </div>
 
                         {m.label === 'Authenticator App' ? (
-                          // ✅ Authenticator App: toggle calls backend on both ON and OFF
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            {authenticatorEnabled && (
+                            {/* Reconfigure button — only visible when enabled AND editable */}
+                            {authenticatorEnabled && isEditable && (
                               <button
                                 onClick={setupAuthenticator}
-                                style={{ fontSize: 12, fontWeight: 600, color: '#2db9a3', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', textDecoration: 'underline' }}
+                                style={{
+                                  fontSize: 12, fontWeight: 600, color: '#2db9a3',
+                                  background: 'none', border: 'none', cursor: 'pointer',
+                                  padding: '0 4px', textDecoration: 'underline',
+                                  fontFamily: "'DM Sans',sans-serif",
+                                }}
                               >
                                 Reconfigure
                               </button>
                             )}
+                            {/* Toggle — guarded by isEditable */}
                             <button
                               className={`toggle ${authenticatorEnabled ? 'on' : ''}`}
                               onClick={async () => {
+                                if (!isEditable) return;
                                 if (!authenticatorEnabled) {
-                                  // OFF → ON: open QR setup modal
-                                  setupAuthenticator();
+                                  await setupAuthenticator();
                                 } else {
-                                  // ON → OFF: call backend to set IsEnabled = false in DB
                                   await disableAuthenticator();
                                 }
                               }}
-                              style={{ cursor: 'pointer' }}
+                              style={{
+                                cursor: isEditable ? 'pointer' : 'not-allowed',
+                                opacity: isEditable ? 1 : 0.5,
+                              }}
                             >
                               <div className="toggle-thumb" />
                             </button>
                           </div>
                         ) : (
-                          // SMS and Email: normal toggles
+                          // SMS and Email toggles — guarded by isEditable
                           <button
                             className={`toggle ${m.value ? 'on' : ''}`}
                             onClick={() => isEditable && m.toggle()}
-                            style={{ cursor: isEditable ? 'pointer' : 'not-allowed', opacity: isEditable ? 1 : 0.5 }}
+                            style={{
+                              cursor: isEditable ? 'pointer' : 'not-allowed',
+                              opacity: isEditable ? 1 : 0.5,
+                            }}
                           >
                             <div className="toggle-thumb" />
                           </button>
@@ -401,15 +436,29 @@ export default function MFASettings() {
                     <div className="field-group">
                       <label className="field-label">Code Expiry Time</label>
                       <CustomSelect
-                        options={[{ value: '5', label: '5 minutes' }, { value: '10', label: '10 minutes' }, { value: '15', label: '15 minutes' }, { value: '30', label: '30 minutes' }]}
-                        value={codeExpiry} onChange={setCodeExpiry} disabled={!isEditable}
+                        options={[
+                          { value: '5',  label: '5 minutes'  },
+                          { value: '10', label: '10 minutes' },
+                          { value: '15', label: '15 minutes' },
+                          { value: '30', label: '30 minutes' },
+                        ]}
+                        value={codeExpiry}
+                        onChange={setCodeExpiry}
+                        disabled={!isEditable}
                       />
                     </div>
                     <div className="field-group">
                       <label className="field-label">Grace Logins (without MFA)</label>
                       <CustomSelect
-                        options={[{ value: '0', label: 'Disabled' }, { value: '1', label: '1 login' }, { value: '3', label: '3 logins' }, { value: '5', label: '5 logins' }]}
-                        value={graceLogins} onChange={setGraceLogins} disabled={!isEditable}
+                        options={[
+                          { value: '0', label: 'Disabled'  },
+                          { value: '1', label: '1 login'   },
+                          { value: '3', label: '3 logins'  },
+                          { value: '5', label: '5 logins'  },
+                        ]}
+                        value={graceLogins}
+                        onChange={setGraceLogins}
+                        disabled={!isEditable}
                       />
                     </div>
                     <div className="info-box">
@@ -424,9 +473,13 @@ export default function MFASettings() {
                   <div className="table-card-header">
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>MFA Enforcement by Role</div>
-                      <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 2 }}>Changes update MfaEnabled on all users with that role</div>
+                      <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 2 }}>
+                        Changes update MfaEnabled on all users with that role
+                      </div>
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#2db9a3', background: 'rgba(45,185,163,0.1)', padding: '4px 12px', borderRadius: 20 }}>{roles.length} roles</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#2db9a3', background: 'rgba(45,185,163,0.1)', padding: '4px 12px', borderRadius: 20 }}>
+                      {roles.length} roles
+                    </span>
                   </div>
                   <table>
                     <thead>
@@ -439,7 +492,13 @@ export default function MFASettings() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paged.map(role => {
+                      {paged.length === 0 ? (
+                        <tr>
+                          <td colSpan={isEditable ? 5 : 4} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>
+                            No roles found.
+                          </td>
+                        </tr>
+                      ) : paged.map(role => {
                         const r = reqStyle[role.mfaRequirement] ?? reqStyle.Optional;
                         return (
                           <tr key={role.id}>
@@ -452,7 +511,9 @@ export default function MFASettings() {
                               </span>
                             </td>
                             <td style={{ textAlign: 'center' }}>
-                              <span style={{ fontSize: 12, color: '#64748b' }}>{role.allowedMfaMethods || 'SMS,Email'}</span>
+                              <span style={{ fontSize: 12, color: '#64748b' }}>
+                                {role.allowedMfaMethods || 'SMS,Email'}
+                              </span>
                             </td>
                             {isEditable && (
                               <td style={{ textAlign: 'center' }}>
@@ -460,7 +521,10 @@ export default function MFASettings() {
                                   className="edit-icon-btn"
                                   onClick={() => {
                                     setEditingRole(role.id);
-                                    setEditForm({ mfaRequirement: role.mfaRequirement || 'Optional', allowedMfaMethods: role.allowedMfaMethods || 'SMS,Email' });
+                                    setEditForm({
+                                      mfaRequirement:    role.mfaRequirement    || 'Optional',
+                                      allowedMfaMethods: role.allowedMfaMethods || 'SMS,Email',
+                                    });
                                   }}
                                   title="Edit MFA settings"
                                 >
@@ -471,23 +535,29 @@ export default function MFASettings() {
                           </tr>
                         );
                       })}
-                      {paged.length === 0 && (
-                        <tr><td colSpan={isEditable ? 5 : 4} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No roles found.</td></tr>
-                      )}
                     </tbody>
                   </table>
                   <div className="pagination-bar">
                     <span className="pagination-info">
-                      Showing <strong>{roles.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}–{Math.min(safePage * itemsPerPage, roles.length)}</strong> of <strong>{roles.length}</strong> roles
+                      Showing{' '}
+                      <strong>
+                        {roles.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}–{Math.min(safePage * itemsPerPage, roles.length)}
+                      </strong>{' '}
+                      of <strong>{roles.length}</strong> roles
                     </span>
                     <div className="pagination-controls">
-                      <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={15} /></button>
+                      <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>
+                        <ChevronLeft size={15} />
+                      </button>
                       <span className="pg-counter">{safePage} / {totalPages}</span>
-                      <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}><ChevronRight size={15} /></button>
+                      <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>
+                        <ChevronRight size={15} />
+                      </button>
                     </div>
                   </div>
                 </div>
 
+                {/* Save / Reset — only shown when editable */}
                 {isEditable && (
                   <div className="footer-actions">
                     <button className="btn-cancel" onClick={fetchData}>Reset</button>
@@ -508,7 +578,11 @@ export default function MFASettings() {
                       <div className="modal-form-group">
                         <label className="modal-label">MFA Requirement</label>
                         <CustomSelect
-                          options={[{ value: 'Required', label: 'Required' }, { value: 'Optional', label: 'Optional' }, { value: 'Disabled', label: 'Disabled' }]}
+                          options={[
+                            { value: 'Required', label: 'Required' },
+                            { value: 'Optional', label: 'Optional' },
+                            { value: 'Disabled', label: 'Disabled' },
+                          ]}
                           value={editForm.mfaRequirement}
                           onChange={val => setEditForm(f => ({ ...f, mfaRequirement: val }))}
                         />
@@ -516,18 +590,18 @@ export default function MFASettings() {
                       <div className="modal-form-group">
                         <label className="modal-label">Allowed MFA Methods</label>
                         <CustomSelect
-  options={[
-    { value: 'SMS',                    label: 'SMS only' },
-    { value: 'Email',                  label: 'Email only' },
-    { value: 'Authenticator',          label: 'Authenticator App only' },
-    { value: 'SMS,Email',              label: 'SMS & Email' },
-    { value: 'SMS,Authenticator',      label: 'SMS & Authenticator' },
-    { value: 'Email,Authenticator',    label: 'Email & Authenticator' },
-    { value: 'SMS,Email,Authenticator',label: 'All Methods' },
-  ]}
-  value={editForm.allowedMfaMethods}
-  onChange={val => setEditForm(f => ({ ...f, allowedMfaMethods: val }))}
-/>
+                          options={[
+                            { value: 'SMS',                     label: 'SMS only'               },
+                            { value: 'Email',                   label: 'Email only'             },
+                            { value: 'Authenticator',           label: 'Authenticator App only' },
+                            { value: 'SMS,Email',               label: 'SMS & Email'            },
+                            { value: 'SMS,Authenticator',       label: 'SMS & Authenticator'    },
+                            { value: 'Email,Authenticator',     label: 'Email & Authenticator'  },
+                            { value: 'SMS,Email,Authenticator', label: 'All Methods'            },
+                          ]}
+                          value={editForm.allowedMfaMethods}
+                          onChange={val => setEditForm(f => ({ ...f, allowedMfaMethods: val }))}
+                        />
                       </div>
                       <div className="modal-actions">
                         <button className="modal-cancel" onClick={() => setEditingRole(null)}>Cancel</button>
@@ -545,9 +619,10 @@ export default function MFASettings() {
                         <div className="modal-title">Setup Authenticator App</div>
                         <button className="modal-close-btn" onClick={() => setShowAuthSetup(false)}><X size={20} /></button>
                       </div>
-                     <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 1.6, textAlign: 'center', fontFamily: "'DM Sans', sans-serif" }}>
-  Scan this QR code with <strong>Google Authenticator</strong> or <strong>Microsoft Authenticator</strong>, then enter the 6-digit code to confirm.
-</p>
+                      <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 1.6, textAlign: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+                        Scan this QR code with <strong>Google Authenticator</strong> or <strong>Microsoft Authenticator</strong>,
+                        then enter the 6-digit code to confirm.
+                      </p>
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                         <img
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUri)}`}

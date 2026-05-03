@@ -32,28 +32,30 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer              = builder.Configuration["Jwt:Issuer"],
         ValidAudience            = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
-        RoleClaimType            = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        RoleClaimType            = "role"
     };
 });
 
-// ✅ RBAC Policies
+// ✅ RBAC Policies — use the exact claim type ASP.NET maps "role" to internally
 builder.Services.AddAuthorization(options =>
 {
+    const string roleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+
     // System Admin only
     options.AddPolicy("SystemAdmin", policy =>
-        policy.RequireRole("System Admin"));
+        policy.RequireClaim(roleClaimType, "System Admin"));
 
     // System Admin + Branch Manager
     options.AddPolicy("BranchManager", policy =>
-        policy.RequireRole("System Admin", "Branch Manager"));
+        policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager"));
 
     // System Admin + Branch Manager + Auditor
     options.AddPolicy("Auditor", policy =>
-        policy.RequireRole("System Admin", "Branch Manager", "Auditor"));
+        policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager", "Auditor"));
 
     // All authenticated roles
     options.AddPolicy("BankTeller", policy =>
-        policy.RequireRole("System Admin", "Branch Manager", "Auditor", "Bank Teller"));
+        policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager", "Auditor", "Bank Teller"));
 });
 
 builder.Services.AddCors(options =>

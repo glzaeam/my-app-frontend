@@ -27,11 +27,10 @@ export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState(
     new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
   );
-  const router              = useRouter();
-  const { user, loading }   = useAuth();
-  const itemsPerPage        = 10;
+  const router            = useRouter();
+  const { user, loading } = useAuth();
+  const itemsPerPage      = 10;
 
-  // System Admin state
   const [metrics, setMetrics] = useState([
     { label: 'Total Events',        value: '—', icon: Activity,      trend: 'up'   as const },
     { label: 'Failed Logins Today', value: '—', icon: AlertTriangle, trend: 'down' as const },
@@ -43,7 +42,6 @@ export default function Dashboard() {
   const [roleDistribution, setRoleDistribution] = useState<any[]>([]);
   const [mfaAdoption,      setMfaAdoption]      = useState<any[]>([]);
 
-  // Branch Manager state
   const [securityMetrics, setSecurityMetrics] = useState([
     { label: 'Live Alerts',         value: '—', icon: AlertTriangle, trend: 'down' as const },
     { label: 'Failed Logins Today', value: '—', icon: Lock,          trend: 'down' as const },
@@ -53,16 +51,13 @@ export default function Dashboard() {
   const [failedLoginTrend,   setFailedLoginTrend]   = useState<any[]>([]);
   const [suspiciousActivity, setSuspiciousActivity] = useState<any[]>([]);
 
-  // Auditor state
   const [auditorMetrics, setAuditorMetrics] = useState([
     { label: 'Total Log Entries', value: '—', icon: FileText,      trend: 'up'   as const },
     { label: 'Success Events',    value: '—', icon: Shield,        trend: 'up'   as const },
     { label: 'Failed Events',     value: '—', icon: AlertTriangle, trend: 'down' as const },
     { label: 'Events Today',      value: '—', icon: Activity,      trend: 'up'   as const },
   ]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-
-  // Bank Teller state
+  const [auditLogs,      setAuditLogs]      = useState<any[]>([]);
   const [tellerActivity, setTellerActivity] = useState<any[]>([]);
 
   const formatTime = (iso: string) => {
@@ -74,25 +69,33 @@ export default function Dashboard() {
     });
   };
 
-  // System Admin fetch
+  // Helper — extracts items from either a plain array or a paginated response object
+  const extractItems = (data: any): any[] => {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    if (data && Array.isArray(data.data))  return data.data;
+    return [];
+  };
+
   const fetchAdminDashboard = useCallback(async () => {
     try {
       const headers = { Authorization: `Bearer ${auth.getToken()}` };
       const [summaryRes, logsRes, trendRes, rolesRes, mfaRes] = await Promise.all([
         fetch(`${API}/audit/summary`,                     { headers }),
-        fetch(`${API}/audit?limit=50`,                    { headers }),
+        fetch(`${API}/audit?page=1&pageSize=50`,          { headers }),
         fetch(`${API}/audit/dashboard/login-trend`,       { headers }),
         fetch(`${API}/audit/dashboard/role-distribution`, { headers }),
         fetch(`${API}/audit/dashboard/mfa-adoption`,      { headers }),
       ]);
 
-      if (!summaryRes.ok || !logsRes.ok) return;
+      if (!summaryRes.ok) return;
 
       const summary = await summaryRes.json();
-      const logs    = await logsRes.json();
-      const trend   = await trendRes.json();
-      const roles   = await rolesRes.json();
-      const mfa     = await mfaRes.json();
+      const trend   = trendRes.ok ? await trendRes.json() : [];
+      const roles   = rolesRes.ok ? await rolesRes.json() : [];
+      const mfa     = mfaRes.ok   ? await mfaRes.json()   : [];
+      const logsRaw = logsRes.ok  ? await logsRes.json()  : [];
+      const logs    = extractItems(logsRaw);
 
       setMetrics([
         { label: 'Total Events',        value: String(summary.total   ?? 0), icon: Activity,      trend: 'up'   as const },
@@ -100,6 +103,7 @@ export default function Dashboard() {
         { label: 'Success Today',       value: String(summary.success ?? 0), icon: Shield,        trend: 'up'   as const },
         { label: 'Events Today',        value: String(summary.today   ?? 0), icon: Lock,          trend: 'up'   as const },
       ]);
+
       setLoginTrend(Array.isArray(trend) ? trend : []);
       setRoleDistribution(
         Array.isArray(roles)
@@ -108,42 +112,42 @@ export default function Dashboard() {
       );
       setMfaAdoption(Array.isArray(mfa) ? mfa : []);
 
-      const filtered = Array.isArray(logs)
-        ? logs.filter((log: any) =>
-            !log.action?.startsWith('GET ')    &&
-            !log.action?.startsWith('POST ')   &&
-            !log.action?.startsWith('PUT ')    &&
-            !log.action?.startsWith('DELETE ') &&
-            !log.action?.startsWith('PATCH ')
-          ).slice(0, 10)
-        : [];
+      const filtered = logs
+        .filter((log: any) =>
+          !log.action?.startsWith('GET ')    &&
+          !log.action?.startsWith('POST ')   &&
+          !log.action?.startsWith('PUT ')    &&
+          !log.action?.startsWith('DELETE ') &&
+          !log.action?.startsWith('PATCH ')
+        )
+        .slice(0, 10);
 
       setRecentActivity(filtered.map((l: any) => ({
         time:   formatTime(l.createdAt),
-        user:   l.userName,
-        role:   l.userEmpId,
-        action: l.action,
-        module: l.module ?? '—',
+        user:   l.userName   ?? l.userEmail ?? '—',
+        role:   l.userEmpId  ?? '—',
+        action: l.action     ?? '—',
+        module: l.module     ?? '—',
         status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
       })));
     } catch (err) { console.error('Admin dashboard error:', err); }
   }, []);
 
-  // Branch Manager fetch
   const fetchBranchManagerDashboard = useCallback(async () => {
     try {
       const headers = { Authorization: `Bearer ${auth.getToken()}` };
       const [summaryRes, trendRes, logsRes] = await Promise.all([
-        fetch(`${API}/audit/summary`,               { headers }),
-        fetch(`${API}/audit/dashboard/login-trend`, { headers }),
-        fetch(`${API}/audit?limit=50`,              { headers }),
+        fetch(`${API}/audit/summary`,                     { headers }),
+        fetch(`${API}/audit/dashboard/login-trend`,       { headers }),
+        fetch(`${API}/audit?page=1&pageSize=50`,          { headers }),
       ]);
 
       if (!summaryRes.ok) return;
 
       const summary  = await summaryRes.json();
-      const trend    = await trendRes.json();
-      const logsData = await logsRes.json();
+      const trend    = trendRes.ok ? await trendRes.json() : [];
+      const logsRaw  = logsRes.ok  ? await logsRes.json()  : [];
+      const allLogs  = extractItems(logsRaw);
 
       setSecurityMetrics([
         { label: 'Live Alerts',         value: String(summary.failed ?? 0), icon: AlertTriangle, trend: 'down' as const },
@@ -154,35 +158,33 @@ export default function Dashboard() {
 
       setFailedLoginTrend(Array.isArray(trend) ? trend : []);
 
-      const suspicious = Array.isArray(logsData)
-        ? logsData
-            .filter((log: any) => log.status === 'Failed' || log.action?.toLowerCase().includes('fail'))
-            .slice(0, 10)
-        : [];
+      const suspicious = allLogs
+        .filter((log: any) => log.status === 'Failed' || log.action?.toLowerCase().includes('fail'))
+        .slice(0, 10);
 
       setSuspiciousActivity(suspicious.map((l: any) => ({
         time:   formatTime(l.createdAt),
-        user:   l.userName,
-        empId:  l.userEmpId,
-        action: l.action,
+        user:   l.userName  ?? '—',
+        empId:  l.userEmpId ?? '—',
+        action: l.action    ?? '—',
         status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
       })));
     } catch (err) { console.error('Branch manager dashboard error:', err); }
   }, []);
 
-  // Auditor fetch
   const fetchAuditorDashboard = useCallback(async () => {
     try {
       const headers = { Authorization: `Bearer ${auth.getToken()}` };
       const [summaryRes, logsRes] = await Promise.all([
-        fetch(`${API}/audit/summary`,  { headers }),
-        fetch(`${API}/audit?limit=50`, { headers }),
+        fetch(`${API}/audit/summary`,            { headers }),
+        fetch(`${API}/audit?page=1&pageSize=50`, { headers }),
       ]);
 
       if (!summaryRes.ok) return;
 
       const summary = await summaryRes.json();
-      const logs    = await logsRes.json();
+      const logsRaw = logsRes.ok ? await logsRes.json() : [];
+      const logs    = extractItems(logsRaw);
 
       setAuditorMetrics([
         { label: 'Total Log Entries', value: String(summary.total   ?? 0), icon: FileText,      trend: 'up'   as const },
@@ -191,38 +193,34 @@ export default function Dashboard() {
         { label: 'Events Today',      value: String(summary.today   ?? 0), icon: Activity,      trend: 'up'   as const },
       ]);
 
-      const filtered = Array.isArray(logs) ? logs.slice(0, 10) : [];
-      setAuditLogs(filtered.map((l: any) => ({
+      setAuditLogs(logs.slice(0, 10).map((l: any) => ({
         time:   formatTime(l.createdAt),
-        user:   l.userName,
-        empId:  l.userEmpId,
-        action: l.action,
-        module: l.module ?? '—',
+        user:   l.userName  ?? '—',
+        empId:  l.userEmpId ?? '—',
+        action: l.action    ?? '—',
+        module: l.module    ?? '—',
         status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
       })));
     } catch (err) { console.error('Auditor dashboard error:', err); }
   }, []);
 
-  // Bank Teller fetch
   const fetchTellerDashboard = useCallback(async () => {
     try {
       const headers = { Authorization: `Bearer ${auth.getToken()}` };
-      const res  = await fetch(`${API}/audit?limit=20`, { headers });
+      // Use the dedicated my-activity endpoint instead of filtering the full audit log
+      const res = await fetch(`${API}/audit/my-activity?limit=20`, { headers });
       if (!res.ok) return;
-      const logs = await res.json();
-      const myLogs = Array.isArray(logs)
-        ? logs.filter((l: any) => l.userEmpId === user?.employeeId).slice(0, 10)
-        : [];
-      setTellerActivity(myLogs.map((l: any) => ({
+      const data = await res.json();
+      const activities = Array.isArray(data.activities) ? data.activities : [];
+      setTellerActivity(activities.slice(0, 10).map((l: any) => ({
         time:   formatTime(l.createdAt),
-        action: l.action,
-        module: l.module ?? '—',
+        action: l.action  ?? '—',
+        module: l.module  ?? '—',
         status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
       })));
     } catch (err) { console.error('Teller dashboard error:', err); }
-  }, [user?.employeeId]);
+  }, []);
 
-  // Route fetch by role — only runs after loading is done
   const fetchDashboard = useCallback(() => {
     if (!user || loading) return;
     if      (user.role === 'System Admin')   fetchAdminDashboard();

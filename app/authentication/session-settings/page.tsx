@@ -99,35 +99,40 @@ export default function SessionSettings() {
   const [currentPage, setCurrentPage]   = useState(1);
   const itemsPerPage = 10;
 
- const fetchAll = useCallback(async () => {
-  setLoading(true);
-  try {
-    const token = auth.getToken();
-    const [settingsRes, sessionsRes] = await Promise.all([
-      fetch(`${API}/sessions/settings`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API}/sessions/active`,   { headers: { Authorization: `Bearer ${token}` } }),
-    ]);
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = auth.getToken();
+      const [settingsRes, sessionsRes] = await Promise.all([
+        fetch(`${API}/sessions/settings`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/sessions/active`,   { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
 
-    if (settingsRes.ok) {
-      const settings = await settingsRes.json();
-      setIdleTimeout(String(settings.idleTimeoutMinutes ?? 15));
-      setMaxSessionHours(String(settings.maxSessionHours ?? 8));
-      setConcurrentSessions(String(settings.maxConcurrentSessions ?? 3));
-      setForceLogout(settings.forceLogoutOnNew ?? true);
-    }
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        setIdleTimeout(String(settings.idleTimeoutMinutes ?? 15));
+        setMaxSessionHours(String(settings.maxSessionHours ?? 8));
+        setConcurrentSessions(String(settings.maxConcurrentSessions ?? 3));
+        setForceLogout(settings.forceLogoutOnNew ?? true);
+      }
 
-    if (sessionsRes.ok) {
-      const sessData = await sessionsRes.json();
-      setSessions(Array.isArray(sessData) ? sessData : []);
-    } else {
-      setSessions([]);
+      if (sessionsRes.ok) {
+        const sessData = await sessionsRes.json();
+        setSessions(Array.isArray(sessData) ? sessData : []);
+      } else {
+        setSessions([]);
+      }
+    } catch {
+      setToast({ msg: 'Failed to load data', type: 'error' });
+    } finally {
+      setLoading(false);
     }
-  } catch {
-    setToast({ msg: 'Failed to load data', type: 'error' });
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  }, []);
+
+  // ✅ FIX: Call fetchAll on mount
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const handleSave = async () => {
     if (!isEditable) return;

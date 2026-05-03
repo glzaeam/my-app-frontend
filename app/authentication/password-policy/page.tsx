@@ -123,7 +123,6 @@ export default function PasswordPolicyPage() {
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
-  // ✅ Always uses auth.getToken() — consistent with the rest of the app
   const getHeaders = () => ({
     'Content-Type': 'application/json',
     Authorization: `Bearer ${auth.getToken()}`,
@@ -133,6 +132,14 @@ export default function PasswordPolicyPage() {
     setLoading(true);
     try {
       const res = await fetch(`${API}/password-policy`, { headers: getHeaders() });
+
+      // ✅ FIX: handle 403 gracefully instead of crashing
+      if (res.status === 403) {
+        show('Access denied — insufficient permissions to view password policy', 'error');
+        setLoading(false);
+        return;
+      }
+
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setPolicy({
@@ -155,6 +162,15 @@ export default function PasswordPolicyPage() {
   const fetchHistory = useCallback(async (page = 1) => {
     try {
       const res = await fetch(`${API}/password-policy/history?page=${page}&pageSize=${HIST_PER_PAGE}`, { headers: getHeaders() });
+
+      // ✅ FIX: handle 403 on history endpoint gracefully
+      if (res.status === 403) {
+        show('Access denied — insufficient permissions to view password history', 'error');
+        setHistory([]);
+        setHistTotal(0);
+        return;
+      }
+
       if (!res.ok) throw new Error();
       const data = await res.json();
       const items = (data.items ?? data).map((h: Record<string, unknown>) => ({
@@ -334,7 +350,12 @@ export default function PasswordPolicyPage() {
                   </div>
                 )}
               </>
-            ) : null
+            ) : (
+              // ✅ FIX: show a friendly message if policy failed to load (e.g. 403)
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 13 }}>
+                Unable to load password policy. Please check your permissions or try again.
+              </div>
+            )
           )}
 
           {/* History Tab */}

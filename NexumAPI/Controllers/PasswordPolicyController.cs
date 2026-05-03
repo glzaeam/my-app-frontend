@@ -22,14 +22,14 @@ namespace NexumAPI.Controllers
             var policy = await _context.PasswordPolicies.FirstOrDefaultAsync();
             if (policy == null)
                 return Ok(new {
-                    minLength         = 12,
-                    requireUppercase  = true,
-                    requireLowercase  = true,
-                    requireNumbers    = true,
-                    requireSpecial    = true,
-                    blockCommon       = true,
-                    expiryDays        = 90,
-                    historyCount      = 5,
+                    minLength        = 12,
+                    requireUppercase = true,
+                    requireLowercase = true,
+                    requireNumbers   = true,
+                    requireSpecial   = true,
+                    blockCommon      = true,
+                    expiryDays       = 90,
+                    historyCount     = 5,
                 });
 
             return Ok(new {
@@ -38,7 +38,7 @@ namespace NexumAPI.Controllers
                 policy.RequireLowercase,
                 policy.RequireNumbers,
                 policy.RequireSpecial,
-                blockCommon  = true,
+                blockCommon      = true,
                 policy.ExpiryDays,
                 policy.HistoryCount,
             });
@@ -81,6 +81,7 @@ namespace NexumAPI.Controllers
 
         // GET /api/password-policy/history
         [HttpGet("history")]
+        [Authorize(Roles = "System Admin")]   // ✅ FIX: explicitly require System Admin
         public async Task<IActionResult> GetHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             var query = _context.PasswordHistories

@@ -282,20 +282,35 @@ export default function RequestAccessPage() {
       {/* Right Form */}
       <div className="w-full lg:w-1/2 lg:ml-auto flex items-center justify-center p-4 lg:p-8 overflow-y-auto">
         <div
-          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-xl my-8"
-          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }}
+          className="w-full max-w-md rounded-2xl backdrop-blur-xl my-8"
+          style={{ 
+            padding: 'var(--spacing-lg)',
+            background: 'rgba(255,255,255,0.08)', 
+            border: '1px solid rgba(255,255,255,0.2)' 
+          }}
         >
           {/* Mobile logo */}
-          <div className="lg:hidden flex justify-center mb-6">
-            <img src="/images/logolgn.png" alt="Nexum Banking ERP" className="h-28 object-contain"
-              style={{ maxWidth: '300px', filter: 'brightness(1.8)' }} />
+          <div className="lg:hidden flex justify-center mb-4">
+            <img src="/images/logolgn.png" alt="Nexum Banking ERP" className="h-24 object-contain"
+              style={{ maxWidth: '100%', filter: 'brightness(1.8)' }} />
           </div>
 
-          <div className="text-center space-y-2 mb-8">
-            <h2 className="text-2xl lg:text-3xl font-bold" style={{ color: 'white' }}>
+          <div className="text-center space-y-2 mb-6">
+            <h2 
+              className="font-bold leading-tight"
+              style={{ 
+                fontSize: 'var(--font-size-2xl)',
+                color: 'white' 
+              }}
+            >
               Request Access
             </h2>
-            <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
+            <p 
+              style={{ 
+                fontSize: 'var(--font-size-sm)',
+                color: 'hsl(210,15%,55%)' 
+              }}
+            >
               Fill in your details — an admin will review and approve your request
             </p>
           </div>
@@ -303,13 +318,18 @@ export default function RequestAccessPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
 
             {/* First Name + Last Name */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
                 { label: 'First Name', name: 'firstName', placeholder: 'Juan' },
                 { label: 'Last Name',  name: 'lastName',  placeholder: 'Dela Cruz' },
               ].map(({ label, name, placeholder }) => (
                 <div key={name} className="space-y-2">
-                  <label className="text-xs font-semibold block" style={{ color: 'hsl(210,15%,70%)' }}>{label}</label>
+                  <label 
+                    className="font-semibold block" 
+                    style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}
+                  >
+                    {label}
+                  </label>
                   <div className="rounded-xl transition-all duration-300"
                     style={{ boxShadow: focused === name ? focusGlow : 'none' }}>
                     <input
@@ -319,8 +339,12 @@ export default function RequestAccessPage() {
                       onChange={handleInputChange}
                       onFocus={() => setFocused(name)}
                       onBlur={() => setFocused(null)}
-                      className="w-full px-3 h-10 rounded-xl text-xs outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
-                      style={glassInput}
+                      className="w-full px-4 rounded-xl outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
+                      style={{
+                        ...glassInput,
+                        height: 'var(--mobile-input-height)',
+                        fontSize: 'var(--font-size-sm)'
+                      }}
                     />
                   </div>
                 </div>
@@ -329,7 +353,12 @@ export default function RequestAccessPage() {
 
             {/* Employee ID */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold block" style={{ color: 'hsl(210,15%,70%)' }}>Employee ID</label>
+              <label 
+                className="font-semibold block" 
+                style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}
+              >
+                Employee ID
+              </label>
               <div className="rounded-xl transition-all duration-300"
                 style={{ boxShadow: focused === 'employeeId' ? focusGlow : 'none' }}>
                 <input
@@ -339,35 +368,48 @@ export default function RequestAccessPage() {
                   onChange={handleInputChange}
                   onFocus={() => setFocused('employeeId')}
                   onBlur={() => setFocused(null)}
-                  className="w-full px-3 h-10 rounded-xl text-xs outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
-                  style={glassInput}
+                  className="w-full px-4 rounded-xl outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
+                  style={{
+                    ...glassInput,
+                    height: 'var(--mobile-input-height)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}
                 />
               </div>
             </div>
 
             {/* Email */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold" style={{ color: 'hsl(210,15%,70%)' }}>Email Address</label>
+              <label 
+                className="font-semibold block" 
+                style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}
+              >
+                Email Address
+              </label>
               <div className="rounded-xl transition-all duration-300"
                 style={{ boxShadow: focused === 'email' ? focusGlow : 'none' }}>
                 <input
                   type="email" placeholder="john@bank.com" name="email"
                   value={formData.email} onChange={handleInputChange}
                   onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
-                  className="w-full px-3 h-10 rounded-xl text-xs outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
-                  style={glassInput}
+                  className="w-full px-4 rounded-xl outline-none transition-colors placeholder:text-[hsl(210,10%,35%)]"
+                  style={{
+                    ...glassInput,
+                    height: 'var(--mobile-input-height)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}
                 />
               </div>
             </div>
 
             {/* Department + Branch */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <label className="text-xs font-semibold block" style={{ color: 'hsl(210,15%,70%)' }}>Department</label>
+                <label className="font-semibold block" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}>Department</label>
                 <div className="rounded-xl" style={{ boxShadow: focused === 'department' ? focusGlow : 'none' }}>
                   <select name="department" value={formData.department} onChange={handleInputChange}
                     onFocus={() => setFocused('department')} onBlur={() => setFocused(null)}
-                    className="w-full px-3 h-10 rounded-xl text-xs outline-none" style={glassInput}>
+                    className="w-full px-4 rounded-xl outline-none" style={{ ...glassInput, height: 'var(--mobile-input-height)', fontSize: 'var(--font-size-sm)' }}>
                     <option value="">Select</option>
                     <option value="Finance">Finance</option>
                     <option value="Operations">Operations</option>
@@ -378,11 +420,11 @@ export default function RequestAccessPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-semibold block" style={{ color: 'hsl(210,15%,70%)' }}>Assigned Branch</label>
+                <label className="font-semibold block" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}>Assigned Branch</label>
                 <div className="rounded-xl" style={{ boxShadow: focused === 'branch' ? focusGlow : 'none' }}>
                   <select name="branch" value={formData.branch} onChange={handleInputChange}
                     onFocus={() => setFocused('branch')} onBlur={() => setFocused(null)}
-                    className="w-full px-3 h-10 rounded-xl text-xs outline-none" style={glassInput}>
+                    className="w-full px-4 rounded-xl outline-none" style={{ ...glassInput, height: 'var(--mobile-input-height)', fontSize: 'var(--font-size-sm)' }}>
                     <option value="">Select</option>
                     <option value="HO001">Head Office</option>
                     <option value="Branch 1">Branch 1</option>
@@ -394,11 +436,11 @@ export default function RequestAccessPage() {
 
             {/* Role */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold" style={{ color: 'hsl(210,15%,70%)' }}>Role Requested</label>
+              <label className="font-semibold block" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}>Role Requested</label>
               <div className="rounded-xl" style={{ boxShadow: focused === 'requestedRole' ? focusGlow : 'none' }}>
                 <select name="requestedRole" value={formData.requestedRole} onChange={handleInputChange}
                   onFocus={() => setFocused('requestedRole')} onBlur={() => setFocused(null)}
-                  className="w-full px-3 h-10 rounded-xl text-xs outline-none" style={glassInput}>
+                  className="w-full px-4 rounded-xl outline-none" style={{ ...glassInput, height: 'var(--mobile-input-height)', fontSize: 'var(--font-size-sm)' }}>
                   <option value="">Select role</option>
                   <option value="Branch Manager">Branch Manager</option>
                   <option value="Auditor">Auditor</option>
@@ -409,7 +451,7 @@ export default function RequestAccessPage() {
 
             {/* Password */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold block" style={{ color: 'hsl(210,15%,70%)' }}>Password</label>
+              <label className="font-semibold block" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}>Password</label>
               <div className="relative rounded-xl transition-all duration-300"
                 style={{ boxShadow: focused === 'password' ? focusGlow : 'none' }}>
                 <input
@@ -418,13 +460,17 @@ export default function RequestAccessPage() {
                   name="password" value={formData.password} onChange={handleInputChange}
                   onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
                   maxLength={128}
-                  className="w-full pl-3 pr-9 h-10 rounded-xl text-xs outline-none placeholder:text-[hsl(210,10%,35%)]"
-                  style={glassInput}
+                  className="w-full pl-4 pr-10 rounded-xl outline-none placeholder:text-[hsl(210,10%,35%)]"
+                  style={{
+                    ...glassInput,
+                    height: 'var(--mobile-input-height)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                   style={{ color: 'hsl(210,15%,50%)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
 
@@ -469,7 +515,7 @@ export default function RequestAccessPage() {
 
             {/* Confirm Password */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold block" style={{ color: 'hsl(210,15%,70%)' }}>Confirm Password</label>
+              <label className="font-semibold block" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,70%)' }}>Confirm Password</label>
               <div className="relative rounded-xl transition-all duration-300"
                 style={{ boxShadow: focused === 'confirmPassword' ? focusGlow : 'none' }}>
                 <input
@@ -478,13 +524,17 @@ export default function RequestAccessPage() {
                   name="confirmPassword" value={formData.confirmPassword} onChange={handleInputChange}
                   onFocus={() => setFocused('confirmPassword')} onBlur={() => setFocused(null)}
                   maxLength={128}
-                  className="w-full pl-3 pr-9 h-10 rounded-xl text-xs outline-none placeholder:text-[hsl(210,10%,35%)]"
-                  style={glassInput}
+                  className="w-full pl-4 pr-10 rounded-xl outline-none placeholder:text-[hsl(210,10%,35%)]"
+                  style={{
+                    ...glassInput,
+                    height: 'var(--mobile-input-height)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}
                 />
                 <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                   style={{ color: 'hsl(210,15%,50%)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  {showConfirmPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {formData.confirmPassword && (
@@ -499,14 +549,14 @@ export default function RequestAccessPage() {
               <input type="checkbox" id="terms" name="agreeToTerms"
                 checked={formData.agreeToTerms} onChange={handleInputChange}
                 className="w-4 h-4 rounded" style={{ accentColor: 'hsl(170,60%,50%)' }} />
-              <label htmlFor="terms" className="text-xs" style={{ color: 'hsl(210,15%,60%)' }}>
+              <label htmlFor="terms" className="block" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,60%)' }}>
                 I agree to the system terms and access policy
               </label>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="rounded-xl px-4 py-3 text-xs space-y-1" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: 'rgb(252,165,165)' }}>
+              <div className="rounded-xl px-4 py-3 space-y-1" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: 'rgb(252,165,165)', fontSize: 'var(--font-size-sm)' }}>
                 {error.split('\n').map((line, i) => (
                   <p key={i}>{i === 0 ? `⚠ ${line}` : `  • ${line}`}</p>
                 ))}
@@ -515,18 +565,20 @@ export default function RequestAccessPage() {
 
             {/* Success */}
             {success && (
-              <div className="rounded-xl px-4 py-3 text-xs" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', color: 'rgb(110,231,183)' }}>
+              <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', color: 'rgb(110,231,183)', fontSize: 'var(--font-size-sm)' }}>
                 ✔ Request submitted! An admin will review your request. Redirecting to login...
               </div>
             )}
 
             {/* Submit */}
             <button type="submit" disabled={loading || success || pwErrors.length > 0}
-              className="w-full h-10 rounded-xl text-xs font-bold flex items-center justify-center transition-all duration-300 mt-2"
+              className="w-full rounded-xl font-bold flex items-center justify-center transition-all duration-300 mt-3"
               style={{
+                height: 'var(--mobile-button-height)',
                 background: loading || success || pwErrors.length > 0 ? 'hsl(170,30%,35%)' : 'linear-gradient(135deg, hsl(170,65%,42%), hsl(170,60%,48%))',
                 color: 'white',
                 boxShadow: '0 4px 20px -4px hsl(170,60%,40%,0.5)',
+                fontSize: 'var(--font-size-sm)',
                 cursor: loading || success || pwErrors.length > 0 ? 'not-allowed' : 'pointer',
                 border: 'none',
               }}>

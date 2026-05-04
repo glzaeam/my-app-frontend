@@ -1,10 +1,9 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import {
   Download, FileText, FileSpreadsheet,
   ChevronDown, Activity, CheckCircle, XCircle, Clock,
@@ -116,10 +115,7 @@ const reportTemplates = [
 const ROWS_PER_PAGE = 10;
 
 export default function ExportReports() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]   = useState('export-reports');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [dateRange, setDateRange]     = useState('last-30');
+  const router = useRouter();  const [dateRange, setDateRange]     = useState('last-30');
   const [reportType, setReportType]   = useState('activity');
   const [format, setFormat]           = useState('CSV');
   const [generating, setGenerating]   = useState(false);
@@ -237,10 +233,10 @@ export default function ExportReports() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#ffffff', overflow: 'hidden', fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
-      <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
+      
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <TopBar title="Export Reports" />
+        
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
 
@@ -390,3 +386,4 @@ export default function ExportReports() {
     </div>
   );
 }
+

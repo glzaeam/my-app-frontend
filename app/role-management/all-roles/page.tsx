@@ -1,10 +1,9 @@
   'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
   import { useState, useEffect, useCallback } from 'react';
   import { useRouter } from 'next/navigation';
-  import Sidebar from '@/app/components/Sidebar';
-  import TopBar from '@/app/components/TopBar';
-  import { Users, Edit2, Archive, Plus, Shield, X } from 'lucide-react';
+      import { Users, Edit2, Archive, Plus, Shield, X } from 'lucide-react';
   import { auth } from '@/lib/api';
 
   const API = process.env.NEXT_PUBLIC_API_URL;
@@ -29,9 +28,7 @@
   }
 
   export default function AllRoles() {
-    const router = useRouter();
-    const [activeMenu, setActiveMenu]     = useState('all-roles');
-    const [sidebarOpen, setSidebarOpen]   = useState(true);
+    const router = useRouter();    const [sidebarOpen, setSidebarOpen]   = useState(true);
     const [roles, setRoles]               = useState<ApiRole[]>([]);
     const [loading, setLoading]           = useState(true);
     const [toast, setToast]               = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -123,48 +120,81 @@
       finally { setArchiving(false); }
     };
 
-    const modal: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-    const box: React.CSSProperties   = { background: '#fff', borderRadius: 16, padding: '28px 32px', width: 480, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', fontFamily: "'Open Sans',sans-serif" };
-    const inp: React.CSSProperties   = { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: "'Open Sans',sans-serif", outline: 'none', color: '#1a2332' };
+    const modal: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' };
+    const box: React.CSSProperties   = { background: '#fff', borderRadius: 16, padding: '28px 32px', width: 480, maxWidth: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', fontFamily: "'Open Sans',sans-serif" };
+    const inp: React.CSSProperties   = { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: "'Open Sans',sans-serif", outline: 'none', color: '#1a2332', minHeight: '44px', boxSizing: 'border-box' };
 
     return (
-      <>
+      <DashboardLayout title="Role Management" activeMenu="all-roles">
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
           *{box-sizing:border-box;}
           .ar-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:'Open Sans',sans-serif;}
           .ar-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
           .ar-scroll{flex:1;overflow-y:auto;padding:28px 32px;}
+          @media(max-width:768px){
+            .ar-scroll{padding:20px 16px;}
+          }
+          @media(max-width:480px){
+            .ar-scroll{padding:16px 12px;}
+          }
           .roles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:18px;}
+          @media(max-width:768px){
+            .roles-grid{grid-template-columns:1fr;gap:14px;}
+          }
           .role-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;padding:22px 24px;position:relative;overflow:hidden;}
+          @media(max-width:480px){
+            .role-card{padding:16px 18px;border-radius:14px;}
+          }
           .role-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);border-radius:18px 18px 0 0;}
-          .action-btn{width:32px;height:32px;border:1.5px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#94a3b8;transition:all 0.15s;}
+          .action-btn{width:32px;height:32px;border:1.5px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#94a3b8;transition:all 0.15s;min-height:40px;min-width:40px;touch-action:manipulation;-webkit-appearance:none;}
+          @media(max-width:480px){
+            .action-btn{width:36px;height:36px;min-height:44px;min-width:44px;}
+          }
           .action-btn:hover{border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
           .action-btn.del:hover{border-color:#fca5a5;color:#ef4444;background:#fef2f2;}
-          .create-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:10px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;box-shadow:0 2px 10px rgba(45,185,163,0.3);}
+          .create-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:10px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;box-shadow:0 2px 10px rgba(45,185,163,0.3);min-height:40px;touch-action:manipulation;-webkit-appearance:none;}
+          @media(max-width:480px){
+            .create-btn{width:100%;justify-content:center;min-height:44px;font-size:14px;}
+          }
           .create-btn:hover{background:#28a593;}
-          .mod-tag{font-size:12px;font-weight:500;padding:4px 10px;border-radius:6px;background:var(--icon-bg);color:var(--accent);}
+          .mod-tag{font-size:12px;font-weight:500;padding:4px 10px;border-radius:6px;background:var(--icon-bg);color:var(--accent);display:inline-block;}
+          @media(max-width:480px){
+            .mod-tag{font-size:11px;padding:5px 9px;}
+          }
           .divider{height:1px;background:#f1f5f9;margin:14px 0;}
           .btn-row{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
-          .btn-cancel{padding:9px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:500;font-family:'Open Sans',sans-serif;cursor:pointer;}
-          .btn-primary{padding:9px 20px;border-radius:8px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;cursor:pointer;}
-          .btn-danger{padding:9px 20px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;cursor:pointer;}
+          @media(max-width:480px){
+            .btn-row{flex-direction:column-reverse;}
+          }
+          .btn-cancel{padding:9px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:500;font-family:'Open Sans',sans-serif;cursor:pointer;min-height:44px;touch-action:manipulation;-webkit-appearance:none;}
+          @media(max-width:480px){
+            .btn-cancel{width:100%;}
+          }
+          .btn-primary{padding:9px 20px;border-radius:8px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;cursor:pointer;min-height:44px;touch-action:manipulation;-webkit-appearance:none;}
+          @media(max-width:480px){
+            .btn-primary{width:100%;}
+          }
+          .btn-danger{padding:9px 20px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;cursor:pointer;min-height:44px;touch-action:manipulation;-webkit-appearance:none;}
+          @media(max-width:480px){
+            .btn-danger{width:100%;}
+          }
         `}</style>
 
         {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-        <div className="ar-root">
-          <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-          <div className="ar-main">
-            <TopBar title="Role Management" />
+        
+          
+          
+            
             <div className="ar-scroll">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-                <div>
-                  <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>All Roles</h1>
-                  <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Manage system roles and access levels</p>
-                </div>
-                <button className="create-btn" onClick={() => setShowCreate(true)}><Plus size={15} /> Create New Role</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
+              <div>
+                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>All Roles</h1>
+                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Manage system roles and access levels</p>
               </div>
+              <button className="create-btn" onClick={() => setShowCreate(true)}><Plus size={15} /> Create New Role</button>
+            </div>
 
               {loading ? (
                 <p style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: '40px 0' }}>Loading roles...</p>
@@ -175,17 +205,17 @@
                     const iconBg  = accent + '18';
                     return (
                       <div key={role.id} className="role-card" style={{ '--accent': accent, '--icon-bg': iconBg } as React.CSSProperties}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 12, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent, flexShrink: 0 }}>
                               <Shield size={20} />
                             </div>
-                            <div>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{role.name}</div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', wordBreak: 'break-word' }}>{role.name}</div>
                               <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{role.description || 'No description'}</div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                             <button className="action-btn" onClick={() => { setEditRole(role); setEditForm({ name: role.name, description: role.description || '' }); }}><Edit2 size={14} /></button>
                             <button className="action-btn del" onClick={() => setArchiveRole(role)}><Archive size={14} /></button>
                           </div>
@@ -209,8 +239,6 @@
                 </div>
               )}
             </div>
-          </div>
-        </div>
 
         {/* Create Modal */}
         {showCreate && (
@@ -273,6 +301,8 @@
             </div>
           </div>
         )}
-      </>
+      </DashboardLayout>
     );
   }
+
+

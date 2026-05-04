@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Clock, Monitor, LogOut, XCircle, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -82,11 +81,7 @@ export default function SessionSettings() {
   const router = useRouter();
 
   const { canEdit } = useAuth();
-  const isEditable = canEdit('authentication');
-
-  const [activeMenu, setActiveMenu]     = useState('session-settings');
-  const [sidebarOpen, setSidebarOpen]   = useState(true);
-  const [loading, setLoading]           = useState(true);
+  const isEditable = canEdit('authentication');  const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
   const [toast, setToast]               = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
@@ -209,7 +204,7 @@ export default function SessionSettings() {
   };
 
   return (
-    <>
+    <DashboardLayout title="Session Settings" activeMenu="session-settings">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -265,10 +260,10 @@ export default function SessionSettings() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="ss-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="ss-main">
-          <TopBar title="Authentication" />
+      
+        
+        
+          
           <div className="ss-scroll">
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
@@ -425,8 +420,7 @@ export default function SessionSettings() {
               </>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+

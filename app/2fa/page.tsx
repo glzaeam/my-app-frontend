@@ -175,8 +175,12 @@ export default function TwoFactorAuthPage() {
       >
         <div className="w-full flex items-center justify-center p-4">
           <div
-            className="w-full max-w-md rounded-2xl p-8 backdrop-blur-xl"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }}
+            className="w-full max-w-md rounded-2xl backdrop-blur-xl"
+            style={{ 
+              padding: 'var(--spacing-lg)',
+              background: 'rgba(255,255,255,0.08)', 
+              border: '1px solid rgba(255,255,255,0.2)' 
+            }}
           >
             {/* Header */}
             <div className="text-center mb-6">
@@ -196,34 +200,34 @@ export default function TwoFactorAuthPage() {
               <>
                 {/* Step 1 — Scan QR */}
                 <div className="mb-6">
-                  <p className="text-sm font-semibold mb-2" style={{ color: 'hsl(170,60%,55%)' }}>
+                  <p className="font-semibold mb-2" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(170,60%,55%)' }}>
                     Step 1 — Scan this QR code
                   </p>
-                  <p className="text-xs mb-4" style={{ color: 'hsl(210,15%,50%)' }}>
+                  <p className="mb-4" style={{ fontSize: 'var(--font-size-xs)', color: 'hsl(210,15%,50%)' }}>
                     Open{' '}
                     <strong style={{ color: 'white' }}>Google Authenticator</strong> or{' '}
                     <strong style={{ color: 'white' }}>Microsoft Authenticator</strong> and scan:
                   </p>
                   <div className="flex justify-center mb-3">
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUri)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(qrUri)}`}
                       alt="QR Code"
                       style={{
                         borderRadius: 12,
                         border: '2px solid rgba(255,255,255,0.15)',
-                        width: 180, height: 180,
+                        width: 140, height: 140,
                       }}
                     />
                   </div>
-                  <p className="text-center text-xs"
-                    style={{ color: 'hsl(210,15%,40%)', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                  <p className="text-center"
+                    style={{ fontSize: 'var(--font-size-xs)', color: 'hsl(210,15%,40%)', wordBreak: 'break-all', fontFamily: 'monospace' }}>
                     Manual key: {secret}
                   </p>
                 </div>
 
                 {/* Step 2 — Enter code */}
                 <form onSubmit={handleSubmit}>
-                  <p className="text-sm font-semibold mb-3" style={{ color: 'hsl(170,60%,55%)' }}>
+                  <p className="font-semibold mb-3" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(170,60%,55%)' }}>
                     Step 2 — Enter the 6-digit code
                   </p>
                   <div className="flex gap-2 justify-center mb-2">
@@ -240,13 +244,24 @@ export default function TwoFactorAuthPage() {
                           onKeyDown={e => handleKeyDown(index, e)}
                           onFocus={() => setFocused(`code-${index}`)}
                           onBlur={() => setFocused(null)}
-                          className="w-12 h-12 text-center text-lg font-bold rounded-xl outline-none"
-                          style={glassInput}
+                          className="font-bold rounded-xl outline-none text-center"
+                          style={{
+                            ...glassInput,
+                            width: '40px',
+                            height: '40px',
+                            fontSize: 'var(--font-size-lg)'
+                          }}
                         />
                       </div>
                     ))}
                   </div>
-                  <p className="text-center text-xs mb-4" style={{ color: 'hsl(210,15%,40%)' }}>
+                  <p 
+                    className="text-center mb-4"
+                    style={{ 
+                      fontSize: 'var(--font-size-xs)',
+                      color: 'hsl(210,15%,40%)' 
+                    }}
+                  >
                     The code refreshes every 30 seconds in your app
                   </p>
 
@@ -265,8 +280,9 @@ export default function TwoFactorAuthPage() {
                     disabled={loading || code.join('').length !== 6}
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full h-12 rounded-xl text-sm font-bold transition-all duration-300"
+                    className="w-full rounded-xl font-bold transition-all duration-300"
                     style={{
+                      height: 'var(--mobile-button-height)',
                       background: loading || code.join('').length !== 6
                         ? 'hsl(170,30%,25%)'
                         : 'linear-gradient(135deg,hsl(170,65%,42%),hsl(170,60%,48%))',
@@ -274,6 +290,7 @@ export default function TwoFactorAuthPage() {
                       border: 'none',
                       cursor: loading || code.join('').length !== 6 ? 'not-allowed' : 'pointer',
                       opacity: code.join('').length !== 6 ? 0.5 : 1,
+                      fontSize: 'var(--font-size-sm)'
                     }}
                   >
                     {loading ? 'Verifying...' : 'Verify & Continue'}
@@ -329,24 +346,45 @@ export default function TwoFactorAuthPage() {
       {/* Right 2FA Section */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-8">
         <div
-          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-xl"
-          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }}
+          className="w-full max-w-md rounded-2xl backdrop-blur-xl"
+          style={{ 
+            padding: 'var(--spacing-lg)',
+            background: 'rgba(255,255,255,0.08)', 
+            border: '1px solid rgba(255,255,255,0.2)' 
+          }}
         >
           <div className="lg:hidden flex justify-center mb-6">
-            <img src="/images/logolgn.png" alt="Nexum Banking ERP" className="h-28 object-contain"
-              style={{ maxWidth: '300px', filter: 'brightness(1.8)' }} />
+            <img src="/images/logolgn.png" alt="Nexum Banking ERP" className="h-24 object-contain"
+              style={{ maxWidth: '100%', filter: 'brightness(1.8)' }} />
           </div>
 
-          <div className="text-center space-y-2 mb-8 lg:mb-10">
-            <h2 className="text-2xl lg:text-3xl font-bold" style={{ color: 'white' }}>
+          <div className="text-center space-y-2 mb-6">
+            <h2 
+              className="font-bold"
+              style={{ 
+                fontSize: 'var(--font-size-2xl)',
+                color: 'white' 
+              }}
+            >
               Two-Factor Authentication
             </h2>
             {mode === 'totp' ? (
               <>
-                <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
+                <p 
+                  style={{ 
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'hsl(210,15%,55%)' 
+                  }}
+                >
                   Enter the 6-digit code from your
                 </p>
-                <p className="text-sm font-semibold" style={{ color: 'hsl(170,60%,55%)' }}>
+                <p 
+                  className="font-semibold"
+                  style={{ 
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'hsl(170,60%,55%)' 
+                  }}
+                >
                   Google / Microsoft Authenticator
                 </p>
               </>

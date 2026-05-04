@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Settings, MessageSquare, Mail, Smartphone, ChevronLeft, ChevronRight, ChevronDown, Edit2, X } from 'lucide-react';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -78,11 +77,7 @@ export default function MFASettings() {
   const router = useRouter();
 
   const { canEdit } = useAuth();
-  const isEditable = canEdit('authentication');
-
-  const [activeMenu, setActiveMenu]   = useState('mfa-settings');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [loading, setLoading]         = useState(true);
+  const isEditable = canEdit('authentication');  const [loading, setLoading]         = useState(true);
   const [saving, setSaving]           = useState(false);
   const [toast, setToast]             = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
@@ -249,7 +244,7 @@ export default function MFASettings() {
   ];
 
   return (
-    <>
+    <DashboardLayout title="MFA Settings" activeMenu="mfa-settings">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -331,16 +326,10 @@ export default function MFASettings() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="mfa-root">
-        <Sidebar
-          activeMenu={activeMenu}
-          setActiveMenu={setActiveMenu}
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          onLogout={() => { auth.clear(); router.push('/'); }}
-        />
-        <div className="mfa-main">
-          <TopBar title="Authentication" />
+      
+        
+        
+          
           <div className="mfa-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
               <div>
@@ -661,8 +650,7 @@ export default function MFASettings() {
               </>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+

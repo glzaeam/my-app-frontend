@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { AlertTriangle, Clock, CheckCircle, Filter, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 
@@ -137,8 +136,7 @@ function FilterDropdown({ options, value, onChange }: { options: { value: string
 
 export default function SuspiciousActivity() {
   const router = useRouter();
-  const [activeMenu,       setActiveMenu]       = useState('suspicious-activity');
-  const [sidebarOpen,      setSidebarOpen]      = useState(true);
+    const [sidebarOpen,      setSidebarOpen]      = useState(true);
   const [alerts,           setAlerts]           = useState<SecurityAlert[]>([]);
   const [loading,          setLoading]          = useState(true);
   const [severityFilter,   setSeverityFilter]   = useState('all');
@@ -188,7 +186,7 @@ export default function SuspiciousActivity() {
   };
 
   return (
-    <>
+    <DashboardLayout title="Security Monitoring" activeMenu="suspicious-activity">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -227,10 +225,10 @@ export default function SuspiciousActivity() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="sa-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="sa-main">
-          <TopBar title="Security Monitoring" />
+      
+        
+        
+          
           <div className="sa-scroll">
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#dc2626', background: 'rgba(220,38,38,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
@@ -298,9 +296,9 @@ export default function SuspiciousActivity() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+
 

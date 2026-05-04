@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { AlertTriangle, Eye, Lock, CheckCircle, ChevronDown, Filter } from 'lucide-react';
 import { auth } from '@/lib/api';
 
@@ -141,8 +140,6 @@ function FilterDropdown({ options, value, onChange }: { options: string[]; value
 
 export default function LiveAlerts() {
   const router = useRouter();
-  const [activeMenu,  setActiveMenu]  = useState('live-alerts');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [alerts,      setAlerts]      = useState<SecurityAlert[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [filter,      setFilter]      = useState('all');
@@ -190,7 +187,7 @@ export default function LiveAlerts() {
   };
 
   return (
-    <>
+    <DashboardLayout title="Security Monitoring" activeMenu="live-alerts">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -231,10 +228,10 @@ export default function LiveAlerts() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="la-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="la-main">
-          <TopBar title="Security Monitoring" />
+      
+        
+        
+          
           <div className="la-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
               <div>
@@ -315,9 +312,9 @@ export default function LiveAlerts() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+
 

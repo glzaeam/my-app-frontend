@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { CheckCircle2, XCircle, Clock, X, Filter, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { auth } from '@/lib/api';
 
@@ -135,10 +134,7 @@ function FilterDropdown({ options, value, onChange }: { options:{value:string;la
 }
 
 export default function AccessRequestsPage() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]   = useState('access-requests');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [requests, setRequests]       = useState<AccessRequest[]>([]);
+  const router = useRouter();  const [requests, setRequests]       = useState<AccessRequest[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading]         = useState(true);
   const [filter, setFilter]           = useState('');
@@ -176,7 +172,7 @@ export default function AccessRequestsPage() {
   const paged      = requests.slice((safePage-1)*ROWS_PER_PAGE, safePage*ROWS_PER_PAGE);
 
   return (
-    <>
+    <DashboardLayout title="Access Requests" activeMenu="access-requests">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
         *{box-sizing:border-box;}
@@ -214,10 +210,10 @@ export default function AccessRequestsPage() {
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)}/>}
       {reviewing && <ReviewModal request={reviewing} onClose={() => setReviewing(null)} onDone={() => { fetchRequests(); setToast({ msg:'Request reviewed successfully',type:'success' }); }}/>}
 
-      <div className="ar-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }}/>
-        <div className="ar-main">
-          <TopBar title="Access Requests"/>
+      
+        
+        
+          
           <div className="ar-scroll">
             <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24 }}>
               <div>
@@ -316,8 +312,7 @@ export default function AccessRequestsPage() {
               )}
             </div>
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+

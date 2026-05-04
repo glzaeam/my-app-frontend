@@ -171,27 +171,40 @@ export default function LoginPage() {
       {/* Right form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-8">
         <div
-          className="w-full max-w-md rounded-2xl p-8 lg:p-10 backdrop-blur-xl"
+          className="w-full max-w-md rounded-2xl backdrop-blur-xl"
           style={{
+            padding: 'var(--spacing-lg)',
             background: 'rgba(255,255,255,0.08)',
             border: '1px solid rgba(255,255,255,0.2)',
           }}
         >
           {/* Mobile Logo */}
-          <div className="lg:hidden flex justify-center mb-6">
+          <div className="lg:hidden flex justify-center mb-4">
             <img
               src="/images/logolgn.png"
               alt="Nexum"
-              className="h-28 object-contain"
-              style={{ maxWidth: 300, filter: 'brightness(1.8)' }}
+              className="h-24 object-contain"
+              style={{ maxWidth: '100%', filter: 'brightness(1.8)' }}
             />
           </div>
 
-          <div className="text-center mb-8">
-            <h2 className="text-2xl lg:text-3xl font-bold" style={{ color: 'white' }}>
+          <div className="text-center mb-6">
+            <h2 
+              className="font-bold leading-tight"
+              style={{ 
+                fontSize: 'var(--font-size-2xl)',
+                color: 'white' 
+              }}
+            >
               Welcome back
             </h2>
-            <p className="text-sm mt-1" style={{ color: 'hsl(210,15%,55%)' }}>
+            <p 
+              className="mt-2" 
+              style={{ 
+                fontSize: 'var(--font-size-sm)',
+                color: 'hsl(210,15%,55%)' 
+              }}
+            >
               Sign in to your account
             </p>
           </div>
@@ -199,7 +212,7 @@ export default function LoginPage() {
           {/* Lockout banner */}
           {isLocked && (
             <div
-              className="rounded-xl px-4 py-4 mb-6 text-center"
+              className="rounded-xl px-4 py-3 mb-6 text-center"
               style={{
                 background: 'rgba(239,68,68,0.15)',
                 border: '1px solid rgba(239,68,68,0.4)',
@@ -220,10 +233,16 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Employee ID */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold" style={{ color: 'hsl(210,15%,70%)' }}>
+              <label 
+                className="font-semibold block"
+                style={{ 
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'hsl(210,15%,70%)' 
+                }}
+              >
                 Employee ID
               </label>
               <div
@@ -237,15 +256,26 @@ export default function LoginPage() {
                   onFocus={() => setFocused('emp')}
                   onBlur={() => setFocused(null)}
                   disabled={isLocked}
-                  className="w-full px-4 h-12 rounded-xl text-sm outline-none placeholder:text-[hsl(210,10%,35%)]"
-                  style={{ ...glassInput, opacity: isLocked ? 0.5 : 1 }}
+                  className="w-full px-4 rounded-xl outline-none placeholder:text-[hsl(210,10%,35%)]"
+                  style={{ 
+                    ...glassInput, 
+                    opacity: isLocked ? 0.5 : 1,
+                    height: 'var(--mobile-input-height)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}
                 />
               </div>
             </div>
 
             {/* Password */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold" style={{ color: 'hsl(210,15%,70%)' }}>
+              <label 
+                className="font-semibold block"
+                style={{ 
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'hsl(210,15%,70%)' 
+                }}
+              >
                 Password
               </label>
               <div
@@ -260,8 +290,13 @@ export default function LoginPage() {
                   onFocus={() => setFocused('pw')}
                   onBlur={() => setFocused(null)}
                   disabled={isLocked}
-                  className="w-full pl-4 pr-12 h-12 rounded-xl text-sm outline-none placeholder:text-[hsl(210,10%,35%)]"
-                  style={{ ...glassInput, opacity: isLocked ? 0.5 : 1 }}
+                  className="w-full pl-4 pr-12 rounded-xl outline-none placeholder:text-[hsl(210,10%,35%)]"
+                  style={{ 
+                    ...glassInput, 
+                    opacity: isLocked ? 0.5 : 1,
+                    height: 'var(--mobile-input-height)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}
                 />
                 <button
                   type="button"
@@ -273,11 +308,11 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center flex-wrap gap-2">
                 {attemptsLeft !== null && attemptsLeft > 0 && !isLocked && (
-                  <div className="flex items-center gap-1" style={{ color: 'hsl(30,90%,60%)' }}>
+                  <div className="flex items-center gap-1" style={{ color: 'hsl(30,90%,60%)', fontSize: 'var(--font-size-xs)' }}>
                     <AlertTriangle className="w-3 h-3" />
-                    <p className="text-xs">
+                    <p>
                       {attemptsLeft} attempt{attemptsLeft !== 1 ? 's' : ''} remaining before lockout
                     </p>
                   </div>
@@ -285,8 +320,14 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/forgot-password')}
-                  className="text-sm font-medium ml-auto"
-                  style={{ color: 'hsl(170,60%,55%)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  className="font-medium ml-auto"
+                  style={{ 
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'hsl(170,60%,55%)', 
+                    background: 'none', 
+                    border: 'none', 
+                    cursor: 'pointer' 
+                  }}
                 >
                   Forgot password?
                 </button>
@@ -302,6 +343,8 @@ export default function LoginPage() {
                   alignItems: 'center',
                   width: '100%',
                   margin: '12px auto',
+                  transform: 'scale(0.9)',
+                  transformOrigin: 'center',
                 }}
               >
                 <ReCAPTCHA
@@ -317,11 +360,12 @@ export default function LoginPage() {
             {/* Error Message */}
             {error && !isLocked && (
               <div
-                className="rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+                className="rounded-xl px-3 py-3 text-sm flex items-center gap-2"
                 style={{
                   background: 'rgba(239,68,68,0.15)',
                   border: '1px solid rgba(239,68,68,0.3)',
                   color: 'rgb(252,165,165)',
+                  fontSize: 'var(--font-size-sm)'
                 }}
               >
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -335,8 +379,9 @@ export default function LoginPage() {
               disabled={loading || isLocked || !captchaToken}
               whileHover={{ scale: loading || isLocked || !captchaToken ? 1 : 1.01 }}
               whileTap={{ scale: loading || isLocked || !captchaToken ? 1 : 0.98 }}
-              className="w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 mt-2"
+              className="w-full rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 mt-3"
               style={{
+                height: 'var(--mobile-button-height)',
                 background:
                   loading || isLocked || !captchaToken
                     ? 'hsl(170,30%,25%)'
@@ -346,6 +391,7 @@ export default function LoginPage() {
                 cursor: loading || isLocked || !captchaToken ? 'not-allowed' : 'pointer',
                 opacity: !captchaToken ? 0.5 : 1,
                 border: 'none',
+                fontSize: 'var(--font-size-sm)'
               }}
             >
               {isLocked
@@ -362,7 +408,7 @@ export default function LoginPage() {
             </motion.button>
           </form>
 
-          <p className="text-center text-sm mt-6" style={{ color: 'hsl(210,15%,50%)' }}>
+          <p className="text-center mt-6" style={{ fontSize: 'var(--font-size-sm)', color: 'hsl(210,15%,50%)' }}>
             Don&apos;t have an account?{' '}
             <button
               onClick={() => router.push('/request-access')}

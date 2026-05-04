@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Lock, Unlock, Eye } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 
@@ -33,10 +32,7 @@ const accessConfig: Record<AccessLevel, { label: string; color: string; bg: stri
 const ROLE_ACCENTS = ['#2db9a3','#6366f1','#f59e0b','#06b6d4','#ef4444','#8b5cf6'];
 
 export default function ModuleAccess() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]   = useState('module-access');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [roles, setRoles]             = useState<Role[]>([]);
+  const router = useRouter();  const [roles, setRoles]             = useState<Role[]>([]);
   const [modules, setModules]         = useState<Module[]>([]);
   const [perms, setPerms]             = useState<PermRow[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,7 +62,7 @@ export default function ModuleAccess() {
   };
 
   return (
-    <>
+    <DashboardLayout title="Module Access" activeMenu="module-access">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -94,10 +90,10 @@ export default function ModuleAccess() {
         .info-box{background:#f0fdf9;border:1px solid #a7f3d0;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#059669;}
       `}</style>
 
-      <div className="ma-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }}/>
-        <div className="ma-main">
-          <TopBar title="Permissions"/>
+      
+        
+        
+          
           <div className="ma-scroll">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:22 }}>
               <div>
@@ -162,8 +158,8 @@ export default function ModuleAccess() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+

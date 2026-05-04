@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Activity, AlertTriangle, Shield, Lock, TrendingUp, TrendingDown, Eye, FileText, Users } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { auth } from '@/lib/api';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -21,15 +20,12 @@ const ROLE_COLORS = [
 ];
 
 export default function Dashboard() {
-  const [activeMenu,  setActiveMenu]  = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(
     new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
   );
-  const router            = useRouter();
   const { user, loading } = useAuth();
-  const itemsPerPage      = 10;
+  const itemsPerPage = 10;
 
   const [metrics, setMetrics] = useState([
     { label: 'Total Events',        value: '—', icon: Activity,      trend: 'up'   as const },
@@ -69,7 +65,6 @@ export default function Dashboard() {
     });
   };
 
-  // Helper — extracts items from either a plain array or a paginated response object
   const extractItems = (data: any): any[] => {
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.items)) return data.items;
@@ -137,17 +132,17 @@ export default function Dashboard() {
     try {
       const headers = { Authorization: `Bearer ${auth.getToken()}` };
       const [summaryRes, trendRes, logsRes] = await Promise.all([
-        fetch(`${API}/audit/summary`,                     { headers }),
-        fetch(`${API}/audit/dashboard/login-trend`,       { headers }),
-        fetch(`${API}/audit?page=1&pageSize=50`,          { headers }),
+        fetch(`${API}/audit/summary`,               { headers }),
+        fetch(`${API}/audit/dashboard/login-trend`, { headers }),
+        fetch(`${API}/audit?page=1&pageSize=50`,    { headers }),
       ]);
 
       if (!summaryRes.ok) return;
 
-      const summary  = await summaryRes.json();
-      const trend    = trendRes.ok ? await trendRes.json() : [];
-      const logsRaw  = logsRes.ok  ? await logsRes.json()  : [];
-      const allLogs  = extractItems(logsRaw);
+      const summary = await summaryRes.json();
+      const trend   = trendRes.ok ? await trendRes.json() : [];
+      const logsRaw = logsRes.ok  ? await logsRes.json()  : [];
+      const allLogs = extractItems(logsRaw);
 
       setSecurityMetrics([
         { label: 'Live Alerts',         value: String(summary.failed ?? 0), icon: AlertTriangle, trend: 'down' as const },
@@ -207,15 +202,14 @@ export default function Dashboard() {
   const fetchTellerDashboard = useCallback(async () => {
     try {
       const headers = { Authorization: `Bearer ${auth.getToken()}` };
-      // Use the dedicated my-activity endpoint instead of filtering the full audit log
       const res = await fetch(`${API}/audit/my-activity?limit=20`, { headers });
       if (!res.ok) return;
       const data = await res.json();
       const activities = Array.isArray(data.activities) ? data.activities : [];
       setTellerActivity(activities.slice(0, 10).map((l: any) => ({
         time:   formatTime(l.createdAt),
-        action: l.action  ?? '—',
-        module: l.module  ?? '—',
+        action: l.action ?? '—',
+        module: l.module ?? '—',
         status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
       })));
     } catch (err) { console.error('Teller dashboard error:', err); }
@@ -263,11 +257,7 @@ export default function Dashboard() {
   };
 
   const styles = `
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    .db-root, .db-root * { font-family: var(--font-dm-sans, 'DM Sans', sans-serif); }
-    .db-root    { display: flex; height: 100vh; background: #ffffff; overflow: hidden; }
-    .db-content { flex: 1; display: flex; flex-direction: column; overflow: visible; background: #ffffff; }
     .main-scroll { flex: 1; overflow-y: auto; padding: 32px 36px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
     .main-scroll::-webkit-scrollbar { width: 6px; }
     .main-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
@@ -326,7 +316,29 @@ export default function Dashboard() {
     .loading-wrap { display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; gap: 16px; }
     .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top: 3px solid #2db9a3; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @media (max-width: 768px) { .main-scroll { padding: 18px; } .charts-grid { grid-template-columns: 1fr; } .metrics-grid { grid-template-columns: 1fr 1fr; } }
+
+    @media (max-width: 768px) {
+      .main-scroll { padding: 18px; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+      .greeting-row h1 { font-size: 20px; }
+      .greeting-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .al-table tbody td { padding: 12px 14px; font-size: 12px; }
+      .al-table thead th { padding: 10px 12px; font-size: 10px; }
+      .pagination-bar { flex-direction: column; gap: 12px; }
+      .chart-card { padding: 18px; margin-bottom: 16px; }
+      .metric-card { padding: 16px; }
+    }
+
+    @media (max-width: 480px) {
+      .main-scroll { padding: 14px; }
+      .greeting-row h1 { font-size: 18px; }
+      .metrics-grid { grid-template-columns: 1fr; }
+      .greeting-row p { font-size: 12px; }
+      .chart-card-title { font-size: 14px; }
+      .metric-value { font-size: 24px; }
+      .metric-label { font-size: 11px; }
+    }
   `;
 
   const renderGreeting = (subtitle: string) => (
@@ -634,35 +646,23 @@ export default function Dashboard() {
   );
 
   return (
-    <>
+    <DashboardLayout title="Dashboard" activeMenu="dashboard">
       <style>{styles}</style>
-      <div className="db-root">
-        <Sidebar
-          activeMenu={activeMenu}
-          setActiveMenu={setActiveMenu}
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          onLogout={() => { auth.clear(); router.push('/'); }}
-        />
-        <div className="db-content">
-          <TopBar title="Dashboard" />
-          <div className="main-scroll">
-            {loading ? (
-              <div className="loading-wrap">
-                <div className="spinner" />
-                <p style={{ color: '#94a3b8', fontSize: 14 }}>Loading dashboard...</p>
-              </div>
-            ) : (
-              <>
-                {user?.role === 'System Admin'   && renderAdminDashboard()}
-                {user?.role === 'Branch Manager' && renderBranchManagerDashboard()}
-                {user?.role === 'Auditor'        && renderAuditorDashboard()}
-                {user?.role === 'Bank Teller'    && renderTellerDashboard()}
-              </>
-            )}
+      <div className="main-scroll">
+        {loading ? (
+          <div className="loading-wrap">
+            <div className="spinner" />
+            <p style={{ color: '#94a3b8', fontSize: 14 }}>Loading dashboard...</p>
           </div>
-        </div>
+        ) : (
+          <>
+            {user?.role === 'System Admin'   && renderAdminDashboard()}
+            {user?.role === 'Branch Manager' && renderBranchManagerDashboard()}
+            {user?.role === 'Auditor'        && renderAuditorDashboard()}
+            {user?.role === 'Bank Teller'    && renderTellerDashboard()}
+          </>
+        )}
       </div>
-    </>
+    </DashboardLayout>
   );
 }

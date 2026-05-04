@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { AlertTriangle, Ban, Lock, ShieldAlert, Search, Filter, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 
@@ -144,8 +143,6 @@ function FilterDropdown({ options, value, onChange }: { options: { value: string
 
 export default function FailedLoginsPage() {
   const router = useRouter();
-  const [activeMenu,   setActiveMenu]   = useState('failed-logins');
-  const [sidebarOpen,  setSidebarOpen]  = useState(true);
   const [logs,         setLogs]         = useState<FailedLogin[]>([]);
   const [summary,      setSummary]      = useState<Summary>({ total: 0, today: 0, blocked: 0, locked: 0 });
   const [loading,      setLoading]      = useState(true);
@@ -225,7 +222,7 @@ export default function FailedLoginsPage() {
   ];
 
   return (
-    <>
+    <DashboardLayout title="Security Monitoring" activeMenu="failed-logins">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -270,10 +267,10 @@ export default function FailedLoginsPage() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="fl-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="fl-main">
-          <TopBar title="Security Monitoring" />
+      
+        
+        
+          
           <div className="fl-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
               <div>
@@ -358,9 +355,9 @@ export default function FailedLoginsPage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+
 

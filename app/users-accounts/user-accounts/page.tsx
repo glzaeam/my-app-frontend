@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import {
   Search, Filter, UserPlus, Users, Pencil,
   KeyRound, ChevronLeft,
@@ -667,10 +666,7 @@ function Toast({ msg, type, onDone }: { msg:string; type:'success'|'error'; onDo
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function UserAccounts() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]   = useState('user-accounts');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [users, setUsers]             = useState<ApiUser[]>([]);
+  const router = useRouter();  const [users, setUsers]             = useState<ApiUser[]>([]);
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
   const [roleFilter, setRoleFilter]     = useState('all');
@@ -738,7 +734,7 @@ export default function UserAccounts() {
   };
 
   return (
-    <>
+    <DashboardLayout title="Users & Accounts" activeMenu="user-accounts">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
         *{box-sizing:border-box;}
@@ -795,11 +791,11 @@ export default function UserAccounts() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="ua-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="ua-main">
-          <TopBar title="User Accounts" />
-          <div className="ua-scroll">
+      
+        
+        
+          
+      <div className="ua-scroll">
             <div className="ua-page-header">
               <div><h1>User Accounts</h1><p>Manage all system users</p></div>
               <button className="ua-add-btn" onClick={() => setShowAddUserModal(true)}><UserPlus size={15}/> Add User</button>
@@ -918,14 +914,13 @@ export default function UserAccounts() {
                 </div>
               </div>
             </div>
-
-          </div>
-        </div>
       </div>
 
       <EditDialog open={!!editTarget} onClose={() => setEditTarget(null)} user={editTarget} onSaved={() => { fetchUsers(); setToast({ msg:'User updated', type:'success' }); }}/>
       <ConfirmDialog open={!!resetTarget} onClose={() => setResetTarget(null)} title="Reset Password" description={`Send a password reset link to ${resetTarget?.email}?`} confirmLabel="Send Reset Link" onConfirm={handleResetPassword} danger={false}/>
       <AddUserModal open={showAddUserModal} onClose={() => setShowAddUserModal(false)} onSuccess={() => { fetchUsers(); setToast({ msg:'User created successfully', type:'success' }); }}/>
-    </>
+    </DashboardLayout>
   );
 }
+
+

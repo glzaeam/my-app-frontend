@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Download, Filter, Search, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 
@@ -70,10 +69,7 @@ const statusCfg: Record<string, { color: string; bg: string; dot: string }> = {
 const ITEMS_PER_PAGE = 10;
 
 export default function ActivityLogs() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]     = useState('activity-logs');
-  const [sidebarOpen, setSidebarOpen]   = useState(true);
-  const [logs, setLogs]                 = useState<AuditLog[]>([]);
+  const router = useRouter();  const [logs, setLogs]                 = useState<AuditLog[]>([]);
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -135,7 +131,7 @@ export default function ActivityLogs() {
   };
 
   return (
-    <>
+    <DashboardLayout title="Activity Logs" activeMenu="activity-logs">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;}
@@ -169,9 +165,9 @@ export default function ActivityLogs() {
         .pg-counter{font-size:13px;color:#475569;font-weight:500;min-width:45px;text-align:center;}
       `}</style>
 
-      <div className="al-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="al-content">
+      
+        
+        
           <div className="main-content">
             <div className="page-header-row">
               <div>
@@ -246,9 +242,9 @@ export default function ActivityLogs() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+
 

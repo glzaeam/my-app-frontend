@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Search, Filter, FileText, ChevronDown } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 
@@ -78,10 +77,7 @@ const formatDate = (iso: string) => {
 };
 
 export default function TransactionTrailPage() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]     = useState('transaction-trail');
-  const [sidebarOpen, setSidebarOpen]   = useState(true);
-  const [records, setRecords]           = useState<TxnRecord[]>([]);
+  const router = useRouter();  const [records, setRecords]           = useState<TxnRecord[]>([]);
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [moduleFilter, setModuleFilter] = useState('all');
@@ -114,7 +110,7 @@ export default function TransactionTrailPage() {
   const paged      = records.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   return (
-    <>
+    <DashboardLayout title="Transaction Trail" activeMenu="transaction-trail">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
@@ -144,10 +140,10 @@ export default function TransactionTrailPage() {
         .empty-icon{font-size:40px;margin-bottom:12px;}
       `}</style>
 
-      <div className="tt-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
+      
+        
         <div className="tt-content">
-          <TopBar title="Transaction Trail" />
+          
           <div className="main-content">
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
@@ -247,8 +243,7 @@ export default function TransactionTrailPage() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+

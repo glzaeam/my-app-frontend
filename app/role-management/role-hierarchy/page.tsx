@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Shield, Users, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 
@@ -28,8 +27,7 @@ const LEVEL_CONFIG = [
 
 export default function RoleHierarchy() {
   const router = useRouter();
-  const [activeMenu,  setActiveMenu]  = useState('role-hierarchy');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen]   = useState(true);
   const [roles,       setRoles]       = useState<ApiRole[]>([]);
   const [loading,     setLoading]     = useState(true);
 
@@ -46,53 +44,83 @@ const fetchRoles = useCallback(async () => {
   useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
   return (
-    <>
+    <DashboardLayout title="Role Management" activeMenu="role-hierarchy">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         .rh-root { display: flex; height: 100vh; background: #ffffff; overflow: hidden; font-family: 'Open Sans', sans-serif; }
         .rh-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         .main-content { flex: 1; overflow-y: auto; padding: 32px 36px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
+        @media(max-width:768px){
+          .main-content{ padding: 24px 20px; }
+        }
+        @media(max-width:480px){
+          .main-content{ padding: 16px 12px; }
+        }
         .main-content::-webkit-scrollbar { width: 6px; }
         .main-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
         .page-header { margin-bottom: 32px; }
+        @media(max-width:480px){
+          .page-header{ margin-bottom: 24px; }
+        }
         .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #2db9a3; background: rgba(45,185,163,0.08); padding: 4px 10px; border-radius: 20px; margin-bottom: 10px; }
         .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: #2db9a3; }
         .hierarchy-list { display: flex; flex-direction: column; gap: 0; max-width: 860px; }
         .connector { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+        @media(max-width:480px){
+          .connector{ gap: 6px; }
+        }
         .connector-line { display: flex; flex-direction: column; align-items: center; }
         .connector-dot { width: 8px; height: 8px; border-radius: 50%; }
         .connector-label { font-size: 11.5px; font-weight: 600; color: #94a3b8; }
         .connector-label span { font-weight: 700; }
         .role-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 18px; padding: 22px 24px; position: relative; overflow: hidden; margin-bottom: 0; }
+        @media(max-width:480px){
+          .role-card{ padding: 16px 18px; border-radius: 14px; }
+        }
         .role-card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 4px; background: var(--accent); border-radius: 18px 0 0 18px; }
-        .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
-        .card-left { display: flex; align-items: center; gap: 14px; }
+        .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 8px; flex-wrap: wrap; }
+        @media(max-width:480px){
+          .card-top{ gap: 6px; }
+        }
+        .card-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+        @media(max-width:480px){
+          .card-left{ gap: 10px; }
+        }
         .role-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--icon-bg); color: var(--accent); flex-shrink: 0; }
         .role-name { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 6px; }
-        .role-meta { display: flex; align-items: center; gap: 8px; }
+        @media(max-width:480px){
+          .role-name{ font-size: 14px; }
+        }
+        .role-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        @media(max-width:480px){
+          .role-meta{ gap: 6px; }
+        }
         .level-badge { font-size: 11.5px; font-weight: 600; color: var(--accent); background: var(--icon-bg); padding: 2px 10px; border-radius: 20px; }
         .users-badge { display: flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 2px 10px; border-radius: 20px; }
         .role-desc { font-size: 13px; color: #64748b; line-height: 1.55; margin-bottom: 14px; }
+        @media(max-width:480px){
+          .role-desc{ font-size: 12px; }
+        }
         .modules-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-        .mod-tag { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: var(--icon-bg); color: var(--accent); white-space: nowrap; }
+        .mod-tag { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: var(--icon-bg); color: var(--accent); white-space: nowrap; display: inline-block; }
+        @media(max-width:480px){
+          .mod-tag{ font-size: 11px; padding: 3px 8px; }
+        }
         .no-modules { font-size: 12px; color: #cbd5e1; font-style: italic; margin-bottom: 14px; }
         .manages-section { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
         .manages-label { font-size: 11.5px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; white-space: nowrap; }
-        .manages-chip { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; background: var(--icon-bg); color: var(--accent); white-space: nowrap; }
+        .manages-chip { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; background: var(--icon-bg); color: var(--accent); white-space: nowrap; display: inline-block; }
+        @media(max-width:480px){
+          .manages-chip{ font-size: 11px; padding: 2px 8px; }
+        }
         .no-manage { font-size: 12px; color: #cbd5e1; font-style: italic; padding-top: 12px; border-top: 1px solid #f1f5f9; }
       `}</style>
 
-      <div className="rh-root">
-        <Sidebar
-          activeMenu={activeMenu}
-          setActiveMenu={setActiveMenu}
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          onLogout={() => { auth.clear(); router.push('/'); }}
-        />
-        <div className="rh-main">
-          <TopBar title="Role Management" />
+      
+        
+        
+          
           <div className="main-content">
             <div className="page-header">
 
@@ -177,8 +205,8 @@ const fetchRoles = useCallback(async () => {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+

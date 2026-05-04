@@ -1,8 +1,7 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import {
   Edit3, User, KeyRound, Mail, Building, MapPin,
   ShieldCheck, Camera, Eye, EyeOff, Loader2, X,
@@ -101,10 +100,7 @@ function capitalizeFirst(s: string) { return s ? s.charAt(0).toUpperCase() + s.s
 
 const MyProfile = () => {
   const router = useRouter();
-  const { refreshUser }               = useAuth();
-  const [activeMenu, setActiveMenu]   = useState('my-profile');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab]     = useState<'about'|'security'|'activity'>('about');
+  const { refreshUser }               = useAuth();  const [activeTab, setActiveTab]     = useState<'about'|'security'|'activity'>('about');
   const [editOpen, setEditOpen]       = useState(false);
   const [pwOpen, setPwOpen]           = useState(false);
   const [profile, setProfile]         = useState<UserProfile | null>(null);
@@ -269,7 +265,7 @@ const MyProfile = () => {
   };
 
   return (
-    <>
+    <DashboardLayout title="My Profile" activeMenu="my-profile">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -379,13 +375,11 @@ const MyProfile = () => {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="pr-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu}
-          sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
-          onLogout={() => { auth.clear(); router.push('/'); }} />
+      
+        
 
-        <div className="pr-main">
-          <TopBar title="My Profile" />
+        
+          
           <div className="pr-scroll">
             {loading ? (
               <div style={{ textAlign: 'center', padding: '80px 0', color: '#65676b', fontSize: 14 }}>Loading profile…</div>
@@ -625,8 +619,6 @@ const MyProfile = () => {
               </>
             )}
           </div>
-        </div>
-      </div>
 
       {/* Edit Profile Modal */}
       <div className={`overlay ${editOpen ? 'open' : ''}`} onClick={() => setEditOpen(false)}>
@@ -748,8 +740,10 @@ const MyProfile = () => {
           </div>
         </div>
       </div>
-    </>
+    </DashboardLayout>
   );
 };
 
 export default MyProfile;
+
+

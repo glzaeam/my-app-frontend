@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Eye, Pencil, Archive, Shield, Save } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 
@@ -35,8 +34,6 @@ const ACCENTS = ['#2db9a3', '#6366f1', '#f59e0b', '#06b6d4'];
 
 export default function PermissionMatrix() {
   const router = useRouter();
-  const [activeMenu,  setActiveMenu]  = useState('permission-matrix');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [roles,       setRoles]       = useState<Role[]>([]);
   const [modules,     setModules]     = useState<Module[]>([]);
   const [matrix,      setMatrix]      = useState<LocalMatrix>({});
@@ -170,16 +167,10 @@ export default function PermissionMatrix() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: "'Open Sans', sans-serif" }}>
-      <Sidebar
-        activeMenu={activeMenu}
-        setActiveMenu={setActiveMenu}
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        onLogout={() => { auth.clear(); router.push('/'); }}
-      />
+      
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <TopBar title="Permission Matrix" />
+        
 
         <div className="pm-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
           {loading ? (
@@ -425,3 +416,4 @@ export default function PermissionMatrix() {
     </div>
   );
 }
+

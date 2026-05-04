@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Lock, RotateCw, ChevronLeft, ChevronRight, ChevronDown,
@@ -109,9 +108,7 @@ export default function PasswordPolicyPage() {
   const { logout, canEdit } = useAuth();
   const isEditable = canEdit('password-policy');
 
-  const handleLogout = () => { logout(); router.push('/'); };
-  const [activeMenu, setActiveMenu] = useState('password-policy');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const handleLogout = () => { logout(); router.push('/'); };  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -228,13 +225,9 @@ export default function PasswordPolicyPage() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#ffffff', fontFamily: 'DM Sans, sans-serif' }}>
-      <Sidebar
-        activeMenu={activeMenu} setActiveMenu={setActiveMenu}
-        sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
-        onLogout={handleLogout}
-      />
+      
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        <TopBar title="Password Policy" />
+        
         <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -445,3 +438,4 @@ export default function PasswordPolicyPage() {
     </div>
   );
 }
+

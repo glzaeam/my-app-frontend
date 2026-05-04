@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import { Smartphone, Monitor, Tablet, Search, Shield, Activity, AlertTriangle, Filter, XCircle, CheckCircle, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 
@@ -154,8 +153,6 @@ function FilterDropdown({ options, value, onChange }: { options: { value: string
 
 export default function DeviceTracking() {
   const router = useRouter();
-  const [activeMenu,  setActiveMenu]  = useState('device-tracking');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [devices,     setDevices]     = useState<Device[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [searchTerm,  setSearchTerm]  = useState('');
@@ -255,7 +252,7 @@ export default function DeviceTracking() {
   ];
 
   return (
-    <>
+    <DashboardLayout title="Security Monitoring" activeMenu="device-tracking">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -304,10 +301,10 @@ export default function DeviceTracking() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="dt-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="dt-main">
-          <TopBar title="Security Monitoring" />
+      
+        
+        
+          
           <div className="dt-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
               <div>
@@ -450,9 +447,9 @@ export default function DeviceTracking() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+
 

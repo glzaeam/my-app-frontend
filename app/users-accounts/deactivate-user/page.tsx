@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import SelectDropdown from '@/app/components/SelectDropdown';
 import { Search, UserX, AlertTriangle, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
@@ -32,10 +31,7 @@ function Toast({ msg, type, onDone }: { msg:string; type:'success'|'error'; onDo
 }
 
 export default function DeactivateUser() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]     = useState('deactivate-user');
-  const [sidebarOpen, setSidebarOpen]   = useState(true);
-  const [users, setUsers]               = useState<ApiUser[]>([]);
+  const router = useRouter();  const [users, setUsers]               = useState<ApiUser[]>([]);
   const [deactivated, setDeactivated]   = useState<ApiUser[]>([]);
   const [currentPage, setCurrentPage]   = useState(1);
   const [loading, setLoading]           = useState(true);
@@ -89,7 +85,7 @@ export default function DeactivateUser() {
   const paged      = deactivated.slice((safePage-1)*ROWS_PER_PAGE, safePage*ROWS_PER_PAGE);
 
   return (
-    <>
+    <DashboardLayout title="Deactivate User" activeMenu="deactivate-user">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
         *{box-sizing:border-box;}
@@ -136,10 +132,10 @@ export default function DeactivateUser() {
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)}/>}
 
-      <div className="du-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }}/>
-        <div className="du-main">
-          <TopBar title="Deactivate User"/>
+      
+        
+        
+          
           <div className="du-scroll">
             <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24 }}>
               <div>
@@ -261,8 +257,7 @@ export default function DeactivateUser() {
               )}
             </div>
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+

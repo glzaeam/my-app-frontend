@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import {
   CheckCircle, XCircle, Lock, Search, Activity,
   ChevronLeft, ChevronRight, Filter, ChevronDown,
@@ -78,10 +77,7 @@ const statusMap: Record<string, { label: string; color: string; bg: string; dot:
 };
 
 export default function LoginAttempts() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]     = useState('login-attempts');
-  const [sidebarOpen, setSidebarOpen]   = useState(true);
-  const [logs, setLogs]                 = useState<LoginAttempt[]>([]);
+  const router = useRouter();  const [logs, setLogs]                 = useState<LoginAttempt[]>([]);
   const [summary, setSummary]           = useState<Summary | null>(null);
   const [blockedIps, setBlockedIps]     = useState<BlockedIp[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -159,7 +155,7 @@ export default function LoginAttempts() {
   ];
 
   return (
-    <>
+    <DashboardLayout title="Login Attempts" activeMenu="login-attempts">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -210,10 +206,10 @@ export default function LoginAttempts() {
         .ip-table tr:hover td{background:#fafbfd;}
       `}</style>
 
-      <div className="la-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="la-main">
-          <TopBar title="Authentication" />
+      
+        
+        
+          
           <div className="la-scroll">
 
             {/* Header */}
@@ -355,8 +351,8 @@ export default function LoginAttempts() {
             </div>
 
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+

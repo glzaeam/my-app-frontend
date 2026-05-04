@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell } from 'lucide-react';
+import { Bell, Menu, X } from 'lucide-react';
 import NotificationsDropdown from './NotificationsDropdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/lib/api';
@@ -16,9 +16,11 @@ function getHDImageUrl(url: string | null | undefined, size = 400): string | nul
 
 interface TopBarProps {
   title: string;
+  onSidebarToggle?: () => void;
+  sidebarOpen?: boolean;
 }
 
-export default function TopBar({ title }: TopBarProps) {
+export default function TopBar({ title, onSidebarToggle, sidebarOpen = false }: TopBarProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount]             = useState(0);
   const notificationBtnRef                        = useRef<HTMLButtonElement>(null);
@@ -48,34 +50,212 @@ export default function TopBar({ title }: TopBarProps) {
     .slice(0, 2)
     .toUpperCase() || 'U';
 
-  // ✅ Get the actual role from AuthContext
   const roleName = user?.role || 'Bank Teller';
 
   return (
     <>
       <style>{`
-        .topbar { height: 66px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .topbar-title { font-size: 16px; font-weight: 500; color: #0f172a; }
-        .topbar-right { display: flex; align-items: center; gap: 14px; }
-        .notif-btn { width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; transition: all 0.18s; position: relative; }
-        .notif-btn:hover { border-color: #2db9a3; color: #2db9a3; background: #f0fdf9; }
-        .notif-badge { position: absolute; top: -6px; right: -6px; background: #ef4444; color: #fff; border-radius: 50%; min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(239,68,68,0.3); padding: 0 4px; }
-        .profile-pill { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 40px; padding: 5px 14px 5px 5px; cursor: pointer; transition: all 0.18s; }
-        .profile-pill:hover { border-color: #2db9a3; background: #f0fdf9; }
-        .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #2db9a3, #6366f1); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; overflow: hidden; flex-shrink: 0; }
-        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-        .profile-info { display: flex; flex-direction: column; align-items: flex-start; }
-        .profile-name { font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.2; }
-        .profile-role { font-size: 11px; font-weight: 500; color: #64748b; line-height: 1.2; }
+        .topbar {
+          height: 66px;
+          background: #fff;
+          border-bottom: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 32px;
+          flex-shrink: 0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          position: sticky;
+          top: 0;
+          z-index: 90;
+        }
+        .topbar-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex: 1;
+          min-width: 0;
+        }
+        .topbar-title {
+          font-size: 16px;
+          font-weight: 500;
+          color: #0f172a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .topbar-right {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-shrink: 0;
+        }
+        .topbar-hamburger {
+          display: none;
+          width: 38px;
+          height: 38px;
+          align-items: center;
+          justify-content: center;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          background: #fff;
+          color: #64748b;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: all 0.18s;
+          padding: 0;
+        }
+        .topbar-hamburger:hover {
+          border-color: #2db9a3;
+          color: #2db9a3;
+          background: #f0fdf9;
+        }
+        .topbar-hamburger.is-open {
+          border-color: #2db9a3;
+          color: #2db9a3;
+          background: #f0fdf9;
+        }
+        .notif-btn {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          border: 1.5px solid #e2e8f0;
+          background: #fff;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          transition: all 0.18s;
+          position: relative;
+          padding: 0;
+        }
+        .notif-btn:hover {
+          border-color: #2db9a3;
+          color: #2db9a3;
+          background: #f0fdf9;
+        }
+        .notif-badge {
+          position: absolute;
+          top: -6px;
+          right: -6px;
+          background: #ef4444;
+          color: #fff;
+          border-radius: 50%;
+          min-width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 700;
+          border: 2px solid #fff;
+          box-shadow: 0 2px 6px rgba(239,68,68,0.3);
+          padding: 0 4px;
+        }
+        .profile-pill {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: #f8fafc;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 40px;
+          padding: 5px 14px 5px 5px;
+          cursor: pointer;
+          transition: all 0.18s;
+        }
+        .profile-pill:hover {
+          border-color: #2db9a3;
+          background: #f0fdf9;
+        }
+        .profile-avatar {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #2db9a3, #6366f1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .profile-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+        }
+        .profile-info {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          min-width: 0;
+        }
+        .profile-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #1e293b;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 140px;
+        }
+        .profile-role {
+          font-size: 11px;
+          font-weight: 500;
+          color: #64748b;
+          line-height: 1.2;
+          white-space: nowrap;
+        }
+        @media (max-width: 1279px) {
+          .topbar { padding: 0 24px; height: 60px; }
+          .topbar-title { font-size: 15px; }
+          .profile-pill { gap: 8px; padding: 4px 12px 4px 4px; }
+          .profile-name { font-size: 12px; max-width: 120px; }
+          .profile-role { font-size: 10px; }
+        }
+        @media (max-width: 767px) {
+          .topbar { padding: 0 14px; height: 56px; gap: 8px; }
+          .topbar-hamburger { display: flex; width: 36px; height: 36px; border-radius: 9px; }
+          .topbar-title { font-size: 14px; }
+          .topbar-right { gap: 8px; }
+          .notif-btn { width: 36px; height: 36px; border-radius: 9px; }
+          .profile-pill { gap: 6px; padding: 4px 10px 4px 4px; }
+          .profile-avatar { width: 28px; height: 28px; }
+          .profile-info { display: none; }
+        }
+        @media (max-width: 479px) {
+          .topbar { padding: 0 12px; }
+          .topbar-title { font-size: 13px; }
+          .topbar-hamburger { width: 34px; height: 34px; }
+          .notif-btn { width: 34px; height: 34px; }
+          .profile-pill { padding: 4px 8px 4px 4px; }
+          .profile-avatar { width: 26px; height: 26px; font-size: 10px; }
+        }
       `}</style>
 
       <div className="topbar">
-        <span className="topbar-title">{title}</span>
+        <div className="topbar-left">
+          <button
+            className={`topbar-hamburger${sidebarOpen ? ' is-open' : ''}`}
+            onClick={() => onSidebarToggle && onSidebarToggle()}
+            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          >
+            {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+          <span className="topbar-title">{title}</span>
+        </div>
+
         <div className="topbar-right">
           <button
             ref={notificationBtnRef}
             onClick={() => { setNotificationsOpen(v => !v); fetchUnreadCount(); }}
             className="notif-btn"
+            title="Notifications"
           >
             <Bell size={17} />
             {unreadCount > 0 && (
@@ -83,7 +263,6 @@ export default function TopBar({ title }: TopBarProps) {
             )}
           </button>
 
-          {/* ✅ Now shows name AND role */}
           <button onClick={() => router.push('/my-profile')} className="profile-pill" style={{ border: 'none' }}>
             <div className="profile-avatar">
               {user?.profileImageUrl

@@ -1,9 +1,8 @@
 'use client';
+import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/app/components/Sidebar';
-import TopBar from '@/app/components/TopBar';
 import SelectDropdown from '@/app/components/SelectDropdown';
 import { Search, User, ChevronRight } from 'lucide-react';
 import { auth } from '@/lib/api';
@@ -43,9 +42,7 @@ function Toast({ msg, type, onDone }: { msg: string; type: 'success' | 'error'; 
 }
 
 export default function AssignRole() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu]     = useState('assign-role');
-  const [sidebarOpen, setSidebarOpen]   = useState(true);
+  const router = useRouter();  const [sidebarOpen, setSidebarOpen]   = useState(true);
   const [users, setUsers]               = useState<ApiUser[]>([]);
   const [roles, setRoles]               = useState<ApiRole[]>([]);
   const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
@@ -121,43 +118,84 @@ export default function AssignRole() {
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   return (
-    <>
+    <DashboardLayout title="Role Management" activeMenu="assign-role">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
         *{box-sizing:border-box;}
         .asr-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:'Open Sans',sans-serif;}
         .asr-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
         .asr-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#2db9a3 transparent;min-height:0;}
+        @media(max-width:768px){
+          .asr-scroll{padding:20px 16px;}
+        }
+        @media(max-width:480px){
+          .asr-scroll{padding:16px 12px;}
+        }
         .asr-scroll::-webkit-scrollbar{width:6px;}
         .asr-scroll::-webkit-scrollbar-track{background:transparent;}
         .asr-scroll::-webkit-scrollbar-thumb{background:#2db9a3;border-radius:3px;}
         .content-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;height:fit-content;}
+        @media(max-width:768px){
+          .content-grid{grid-template-columns:1fr;gap:14px;}
+        }
         .card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;}
+        @media(max-width:480px){
+          .card{border-radius:14px;}
+        }
         .card-header{padding:18px 22px 14px;border-bottom:1px solid #f1f5f9;}
+        @media(max-width:480px){
+          .card-header{padding:14px 16px 12px;}
+        }
         .card-title{font-size:14px;font-weight:600;color:#0f172a;margin-bottom:12px;}
+        @media(max-width:480px){
+          .card-title{font-size:13px;}
+        }
         .search-wrap{position:relative;}
-        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#f8fafc;font-family:'Open Sans',sans-serif;outline:none;}
+        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#f8fafc;font-family:'Open Sans',sans-serif;outline:none;min-height:44px;box-sizing:border-box;touch-action:manipulation;-webkit-appearance:none;}
+        @media(max-width:480px){
+          .search-input{font-size:16px;padding:12px 14px 12px 40px;min-height:48px;}
+        }
         .search-input:focus{border-color:#2db9a3;}
         .user-list{overflow-y:auto;max-height:460px;}
+        @media(max-width:480px){
+          .user-list{max-height:320px;}
+        }
         .user-item{display:flex;align-items:center;gap:12px;padding:13px 22px;cursor:pointer;border-bottom:1px solid #f8fafc;transition:background 0.13s;position:relative;}
+        @media(max-width:480px){
+          .user-item{padding:12px 16px;gap:10px;}
+        }
         .user-item:hover{background:#fafbfc;}
+        .user-item:active{opacity:0.9;}
         .user-item.active{background:rgba(45,185,163,0.05);}
         .user-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:#2db9a3;border-radius:0 2px 2px 0;}
         .u-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;}
+        @media(max-width:480px){
+          .u-avatar{width:36px;height:36px;font-size:11px;}
+        }
         .assign-panel{padding:22px;}
+        @media(max-width:480px){
+          .assign-panel{padding:16px;}
+        }
         .field-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;display:block;}
-        .assign-btn{width:100%;padding:11px;border-radius:10px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;margin-top:16px;}
+        @media(max-width:480px){
+          .field-label{font-size:10px;margin-bottom:6px;}
+        }
+        .assign-btn{width:100%;padding:11px;border-radius:10px;border:none;background:#2db9a3;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;margin-top:16px;min-height:44px;touch-action:manipulation;-webkit-appearance:none;}
+        @media(max-width:480px){
+          .assign-btn{padding:14px;font-size:14px;min-height:48px;margin-top:12px;}
+        }
         .assign-btn:disabled{opacity:0.5;cursor:not-allowed;}
+        .assign-btn:active:not(:disabled){opacity:0.9;}
         .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 20px;text-align:center;}
         .txn-box{background:#f0fdf9;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;margin-top:16px;}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      <div className="asr-root">
-        <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={() => { auth.clear(); router.push('/'); }} />
-        <div className="asr-main">
-          <TopBar title="Role Management" />
+      
+        
+        
+          
           <div className="asr-scroll">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24 }}>
               <div>
@@ -250,8 +288,8 @@ export default function AssignRole() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </>
+    </DashboardLayout>
   );
 }
+
+

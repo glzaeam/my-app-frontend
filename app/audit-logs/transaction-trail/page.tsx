@@ -243,6 +243,7 @@ export default function TransactionTrailPage() {
               </div>
             )}
           </div>
+        </div>
     </DashboardLayout>
   );
 }

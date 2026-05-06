@@ -102,7 +102,7 @@ export default function TransactionTrailPage() {
   }, [searchTerm, moduleFilter, dateRange]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
-  useEffect(() => { const interval = setInterval(() => fetchRecords(), 5000); return () => clearInterval(interval); }, [fetchRecords]);
+
 
   const modules    = ['all', ...new Set(records.map(r => r.module ?? '').filter(Boolean))];
   const totalPages = Math.max(1, Math.ceil(records.length / ITEMS_PER_PAGE));

@@ -41,18 +41,19 @@ namespace NexumAPI.Controllers
                 .OrderBy(u => u.Name)
                 .Skip(PaginationHelper.CalculateSkip(page, pageSize))
                 .Take(pageSize)
-                .Select(u => new {
-                    u.Id,
-                    u.EmployeeId,
-                    u.Name,
-                    u.Email,
-                    u.Department,
-                    u.Status,
-                    u.MfaEnabled,
-                    u.CreatedAt,
-                    u.LastLogin,
-                    Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
-                })
+               .Select(u => new {
+    u.Id,
+    u.EmployeeId,
+    u.Name,
+    u.Email,
+    u.Department,
+    u.Status,
+    u.MfaEnabled,
+    u.CreatedAt,
+    u.LastLogin,
+    u.ProfileImageUrl,
+    Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
+})
                 .ToListAsync();
 
             return Ok(new PaginatedResponse<dynamic>(

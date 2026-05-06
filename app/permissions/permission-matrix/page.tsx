@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -55,15 +55,14 @@ export default function PermissionMatrix() {
       setRoles(rolesData);
       setModules(modsData);
 
-      // Build matrix: moduleId → roleId → { canView, canEdit, canDelete }
       const m: LocalMatrix = {};
-      modsData.forEach(mod => {
+      modsData.forEach((mod: Module) => {
         m[mod.id] = {};
-        rolesData.forEach(role => {
+        rolesData.forEach((role: Role) => {
           m[mod.id][role.id] = { canView: false, canEdit: false, canDelete: false };
         });
       });
-      permData.forEach(p => {
+      permData.forEach((p: PermRow) => {
         if (m[p.moduleId]) {
           m[p.moduleId][p.roleId] = {
             canView:   p.canView,
@@ -91,13 +90,11 @@ export default function PermissionMatrix() {
       const current = prev[moduleId]?.[activeRole.id] ?? { canView: false, canEdit: false, canDelete: false };
       const updated  = { ...current, [field]: !current[field] };
 
-      // ✅ Business rule: if View is turned OFF, also turn off Edit and Delete
       if (field === 'canView' && !updated.canView) {
         updated.canEdit   = false;
         updated.canDelete = false;
       }
 
-      // ✅ Business rule: if Edit or Delete turned ON, also turn on View
       if ((field === 'canEdit' || field === 'canDelete') && updated[field]) {
         updated.canView = true;
       }
@@ -154,7 +151,6 @@ export default function PermissionMatrix() {
     }
   };
 
-  // ✅ Count only CanView — this is what controls sidebar access
   const countGranted = (roleId: string) =>
     modules.reduce((acc, mod) => {
       const p = matrix[mod.id]?.[roleId];
@@ -162,15 +158,11 @@ export default function PermissionMatrix() {
       return acc + (p.canView ? 1 : 0);
     }, 0);
 
-  // ✅ Total = number of modules (not ×3)
   const totalModules = modules.length;
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: "'Open Sans', sans-serif" }}>
-      
-
+    <DashboardLayout activeMenu="permission-matrix" title="Permission Matrix">
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        
 
         <div className="pm-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
           {loading ? (
@@ -217,7 +209,6 @@ export default function PermissionMatrix() {
                         </div>
                       </div>
 
-                      {/* ✅ Shows X/29 modules instead of X/87 */}
                       <div style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: 500 }}>
                         {granted} / {totalModules} modules accessible
                       </div>
@@ -413,7 +404,6 @@ export default function PermissionMatrix() {
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
-    </div>
+    </DashboardLayout>
   );
 }
-

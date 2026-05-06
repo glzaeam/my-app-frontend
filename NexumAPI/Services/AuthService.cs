@@ -43,17 +43,20 @@ namespace NexumAPI.Services
             var ip = _httpContextAccessor.HttpContext?
                 .Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-            // IP Whitelist check
+            // IP Block check — deny login if IP is in the blocked list
             var loginSettings = await _context.LoginSettings.FirstOrDefaultAsync();
-            if (loginSettings?.IpWhitelistEnabled == true && !string.IsNullOrEmpty(loginSettings.AllowedIps))
+            if (loginSettings?.IpBlockingEnabled == true && !string.IsNullOrEmpty(loginSettings.BlockedIps))
             {
-                var allowedList = loginSettings.AllowedIps
+                var blockedList = loginSettings.BlockedIps
                     .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim())
+                    // Each entry may be "1.2.3.4 (Label) — Reason", extract just the IP/CIDR part
+                    .Select(e => e.Trim().Split(' ')[0].Trim())
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
                     .ToList();
-                if (!allowedList.Contains(ip))
+
+                if (blockedList.Any(entry => IpMatchesEntry(ip, entry)))
                 {
-                    await RecordLoginAttemptAsync(null, ip, "Blocked", "IP not whitelisted");
+                    await RecordLoginAttemptAsync(null, ip, "Blocked", "IP address is blocked");
                     return new { success = false, locked = false, requireCaptcha = false,
                                  attemptsLeft = 0, remainingMinutes = 0,
                                  message = "Access denied from this IP address." };
@@ -174,7 +177,6 @@ namespace NexumAPI.Services
 
                 if (authenticatorSetting != null)
                 {
-                    // User already has TOTP set up — ask them to verify
                     await RecordLoginAttemptAsync(user.Id, ip, "Success", null);
                     return new
                     {
@@ -189,8 +191,6 @@ namespace NexumAPI.Services
                 }
                 else if (mfaRequirement == "Required")
                 {
-                    // Role requires Authenticator but user hasn't set it up yet
-                    // Create an OTP gate so /totp-setup endpoint can verify the user passed password check
                     await GenerateOtpAsync(user.Id);
                     await RecordLoginAttemptAsync(user.Id, ip, "Success", null);
                     return new
@@ -407,7 +407,6 @@ namespace NexumAPI.Services
             };
         }
 
-        // Verify TOTP code from Google/Microsoft Authenticator
         public async Task<object> VerifyTotpAsync(string userId, string code)
         {
             var ip = _httpContextAccessor.HttpContext?
@@ -610,7 +609,7 @@ namespace NexumAPI.Services
             return code;
         }
 
-       public string GenerateJwtToken(User user) 
+        public string GenerateJwtToken(User user)
         {
             var claims = new List<Claim>
             {
@@ -621,7 +620,7 @@ namespace NexumAPI.Services
             };
             foreach (var ur in user.UserRoles)
                 if (ur.Role?.Name != null)
-                    claims.Add(new Claim("role", ur.Role.Name));
+                    claims.Add(new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", ur.Role.Name));
 
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var creds      = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
@@ -693,6 +692,48 @@ namespace NexumAPI.Services
             }
 
             await _context.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Matches an IP against a single entry which can be an exact IP or a CIDR range.
+        /// </summary>
+        private static bool IpMatchesEntry(string ip, string entry)
+        {
+            if (ip == entry) return true;
+
+            if (entry.Contains('/'))
+            {
+                try
+                {
+                    var parts      = entry.Split('/');
+                    var network    = System.Net.IPAddress.Parse(parts[0]);
+                    int prefixLen  = int.Parse(parts[1]);
+                    var incoming   = System.Net.IPAddress.Parse(ip);
+
+                    var networkBytes  = network.GetAddressBytes();
+                    var incomingBytes = incoming.GetAddressBytes();
+
+                    if (networkBytes.Length != incomingBytes.Length) return false;
+
+                    int fullBytes = prefixLen / 8;
+                    int remainder = prefixLen % 8;
+
+                    for (int i = 0; i < fullBytes; i++)
+                        if (networkBytes[i] != incomingBytes[i]) return false;
+
+                    if (remainder > 0)
+                    {
+                        int mask = 0xFF << (8 - remainder);
+                        if ((networkBytes[fullBytes] & mask) != (incomingBytes[fullBytes] & mask))
+                            return false;
+                    }
+
+                    return true;
+                }
+                catch { return false; }
+            }
+
+            return false;
         }
     }
 }

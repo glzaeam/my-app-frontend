@@ -215,9 +215,9 @@ export default function LiveAlerts() {
         .alert-meta{font-size:12px;color:#64748b;margin-top:4px;}
         .sev-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;text-transform:capitalize;margin-left:8px;}
         .time-text{font-size:11.5px;color:#94a3b8;white-space:nowrap;}
-        .resolve-btn{padding:5px 12px;border-radius:7px;border:1.5px solid #2db9a3;background:#fff;color:#2db9a3;font-size:12px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;transition:all 0.15s;flex-shrink:0;}
-        .resolve-btn:hover{background:#2db9a3;color:#fff;}
-        .resolve-btn:disabled{opacity:0.5;cursor:not-allowed;}
+       .resolve-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid #2db9a3;background:#fff;color:#2db9a3;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;}
+.resolve-btn:hover{background:#2db9a3;color:#fff;}
+.resolve-btn:disabled{opacity:0.5;cursor:not-allowed;}
         .filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
         .filter-chip{padding:6px 14px;border-radius:20px;border:1.5px solid #e2e8f0;background:#fff;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;font-family:'Open Sans',sans-serif;transition:all 0.15s;}
         .filter-chip:hover{border-color:#2db9a3;color:#2db9a3;}
@@ -297,9 +297,9 @@ export default function LiveAlerts() {
                           <div className="alert-meta">User: {a.userName} · {a.employeeId}</div>
                         </div>
                         {a.status === 'active' ? (
-                          <button className="resolve-btn" onClick={() => handleResolve(a.id)} disabled={resolving === a.id}>
-                            {resolving === a.id ? '...' : 'Resolve'}
-                          </button>
+                        <button className="resolve-btn" onClick={() => handleResolve(a.id)} disabled={resolving === a.id} title="Resolve Alert">
+  {resolving === a.id ? <Lock size={14} /> : <CheckCircle size={14} />}
+</button>
                         ) : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#059669', background: '#dcfce7', padding: '4px 10px', borderRadius: 20, flexShrink: 0 }}>
                             <CheckCircle size={12} /> Resolved

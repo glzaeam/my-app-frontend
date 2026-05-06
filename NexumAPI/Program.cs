@@ -32,29 +32,21 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer              = builder.Configuration["Jwt:Issuer"],
         ValidAudience            = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
-        RoleClaimType            = "role"
+        RoleClaimType            = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
     };
 });
 
 // ✅ RBAC Policies
 builder.Services.AddAuthorization(options =>
 {
-    const string roleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
-
-    options.AddPolicy("SystemAdmin", policy =>
-        policy.RequireClaim(roleClaimType, "System Admin"));
-
-    options.AddPolicy("BranchManager", policy =>
-        policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager"));
-
-    options.AddPolicy("Auditor", policy =>
-        policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager", "Auditor"));
-
-    options.AddPolicy("BankTeller", policy =>
-        policy.RequireClaim(roleClaimType, "System Admin", "Branch Manager", "Auditor", "Bank Teller"));
+    options.AddPolicy("SystemAdmin",   policy => policy.RequireRole("System Admin"));
+    options.AddPolicy("BranchManager", policy => policy.RequireRole("System Admin", "Branch Manager"));
+    options.AddPolicy("Auditor",       policy => policy.RequireRole("System Admin", "Auditor"));
+    options.AddPolicy("User",          policy => policy.RequireRole("System Admin", "Branch Manager", "Auditor", "User"));
+    options.AddPolicy("BankTeller",    policy => policy.RequireRole("System Admin", "Branch Manager", "Auditor", "Bank Teller"));
 });
 
-// ✅ CORS — includes Vercel frontend URL
+// ✅ CORS — includes all Vercel frontend URLs
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -63,7 +55,9 @@ builder.Services.AddCors(options =>
             "https://localhost:3000",
             "http://localhost:3001",
             "https://localhost:3001",
-            "https://my-app-frontend-lake.vercel.app"
+            "https://my-app-frontend-lake.vercel.app",
+            "https://my-app-frontend-git-main-glzaeams-projects.vercel.app",
+            "https://my-app-frontend-jw76x3gvs-glzaeams-projects.vercel.app"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()

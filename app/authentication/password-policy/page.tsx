@@ -108,7 +108,8 @@ export default function PasswordPolicyPage() {
   const { logout, canEdit } = useAuth();
   const isEditable = canEdit('password-policy');
 
-  const handleLogout = () => { logout(); router.push('/'); };  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const handleLogout = () => { logout(); router.push('/'); };
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -130,7 +131,6 @@ export default function PasswordPolicyPage() {
     try {
       const res = await fetch(`${API}/password-policy`, { headers: getHeaders() });
 
-      // ✅ FIX: handle 403 gracefully instead of crashing
       if (res.status === 403) {
         show('Access denied — insufficient permissions to view password policy', 'error');
         setLoading(false);
@@ -160,7 +160,6 @@ export default function PasswordPolicyPage() {
     try {
       const res = await fetch(`${API}/password-policy/history?page=${page}&pageSize=${HIST_PER_PAGE}`, { headers: getHeaders() });
 
-      // ✅ FIX: handle 403 on history endpoint gracefully
       if (res.status === 403) {
         show('Access denied — insufficient permissions to view password history', 'error');
         setHistory([]);
@@ -224,10 +223,9 @@ export default function PasswordPolicyPage() {
   const safePage = Math.min(histPage, totalHistPages);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#ffffff', fontFamily: 'DM Sans, sans-serif' }}>
-      
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        
+    <DashboardLayout activeMenu="password-policy" title="Password Policy">
+      <div style={{ background: '#ffffff', fontFamily: 'DM Sans, sans-serif', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
         <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -344,7 +342,6 @@ export default function PasswordPolicyPage() {
                 )}
               </>
             ) : (
-              // ✅ FIX: show a friendly message if policy failed to load (e.g. 403)
               <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 13 }}>
                 Unable to load password policy. Please check your permissions or try again.
               </div>
@@ -435,7 +432,6 @@ export default function PasswordPolicyPage() {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
-    </div>
+    </DashboardLayout>
   );
 }
-

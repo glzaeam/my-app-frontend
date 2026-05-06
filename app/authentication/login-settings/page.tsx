@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Shield, Clock, Globe, Plus, ChevronDown, X } from 'lucide-react';
+import { AlertCircle, Shield, Clock, Globe, Plus, ChevronDown, X, Ban } from 'lucide-react';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/app/components/DashboardLayout';
@@ -110,10 +110,11 @@ export default function LoginSettings() {
   const [lockoutDuration, setLockoutDuration] = useState('15');
   const [sessionTimeout, setSessionTimeout]   = useState('480');
   const [maxSessions, setMaxSessions]         = useState('3');
-  const [ipWhitelisting, setIpWhitelisting]   = useState(false);
-  const [allowedIps, setAllowedIps]           = useState<string[]>([]);
+  const [ipBlockingEnabled, setIpBlockingEnabled] = useState(false);
+  const [blockedIps, setBlockedIps]           = useState<string[]>([]);
   const [newIp, setNewIp]                     = useState('');
   const [newIpLabel, setNewIpLabel]           = useState('');
+  const [newIpReason, setNewIpReason]         = useState('');
   const [showAddIp, setShowAddIp]             = useState(false);
 
   const fetchSettings = useCallback(async () => {
@@ -127,8 +128,8 @@ export default function LoginSettings() {
       setLockoutDuration(String(data.lockoutDuration ?? 15));
       setSessionTimeout(String(data.sessionTimeoutMinutes ?? 480));
       setMaxSessions(String(data.maxConcurrentSessions ?? 3));
-      setIpWhitelisting(data.ipWhitelistEnabled ?? false);
-      if (data.allowedIps) setAllowedIps(data.allowedIps.split(',').filter(Boolean));
+      setIpBlockingEnabled(data.ipBlockingEnabled ?? false);
+      if (data.blockedIps) setBlockedIps(data.blockedIps.split(',').filter(Boolean));
     } catch { setToast({ msg: 'Failed to load settings', type: 'error' }); }
     finally { setLoading(false); }
   }, []);
@@ -147,8 +148,8 @@ export default function LoginSettings() {
           lockoutDuration:       parseInt(lockoutDuration),
           sessionTimeoutMinutes: parseInt(sessionTimeout),
           maxConcurrentSessions: parseInt(maxSessions),
-          ipWhitelistEnabled:    ipWhitelisting,
-          allowedIps:            allowedIps.join(','),
+          ipBlockingEnabled:     ipBlockingEnabled,
+          blockedIps:            blockedIps.join(','),
         }),
       });
       const data = await res.json();
@@ -160,14 +161,16 @@ export default function LoginSettings() {
 
   const addIp = () => {
     if (!newIp.trim() || !isEditable) return;
-    const entry = newIpLabel.trim() ? `${newIp.trim()} (${newIpLabel.trim()})` : newIp.trim();
-    setAllowedIps(prev => [...prev, entry]);
-    setNewIp(''); setNewIpLabel(''); setShowAddIp(false);
+    let entry = newIp.trim();
+    if (newIpLabel.trim()) entry += ` (${newIpLabel.trim()})`;
+    if (newIpReason.trim()) entry += ` — ${newIpReason.trim()}`;
+    setBlockedIps(prev => [...prev, entry]);
+    setNewIp(''); setNewIpLabel(''); setNewIpReason(''); setShowAddIp(false);
   };
 
   const removeIp = (i: number) => {
     if (!isEditable) return;
-    setAllowedIps(prev => prev.filter((_, idx) => idx !== i));
+    setBlockedIps(prev => prev.filter((_, idx) => idx !== i));
   };
 
   const maxAttemptsOptions    = [{ value:'3', label:'3 attempts' }, { value:'5', label:'5 attempts' }, { value:'10', label:'10 attempts' }];
@@ -191,6 +194,7 @@ export default function LoginSettings() {
         .ls-card { background:#fff; border:1.5px solid #e2e8f0; border-radius:18px; padding:24px; box-shadow:0 2px 12px rgba(0,0,0,0.05); }
         .ls-card-title { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:500; color:#0f172a; margin-bottom:20px; }
         .ls-card-icon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:rgba(45,185,163,0.15); color:#1D9E75; flex-shrink:0; box-shadow:0 0 12px rgba(45,185,163,0.2); }
+        .ls-card-icon.danger { background:rgba(239,68,68,0.12); color:#ef4444; box-shadow:0 0 12px rgba(239,68,68,0.15); }
         .ls-field { margin-bottom:16px; }
         .ls-field:last-child { margin-bottom:0; }
         .ls-label { font-size:11.5px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:8px; display:block; }
@@ -201,19 +205,24 @@ export default function LoginSettings() {
         .ls-toggle-info h3 { font-size:13.5px; font-weight:500; color:#1e293b; margin-bottom:3px; }
         .ls-toggle-info p { font-size:12px; color:#94a3b8; }
         .ls-toggle { width:50px; height:28px; border-radius:14px; background:#e2e8f0; position:relative; transition:background 0.25s; flex-shrink:0; border:none; outline:none; cursor:pointer; padding:0; display:flex; align-items:center; touch-action:manipulation; }
-        .ls-toggle.on { background:#2db9a3; }
+        .ls-toggle.on { background:#ef4444; }
         .ls-toggle-thumb { width:22px; height:22px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px; transition:left 0.25s; box-shadow:0 1px 4px rgba(0,0,0,0.18); }
         .ls-toggle.on .ls-toggle-thumb { left:25px; }
-        .ls-ip-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9; }
+        .ls-ip-list { margin-top:4px; }
+        .ls-ip-row { display:flex; align-items:flex-start; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9; gap:10px; }
         .ls-ip-row:last-child { border-bottom:none; }
-        .ls-ip-code { font-size:12px; font-weight:500; color:#0f172a; font-family:'DM Mono',monospace; background:#f1f5f9; padding:3px 8px; border-radius:6px; border:1px solid #e2e8f0; }
+        .ls-ip-info { flex:1; min-width:0; }
+        .ls-ip-code { font-size:12px; font-weight:600; color:#0f172a; font-family:'DM Mono',monospace; background:#fef2f2; padding:3px 8px; border-radius:6px; border:1px solid #fecaca; color:#dc2626; display:inline-block; margin-bottom:2px; }
+        .ls-ip-meta { font-size:11px; color:#94a3b8; margin-top:2px; }
         .ls-ip-remove { width:32px; height:32px; border-radius:8px; border:1.5px solid #fee2e2; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#ef4444; transition:all 0.15s; flex-shrink:0; touch-action:manipulation; padding:0; }
         .ls-ip-remove:hover { background:#fee2e2; }
-        .ls-add-ip-btn { display:inline-flex; align-items:center; gap:6px; margin-top:12px; font-size:13px; font-weight:600; color:#2db9a3; cursor:pointer; background:none; border:none; font-family:'DM Sans',sans-serif; padding:8px 0; min-height:44px; touch-action:manipulation; }
-        .ls-add-ip-btn:hover { color:#1fa090; }
-        .ls-add-ip-form { margin-top:12px; display:flex; flex-direction:column; gap:8px; padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; }
+        .ls-add-ip-btn { display:inline-flex; align-items:center; gap:6px; margin-top:12px; font-size:13px; font-weight:600; color:#ef4444; cursor:pointer; background:none; border:none; font-family:'DM Sans',sans-serif; padding:8px 0; min-height:44px; touch-action:manipulation; }
+        .ls-add-ip-btn:hover { color:#dc2626; }
+        .ls-add-ip-form { margin-top:12px; display:flex; flex-direction:column; gap:8px; padding:12px; background:#fef2f2; border-radius:10px; border:1px solid #fecaca; }
         .ls-mini-input { height:44px; padding:0 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:'DM Sans',sans-serif; color:#1a2332; background:#fff; outline:none; width:100%; }
-        .ls-mini-input:focus { border-color:#2db9a3; box-shadow:0 0 0 3px rgba(45,185,163,0.1); }
+        .ls-mini-input:focus { border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,0.1); }
+        .ls-empty-state { text-align:center; padding:20px 0; }
+        .ls-empty-icon { width:40px; height:40px; border-radius:12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; }
         .ls-footer { display:flex; justify-content:flex-end; gap:12px; padding-top:4px; flex-wrap:wrap; }
         .ls-btn-cancel { padding:12px 28px; border-radius:10px; border:1.5px solid #e2e8f0; background:#fff; color:#64748b; cursor:pointer; font-size:13.5px; font-weight:500; font-family:'DM Sans',sans-serif; transition:all 0.18s; min-height:44px; touch-action:manipulation; }
         .ls-btn-cancel:hover { background:#f8fafc; }
@@ -221,6 +230,7 @@ export default function LoginSettings() {
         .ls-btn-save:hover:not(:disabled) { background:#28a593; }
         .ls-btn-save:disabled { opacity:0.6; cursor:not-allowed; }
         .readonly-badge { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:#64748b; background:#f1f5f9; padding:5px 12px; border-radius:20px; border:1px solid #e2e8f0; }
+        .blocked-count-badge { display:inline-flex; align-items:center; font-size:11px; font-weight:700; color:#dc2626; background:#fef2f2; border:1px solid #fecaca; padding:2px 8px; border-radius:20px; margin-left:auto; }
         @media (max-width:768px) {
           .ls-scroll { padding:18px; }
           .ls-grid { grid-template-columns:1fr; gap:14px; margin-bottom:20px; }
@@ -255,6 +265,7 @@ export default function LoginSettings() {
         ) : (
           <>
             <div className="ls-grid">
+              {/* Attempt Limits */}
               <div className="ls-card">
                 <div className="ls-card-title">
                   <div className="ls-card-icon"><AlertCircle size={16}/></div>
@@ -270,6 +281,7 @@ export default function LoginSettings() {
                 </div>
               </div>
 
+              {/* Session Settings */}
               <div className="ls-card">
                 <div className="ls-card-title">
                   <div className="ls-card-icon"><Clock size={16}/></div>
@@ -285,6 +297,7 @@ export default function LoginSettings() {
                 </div>
               </div>
 
+              {/* Login Behavior */}
               <div className="ls-card">
                 <div className="ls-card-title">
                   <div className="ls-card-icon"><Shield size={16}/></div>
@@ -292,54 +305,121 @@ export default function LoginSettings() {
                 </div>
                 <div className="ls-toggle-row">
                   <div className="ls-toggle-info">
-                    <h3>IP Whitelisting</h3>
-                    <p>Restrict login to pre-approved IP addresses only</p>
+                    <h3>IP Blocking</h3>
+                    <p>Prevent specific IP addresses or ranges from logging in</p>
                   </div>
                   <button
-                    className={`ls-toggle ${ipWhitelisting ? 'on' : ''}`}
-                    onClick={() => isEditable && setIpWhitelisting(v => !v)}
-                    onTouchEnd={(e) => { e.preventDefault(); isEditable && setIpWhitelisting(v => !v); }}
+                    className={`ls-toggle ${ipBlockingEnabled ? 'on' : ''}`}
+                    onClick={() => isEditable && setIpBlockingEnabled(v => !v)}
+                    onTouchEnd={(e) => { e.preventDefault(); isEditable && setIpBlockingEnabled(v => !v); }}
                     style={{ cursor: isEditable ? 'pointer' : 'not-allowed', opacity: isEditable ? 1 : 0.6 }}
                   >
                     <div className="ls-toggle-thumb"/>
                   </button>
                 </div>
-                {ipWhitelisting && (
-                  <div style={{ marginTop:12, padding:'12px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:10 }}>
-                    <p style={{ fontSize:12, color:'#d97706', fontWeight:600 }}>⚠️ Only IPs in the whitelist below can log in. Make sure your current IP is included.</p>
+                {ipBlockingEnabled && (
+                  <div style={{ marginTop:12, padding:'12px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.18)', borderRadius:10 }}>
+                    <p style={{ fontSize:12, color:'#dc2626', fontWeight:600 }}>🚫 IP blocking is active. Any IP address added to the block list below will be denied login access.</p>
                   </div>
                 )}
               </div>
 
+              {/* Blocked IPs */}
               <div className="ls-card">
                 <div className="ls-card-title">
-                  <div className="ls-card-icon"><Globe size={16}/></div>
-                  Whitelisted IPs
-                  {!ipWhitelisting && <span style={{ fontSize:11, fontWeight:600, color:'#94a3b8', marginLeft:'auto' }}>IP whitelisting is disabled</span>}
+                  <div className="ls-card-icon danger"><Ban size={16}/></div>
+                  Blocked IP Addresses
+                  {blockedIps.length > 0 && (
+                    <span className="blocked-count-badge">{blockedIps.length} blocked</span>
+                  )}
+                  {!ipBlockingEnabled && (
+                    <span style={{ fontSize:11, fontWeight:600, color:'#94a3b8', marginLeft:'auto' }}>IP blocking is disabled</span>
+                  )}
                 </div>
-                {allowedIps.length === 0 ? (
-                  <p style={{ fontSize:13, color:'#94a3b8', textAlign:'center', padding:'16px 0' }}>No IPs whitelisted</p>
-                ) : allowedIps.map((ip, i) => (
-                  <div key={i} className="ls-ip-row">
-                    <span className="ls-ip-code">{ip}</span>
-                    {isEditable && (
-                      <button className="ls-ip-remove" onClick={() => removeIp(i)}><X size={13}/></button>
-                    )}
+
+                {blockedIps.length === 0 ? (
+                  <div className="ls-empty-state">
+                    <div className="ls-empty-icon">
+                      <Ban size={18} color="#cbd5e1"/>
+                    </div>
+                    <p style={{ fontSize:13, color:'#94a3b8' }}>No IPs are currently blocked</p>
+                    <p style={{ fontSize:11, color:'#cbd5e1', marginTop:3 }}>All login attempts are permitted by default</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="ls-ip-list">
+                    {blockedIps.map((ip, i) => {
+                      // Parse out parts: "1.2.3.4 (Label) — Reason"
+                      const reasonMatch = ip.match(/^(.*?)\s*—\s*(.*)$/);
+                      const reason = reasonMatch ? reasonMatch[2] : null;
+                      const withoutReason = reasonMatch ? reasonMatch[1] : ip;
+                      const labelMatch = withoutReason.match(/^(.*?)\s*\((.*?)\)$/);
+                      const ipAddr = labelMatch ? labelMatch[1].trim() : withoutReason.trim();
+                      const label = labelMatch ? labelMatch[2] : null;
+
+                      return (
+                        <div key={i} className="ls-ip-row">
+                          <div className="ls-ip-info">
+                            <span className="ls-ip-code">{ipAddr}</span>
+                            {(label || reason) && (
+                              <div className="ls-ip-meta">
+                                {label && <span style={{ fontWeight:600, color:'#64748b' }}>{label}</span>}
+                                {label && reason && <span> · </span>}
+                                {reason && <span>{reason}</span>}
+                              </div>
+                            )}
+                          </div>
+                          {isEditable && (
+                            <button className="ls-ip-remove" onClick={() => removeIp(i)} title="Remove block">
+                              <X size={13}/>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {isEditable && (
                   showAddIp ? (
                     <div className="ls-add-ip-form">
-                      <input className="ls-mini-input" placeholder="IP or CIDR e.g. 192.168.1.0/24" value={newIp} onChange={e => setNewIp(e.target.value)}/>
-                      <input className="ls-mini-input" placeholder="Label (optional)" value={newIpLabel} onChange={e => setNewIpLabel(e.target.value)}/>
+                      <input
+                        className="ls-mini-input"
+                        placeholder="IP or CIDR range e.g. 192.168.1.0/24"
+                        value={newIp}
+                        onChange={e => setNewIp(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addIp()}
+                      />
+                      <input
+                        className="ls-mini-input"
+                        placeholder="Label (optional) e.g. Suspicious Host"
+                        value={newIpLabel}
+                        onChange={e => setNewIpLabel(e.target.value)}
+                      />
+                      <input
+                        className="ls-mini-input"
+                        placeholder="Reason for blocking (optional)"
+                        value={newIpReason}
+                        onChange={e => setNewIpReason(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addIp()}
+                      />
                       <div style={{ display:'flex', gap:8 }}>
-                        <button onClick={addIp} style={{ flex:1, height:34, borderRadius:8, border:'none', background:'#2db9a3', color:'#fff', fontSize:13, fontWeight:500, fontFamily:"'DM Sans',sans-serif", cursor:'pointer' }}>Add</button>
-                        <button onClick={() => { setShowAddIp(false); setNewIp(''); setNewIpLabel(''); }} style={{ flex:1, height:34, borderRadius:8, border:'1px solid #e2e8f0', background:'#fff', color:'#64748b', fontSize:13, fontWeight:500, fontFamily:"'DM Sans',sans-serif", cursor:'pointer' }}>Cancel</button>
+                        <button
+                          onClick={addIp}
+                          style={{ flex:1, height:36, borderRadius:8, border:'none', background:'#ef4444', color:'#fff', fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif", cursor:'pointer' }}
+                        >
+                          Block IP
+                        </button>
+                        <button
+                          onClick={() => { setShowAddIp(false); setNewIp(''); setNewIpLabel(''); setNewIpReason(''); }}
+                          style={{ flex:1, height:36, borderRadius:8, border:'1px solid #e2e8f0', background:'#fff', color:'#64748b', fontSize:13, fontWeight:500, fontFamily:"'DM Sans',sans-serif", cursor:'pointer' }}
+                        >
+                          Cancel
+                        </button>
                       </div>
                     </div>
                   ) : (
                     <button className="ls-add-ip-btn" onClick={() => setShowAddIp(true)}>
-                      <Plus size={14}/> Add IP Range
+                      <Plus size={14}/> Block an IP Address
                     </button>
                   )
                 )}

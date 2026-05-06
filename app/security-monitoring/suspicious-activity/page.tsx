@@ -216,9 +216,9 @@ export default function SuspiciousActivity() {
         .activity-desc{font-size:13px;color:#64748b;margin-bottom:10px;line-height:1.5;}
         .activity-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
         .user-info{font-size:12px;color:#64748b;}
-        .resolve-btn{padding:5px 14px;border-radius:7px;border:1.5px solid #2db9a3;background:#fff;color:#2db9a3;font-size:12px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;transition:all 0.15s;}
-        .resolve-btn:hover{background:#2db9a3;color:#fff;}
-        .resolve-btn:disabled{opacity:0.5;cursor:not-allowed;}
+       .resolve-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid #2db9a3;background:#fff;color:#2db9a3;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;}
+.resolve-btn:hover{background:#2db9a3;color:#fff;}
+.resolve-btn:disabled{opacity:0.5;cursor:not-allowed;}
 
         .empty-state{text-align:center;padding:40px 0;color:#94a3b8;font-size:13px;}
       `}</style>
@@ -283,11 +283,9 @@ export default function SuspiciousActivity() {
                           <strong>{alert.userName}</strong> ({alert.employeeId})
                         </div>
                         {alert.status !== 'resolved' && (
-                          <button className="resolve-btn" onClick={() => handleResolve(alert.id)} disabled={resolving === alert.id}>
-                            {resolving === alert.id ? 'Resolving...' : <>
-                              <CheckCircle size={12} style={{ marginRight: 3 }} />Resolve
-                            </>}
-                          </button>
+                         <button className="resolve-btn" onClick={() => handleResolve(alert.id)} disabled={resolving === alert.id} title="Resolve Alert">
+  {resolving === alert.id ? <Clock size={14} /> : <CheckCircle size={14} />}
+</button>
                         )}
                       </div>
                     </div>

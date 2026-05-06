@@ -232,11 +232,8 @@ export default function ExportReports() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#ffffff', overflow: 'hidden', fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
-      
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        
+    <DashboardLayout activeMenu="export-reports">
+      <div style={{ background: '#ffffff', overflow: 'hidden', fontFamily: "'DM Sans', -apple-system, sans-serif", height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
 
@@ -383,7 +380,7 @@ export default function ExportReports() {
           </div>
         </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
 

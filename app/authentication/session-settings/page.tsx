@@ -239,7 +239,7 @@ export default function SessionSettings() {
         tbody td{padding:13px 20px;font-size:13px;color:#1e293b;font-weight:500;vertical-align:middle;text-align:center;}
         .terminate-btn{width:30px;height:30px;border-radius:8px;border:1.5px solid #fee2e2;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#ef4444;transition:all 0.15s;margin:0 auto;}
         .terminate-btn:hover{background:#fee2e2;border-color:#fca5a5;}
-        .terminate-all-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:#ef4444;background:#fee2e2;border:1.5px solid #fecaca;border-radius:8px;padding:6px 14px;cursor:pointer;transition:all 0.18s;font-family:'DM Sans',sans-serif;}
+        .terminate-all-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid #fecaca;background:#fee2e2;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#ef4444;transition:all 0.18s;}
         .terminate-all-btn:hover{background:#fecaca;}
         .terminate-all-btn:disabled{opacity:0.45;cursor:not-allowed;}
         .pagination-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-top:1px solid #f1f5f9;background:#fafbfc;}
@@ -351,9 +351,9 @@ export default function SessionSettings() {
                       </div>
                     </div>
                     {isEditable && (
-                      <button className="terminate-all-btn" onClick={handleTerminateAll} disabled={sessions.length === 0}>
-                        <XCircle size={13} /> Terminate All
-                      </button>
+                      <button className="terminate-all-btn" onClick={handleTerminateAll} disabled={sessions.length === 0} title="Terminate All Sessions">
+  <XCircle size={18} />
+</button>
                     )}
                   </div>
                   <table>

@@ -31,7 +31,8 @@ namespace NexumAPI.Data
                     new Module { Name = "Roles",    Description = "Role management", Route = "/roles" },
                     new Module { Name = "Audit",    Description = "Audit logs",      Route = "/audit" },
                     new Module { Name = "Security", Description = "Security alerts", Route = "/security" },
-                    new Module { Name = "Sessions", Description = "Active sessions", Route = "/sessions" }
+                    new Module { Name = "Sessions", Description = "Active sessions", Route = "/sessions" },
+                    new Module { Name = "Password Policy", Description = "Password policy management", Route = "/authentication/password-policy" }
                 );
                 await context.SaveChangesAsync();
             }
@@ -117,7 +118,8 @@ namespace NexumAPI.Data
                     LockoutDuration       = 15,
                     SessionTimeoutMinutes = 480,
                     MaxConcurrentSessions = 3,
-                    IpWhitelistEnabled    = false
+                    IpBlockingEnabled     = false,
+                    BlockedIps            = ""
                 });
                 await context.SaveChangesAsync();
             }

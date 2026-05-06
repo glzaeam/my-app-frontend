@@ -3,7 +3,7 @@ import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Smartphone, Monitor, Tablet, Search, Shield, Activity, AlertTriangle, Filter, XCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { Smartphone, Monitor, Tablet, Search, Shield, ShieldCheck, Activity, AlertTriangle, Filter, XCircle, CheckCircle, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -221,21 +221,20 @@ export default function DeviceTracking() {
 
   const formatDate = (iso: string) => {
     if (!iso) return '—';
-    // Ensure the string is parsed as UTC (append Z if missing)
     const utcString = iso.endsWith('Z') ? iso : iso + 'Z';
     const d = new Date(utcString);
     const today = new Date();
     const isToday = d.toDateString() === today.toDateString();
-    
+
     const timeStr = d.toLocaleTimeString(undefined, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
-    
+
     if (isToday) return `Today ${timeStr}`;
-    
+
     return d.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -245,10 +244,10 @@ export default function DeviceTracking() {
   };
 
   const stats = [
-    { label: 'Total Devices', value: devices.length,                                     accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Monitor size={20} />      },
-    { label: 'Active Now',    value: devices.filter(d => d.status === 'active').length,   accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)',  icon: <Activity size={20} />     },
-    { label: 'Trusted',       value: devices.filter(d => d.isTrusted).length,             accent: '#059669', iconBg: 'rgba(5,150,105,0.1)',   icon: <Shield size={20} />       },
-    { label: 'Suspicious',    value: devices.filter(d => d.status === 'suspicious').length, accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)', icon: <AlertTriangle size={20} /> },
+    { label: 'Total Devices', value: devices.length,                                       accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Monitor size={20} />       },
+    { label: 'Active Now',    value: devices.filter(d => d.status === 'active').length,     accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)',  icon: <Activity size={20} />      },
+    { label: 'Trusted',       value: devices.filter(d => d.isTrusted).length,               accent: '#059669', iconBg: 'rgba(5,150,105,0.1)',    icon: <ShieldCheck size={20} />   },
+    { label: 'Suspicious',    value: devices.filter(d => d.status === 'suspicious').length, accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)',    icon: <AlertTriangle size={20} /> },
   ];
 
   return (
@@ -271,8 +270,6 @@ export default function DeviceTracking() {
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:340px;}
         .search-input{width:100%;padding:8px 14px 8px 38px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:'Open Sans',sans-serif;outline:none;}
         .search-input:focus{border-color:#2db9a3;}
-        .filter-select{padding:8px 12px 8px 32px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;color:#64748b;font-family:'Open Sans',sans-serif;cursor:pointer;outline:none;position:relative;}
-        .filter-select:focus{border-color:#2db9a3;}
         .devices-list{display:flex;flex-direction:column;gap:12px;}
         .device-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:16px;transition:all 0.2s;}
         .device-card:hover{box-shadow:0 6px 24px rgba(0,0,0,0.06);}
@@ -291,165 +288,142 @@ export default function DeviceTracking() {
         .status-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
         .ip-mono{font-family:monospace;font-size:12px;color:#64748b;}
         .last-used{font-size:12px;color:#94a3b8;}
-        .revoke-btn{padding:5px 14px;border-radius:8px;border:1.5px solid #fecaca;background:#fff;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;transition:all 0.15s;}
-        .revoke-btn:hover{background:#fee2e2;border-color:#fca5a5;}
-        .revoke-btn:disabled{opacity:0.5;cursor:not-allowed;}
         .trust-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:20px;}
-
+        .icon-btn{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
+        .icon-btn:disabled{opacity:0.5;cursor:not-allowed;}
+        .icon-btn.trust{border:1.5px solid #a7f3d0;background:#f0fdf9;color:#059669;}
+        .icon-btn.trust:hover:not(:disabled){background:#dcfce7;}
+        .icon-btn.revoke{border:1.5px solid #fecaca;background:#fff;color:#ef4444;}
+        .icon-btn.revoke:hover:not(:disabled){background:#fee2e2;}
+        .icon-btn.trusted-static{border:none;background:#dcfce7;color:#059669;cursor:default;}
+        .icon-btn.revoked-static{border:none;background:#f1f5f9;color:#94a3b8;cursor:default;}
         .empty-state{text-align:center;padding:40px 0;color:#94a3b8;font-size:13px;}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      
-        
-        
-          
-          <div className="dt-scroll">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-              <div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
-                  
-                </div>
-                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Device Tracking</h1>
-                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor and manage registered devices across all users</p>
-              </div>
-
+      <div className="dt-scroll">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
             </div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Device Tracking</h1>
+            <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor and manage registered devices across all users</p>
+          </div>
+        </div>
 
-            <div className="stats-grid">
-              {stats.map((s, i) => (
-                <div key={i} className="stat-card" style={{ '--accent': s.accent, '--icon-bg': s.iconBg } as React.CSSProperties}>
-                  <div className="stat-top">
-                    <div><div className="stat-label">{s.label}</div><div className="stat-value">{s.value}</div></div>
-                    <div className="stat-icon">{s.icon}</div>
+        <div className="stats-grid">
+          {stats.map((s, i) => (
+            <div key={i} className="stat-card" style={{ '--accent': s.accent, '--icon-bg': s.iconBg } as React.CSSProperties}>
+              <div className="stat-top">
+                <div><div className="stat-label">{s.label}</div><div className="stat-value">{s.value}</div></div>
+                <div className="stat-icon">{s.icon}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="controls-bar">
+          <div className="search-wrap">
+            <Search size={14} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+            <input className="search-input" placeholder="Search by user or ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
+          <FilterDropdown
+            options={[{ value: 'all', label: 'All Types' }, { value: 'desktop', label: 'Desktop' }, { value: 'mobile', label: 'Mobile' }, { value: 'tablet', label: 'Tablet' }]}
+            value={typeFilter}
+            onChange={setTypeFilter}
+          />
+          <span style={{ fontSize: 13, color: '#94a3b8' }}>{filtered.length} devices</span>
+        </div>
+
+        {loading ? (
+          <p className="empty-state">Loading devices...</p>
+        ) : filtered.length === 0 ? (
+          <p className="empty-state">No devices found.</p>
+        ) : (
+          <div className="devices-list">
+            {filtered.map(d => {
+              const s   = statusCfg[d.status] ?? statusCfg.inactive;
+              const bs  = getBrowserStyle(d.browser);
+              const Icon = (d.deviceType ?? '').toLowerCase() === 'mobile' ? Smartphone : (d.deviceType ?? '').toLowerCase() === 'tablet' ? Tablet : Monitor;
+              const iconColor = d.status === 'suspicious' ? '#ef4444' : '#2db9a3';
+              const iconBg    = d.status === 'suspicious' ? 'rgba(239,68,68,0.1)' : 'rgba(45,185,163,0.15)';
+              return (
+                <div key={d.id} className={`device-card${d.status === 'suspicious' ? ' suspicious' : ''}`}>
+                  <div className="device-icon-wrap" style={{ background: iconBg, color: iconColor }}><Icon size={20} /></div>
+                  <div className="device-main">
+                    <div className="device-name-row">
+                      <span className="device-name">{d.deviceName ?? 'Unknown Device'}</span>
+                      {d.isTrusted
+                        ? <span className="trust-badge" style={{ background: '#dcfce7', color: '#059669' }}><CheckCircle size={11} /> Trusted</span>
+                        : <span className="trust-badge" style={{ background: '#fee2e2', color: '#dc2626' }}><XCircle size={11} /> Untrusted</span>}
+                    </div>
+                    <div className="device-meta">
+                      <span className="device-user">{d.userName}</span>
+                      <span className="device-emp">{d.employeeId}</span>
+                      {d.browser && (
+                        <span className="browser-tag" style={{ background: bs.bg, color: bs.color }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: bs.color }} />{d.browser}
+                        </span>
+                      )}
+                      {d.os && <span className="os-text">{d.os}</span>}
+                      {d.location && <span className="os-text">{d.location}</span>}
+                    </div>
+                  </div>
+                  <div className="device-right">
+                    <span className="status-badge" style={{ background: s.bg, color: s.color }}>
+                      <span className="status-dot" style={{ background: s.dot }} />{s.label}
+                    </span>
+                    <span className="ip-mono">{d.ipAddress ?? '—'}</span>
+                    <span className="last-used">{formatDate(d.lastUsed)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+
+                      {/* Trust button — only show if not trusted and not revoked */}
+                      {d.status !== 'revoked' && !d.isTrusted && (
+                        <button
+                          className="icon-btn trust"
+                          onClick={() => handleTrust(d.id)}
+                          title="Mark as trusted"
+                          disabled={trusting === d.id}
+                        >
+                          {trusting === d.id ? <Shield size={14} /> : <ShieldCheck size={14} />}
+                        </button>
+                      )}
+
+                      {/* Already trusted static icon */}
+                      {d.isTrusted && d.status !== 'revoked' && (
+                        <span className="icon-btn trusted-static" title="Trusted">
+                          <ShieldCheck size={14} />
+                        </span>
+                      )}
+
+                      {/* Revoke button — only show if not already revoked */}
+                      {d.status !== 'revoked' && (
+                        <button
+                          className="icon-btn revoke"
+                          onClick={() => handleRevoke(d.id)}
+                          title="Revoke device"
+                          disabled={revoking === d.id}
+                        >
+                          {revoking === d.id ? <Shield size={14} /> : <XCircle size={14} />}
+                        </button>
+                      )}
+
+                      {/* Revoked static icon */}
+                      {d.status === 'revoked' && (
+                        <span className="icon-btn revoked-static" title="Revoked">
+                          <XCircle size={14} />
+                        </span>
+                      )}
+
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="controls-bar">
-              <div className="search-wrap">
-                <Search size={14} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                <input className="search-input" placeholder="Search by user or ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-              </div>
-              <FilterDropdown
-                options={[{ value: 'all', label: 'All Types' }, { value: 'desktop', label: 'Desktop' }, { value: 'mobile', label: 'Mobile' }, { value: 'tablet', label: 'Tablet' }]}
-                value={typeFilter}
-                onChange={setTypeFilter}
-              />
-              <span style={{ fontSize: 13, color: '#94a3b8' }}>{filtered.length} devices</span>
-            </div>
-
-            {loading ? (
-              <p className="empty-state">Loading devices...</p>
-            ) : filtered.length === 0 ? (
-              <p className="empty-state">No devices found.</p>
-            ) : (
-              <div className="devices-list">
-                {filtered.map(d => {
-                  const s   = statusCfg[d.status] ?? statusCfg.inactive;
-                  const bs  = getBrowserStyle(d.browser);
-                  const Icon = (d.deviceType ?? '').toLowerCase() === 'mobile' ? Smartphone : (d.deviceType ?? '').toLowerCase() === 'tablet' ? Tablet : Monitor;
-                  const iconColor = d.status === 'suspicious' ? '#ef4444' : '#2db9a3';
-                  const iconBg    = d.status === 'suspicious' ? 'rgba(239,68,68,0.1)' : 'rgba(45,185,163,0.15)';
-                  return (
-                    <div key={d.id} className={`device-card${d.status === 'suspicious' ? ' suspicious' : ''}`}>
-                      <div className="device-icon-wrap" style={{ background: iconBg, color: iconColor }}><Icon size={20} /></div>
-                      <div className="device-main">
-                        <div className="device-name-row">
-                          <span className="device-name">{d.deviceName ?? 'Unknown Device'}</span>
-                          {d.isTrusted
-                            ? <span className="trust-badge" style={{ background: '#dcfce7', color: '#059669' }}><CheckCircle size={11} /> Trusted</span>
-                            : <span className="trust-badge" style={{ background: '#fee2e2', color: '#dc2626' }}><XCircle size={11} /> Untrusted</span>}
-                        </div>
-                        <div className="device-meta">
-                          <span className="device-user">{d.userName}</span>
-                          <span className="device-emp">{d.employeeId}</span>
-                          {d.browser && (
-                            <span className="browser-tag" style={{ background: bs.bg, color: bs.color }}>
-                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: bs.color }} />{d.browser}
-                            </span>
-                          )}
-                          {d.os && <span className="os-text">{d.os}</span>}
-                          {d.location && <span className="os-text">{d.location}</span>}
-                        </div>
-                      </div>
-                      <div className="device-right">
-                        <span className="status-badge" style={{ background: s.bg, color: s.color }}>
-                          <span className="status-dot" style={{ background: s.dot }} />{s.label}
-                        </span>
-                        <span className="ip-mono">{d.ipAddress ?? '—'}</span>
-                        <span className="last-used">{formatDate(d.lastUsed)}</span>
-                        <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
-                          {/* Trust button — only show if not already trusted and not revoked */}
-                          {d.status !== 'revoked' && !d.isTrusted && (
-                            <button
-                              onClick={() => handleTrust(d.id)}
-                              title="Mark as trusted"
-                              disabled={trusting === d.id}
-                              style={{
-                                display:'flex', alignItems:'center', gap:4,
-                                padding:'5px 10px', borderRadius:8,
-                                border:'1.5px solid #a7f3d0', background:'#f0fdf9',
-                                color:'#059669', fontSize:12, fontWeight:700,
-                                cursor: trusting === d.id ? 'not-allowed' : 'pointer', fontFamily:"'Open Sans',sans-serif",
-                                opacity: trusting === d.id ? 0.6 : 1
-                              }}>
-                              ✓ {trusting === d.id ? 'Trusting...' : 'Trust'}
-                            </button>
-                          )}
-
-                          {/* Already trusted badge */}
-                          {d.isTrusted && d.status !== 'revoked' && (
-                            <span style={{
-                              display:'flex', alignItems:'center', gap:4,
-                              padding:'5px 10px', borderRadius:8,
-                              background:'#dcfce7', color:'#059669',
-                              fontSize:12, fontWeight:700
-                            }}>
-                              ✓ Trusted
-                            </span>
-                          )}
-
-                          {/* Revoke button — only show if not already revoked */}
-                          {d.status !== 'revoked' && (
-                            <button
-                              onClick={() => handleRevoke(d.id)}
-                              title="Revoke device"
-                              disabled={revoking === d.id}
-                              style={{
-                                display:'flex', alignItems:'center', gap:4,
-                                padding:'5px 10px', borderRadius:8,
-                                border:'1.5px solid #fecaca', background:'#fff',
-                                color:'#ef4444', fontSize:12, fontWeight:700,
-                                cursor: revoking === d.id ? 'not-allowed' : 'pointer', fontFamily:"'Open Sans',sans-serif"
-                              }}>
-                              ✕ {revoking === d.id ? 'Revoking...' : 'Revoke'}
-                            </button>
-                          )}
-
-                          {/* Revoked badge */}
-                          {d.status === 'revoked' && (
-                            <span style={{
-                              padding:'5px 10px', borderRadius:8,
-                              background:'#f1f5f9', color:'#94a3b8',
-                              fontSize:12, fontWeight:700
-                            }}>
-                              Revoked
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              );
+            })}
           </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }
-
-
-

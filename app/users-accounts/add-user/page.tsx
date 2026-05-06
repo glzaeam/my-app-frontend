@@ -51,6 +51,7 @@ export default function AddUserPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [pwErrors, setPwErrors] = useState<string[]>([]);
+  const [validating, setValidating] = useState(false);
   const [roles, setRoles] = useState<ApiRole[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
 
@@ -191,7 +192,7 @@ export default function AddUserPage() {
   const roleNames = roles.map(r => r.name);
 
   return (
-    <DashboardLayout activeMenu="add-user" title="Add User">
+   <DashboardLayout title="Add User" activeMenu="add-user">
       <div style={{ maxWidth: 700 }}>
         <div style={{ background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>

@@ -232,7 +232,7 @@ export default function ExportReports() {
   };
 
   return (
-    <DashboardLayout activeMenu="export-reports">
+   <DashboardLayout title="Export Reports" activeMenu="export-reports">
       <div style={{ background: '#ffffff', overflow: 'hidden', fontFamily: "'DM Sans', -apple-system, sans-serif", height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>

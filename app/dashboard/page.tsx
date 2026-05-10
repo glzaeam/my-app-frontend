@@ -159,19 +159,17 @@ export default function Dashboard() {
     try {
       const token = auth.getToken();
 
-      const [summary, trend, logsRaw] = await Promise.allSettled([
-        apiFetch(`${API}/audit/summary`,               token),
+      // ✅ Only call endpoints Branch Manager has access to
+      const [trend] = await Promise.allSettled([
         apiFetch(`${API}/audit/dashboard/login-trend`, token),
-        apiFetch(`${API}/audit?page=1&pageSize=50`,    token),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
 
-      if (!summary) return;
-
+      // Use placeholder values for metrics (no audit/summary access)
       setSecurityMetrics([
-        { label: 'Live Alerts',         value: String(summary.failed ?? 0), icon: AlertTriangle, trend: 'down' as const },
-        { label: 'Failed Logins Today', value: String(summary.failed ?? 0), icon: Lock,          trend: 'down' as const },
-        { label: 'Suspicious Events',   value: String(summary.today  ?? 0), icon: Eye,           trend: 'down' as const },
-        { label: 'Total Events',        value: String(summary.total  ?? 0), icon: Shield,        trend: 'up'   as const },
+        { label: 'Live Alerts',         value: '—', icon: AlertTriangle, trend: 'down' as const },
+        { label: 'Failed Logins Today', value: '—', icon: Lock,          trend: 'down' as const },
+        { label: 'Suspicious Events',   value: '—', icon: Eye,           trend: 'down' as const },
+        { label: 'Devices Tracked',     value: '—', icon: Shield,        trend: 'up'   as const },
       ]);
 
       if (Array.isArray(trend)) {
@@ -182,18 +180,8 @@ export default function Dashboard() {
         })));
       }
 
-      const allLogs = extractItems(logsRaw);
-      const suspicious = allLogs
-        .filter((log: any) => log.status === 'Failed' || log.action?.toLowerCase().includes('fail'))
-        .slice(0, 10);
-
-      setSuspiciousActivity(suspicious.map((l: any) => ({
-        time:   formatTime(l.createdAt),
-        user:   l.userName  ?? '—',
-        empId:  l.userEmpId ?? '—',
-        action: l.action    ?? '—',
-        status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
-      })));
+      // No suspicious activity table (requires audit access)
+      setSuspiciousActivity([]);
     } catch (err) { console.error('Branch manager dashboard error:', err); }
   }, []);
 
@@ -244,9 +232,17 @@ export default function Dashboard() {
 
   const fetchDashboard = useCallback(() => {
     if (!user || loading) return;
+
+    const slugs: string[] = (user.permissions ?? []).map((p: any) =>
+      typeof p === 'string' ? p : p.slug ?? ''
+    );
+
+    const hasAudit = user.role === 'System Admin' || slugs.includes('audit-logs');
+
     if      (user.role === 'System Admin')   fetchAdminDashboard();
     else if (user.role === 'Branch Manager') fetchBranchManagerDashboard();
-    else if (user.role === 'Auditor')        fetchAuditorDashboard();
+    else if (user.role === 'Auditor' && hasAudit) fetchAuditorDashboard();
+    else if (user.role === 'Auditor')        fetchTellerDashboard(); // fallback if no audit perm
     else                                     fetchTellerDashboard();
   }, [user, loading, fetchAdminDashboard, fetchBranchManagerDashboard, fetchAuditorDashboard, fetchTellerDashboard]);
 

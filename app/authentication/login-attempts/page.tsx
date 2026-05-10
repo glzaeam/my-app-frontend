@@ -79,7 +79,6 @@ const statusMap: Record<string, { label: string; color: string; bg: string; dot:
 
 export default function LoginAttempts() {
   const router = useRouter();
-  // ✅ FIX: use 'login-attempts' not 'failed-logins'
   const { hasAccess } = useAuth();
 
   const [logs, setLogs]                 = useState<LoginAttempt[]>([]);
@@ -93,20 +92,34 @@ export default function LoginAttempts() {
   const itemsPerPage = 10;
 
   const fetchAll = useCallback(async () => {
-    // ✅ FIX: was hasAccess('failed-logins') — wrong module slug
     if (!hasAccess('login-attempts')) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [logsData, summaryRes, ipsData] = await Promise.all([
-        fetchArray(`${API}/security/failed-logins`),
-        fetch(`${API}/login-attempts/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
+      const token = auth.getToken();
+
+      const [logsRes, summaryRes, ipsData] = await Promise.all([
+        // ✅ FIXED: was /security/failed-logins (wrong) → now /login-attempts (correct)
+        fetch(`${API}/login-attempts?page=1&pageSize=500`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API}/login-attempts/summary`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
         fetchArray(`${API}/login-attempts/blocked-ips`),
       ]);
+
+      const logsJson    = await logsRes.json();
       const summaryData = await summaryRes.json();
+
+      // Backend returns paginated: { items: [...], totalItems, page, pageSize }
+      const logsData: LoginAttempt[] = Array.isArray(logsJson)
+        ? logsJson
+        : logsJson.items ?? logsJson.data ?? [];
+
       setLogs(logsData);
       setSummary(summaryData);
       setBlockedIps(ipsData);
-    } catch {}
+    } catch (e) { console.error('Login attempts fetch error:', e); }
     finally { setLoading(false); }
   }, [hasAccess]);
 
@@ -133,9 +146,16 @@ export default function LoginAttempts() {
     const d = new Date(utcString);
     const today = new Date();
     const isToday = d.toDateString() === today.toDateString();
-    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+    const timeStr = d.toLocaleTimeString(undefined, {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
     if (isToday) return `Today ${timeStr}`;
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) + ' ' + timeStr;
+    return d.toLocaleDateString(undefined, {
+      month: 'short', day: 'numeric',
+      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }) + ' ' + timeStr;
   };
 
   const stats = [
@@ -146,7 +166,6 @@ export default function LoginAttempts() {
     { label: 'Blocked IPs',    value: summary?.blockedIps ?? 0,           accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)',   icon: <Shield size={20} />      },
   ];
 
-  // ✅ FIX: was hasAccess('failed-logins') — wrong module slug
   if (!loading && !hasAccess('login-attempts')) {
     return (
       <DashboardLayout title="Login Attempts" activeMenu="login-attempts">
@@ -163,8 +182,6 @@ export default function LoginAttempts() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        .la-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);}
-        .la-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
         .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .la-scroll::-webkit-scrollbar{width:6px;}
         .la-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
@@ -179,7 +196,7 @@ export default function LoginAttempts() {
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
         .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;}
-        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);outline:none;}
+        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:var(--font-dm-sans,'DM Sans',sans-serif);outline:none;}
         .search-input:focus{border-color:#2db9a3;}
         .table-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);margin-bottom:18px;}
         .table-card-header{padding:16px 22px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9;}
@@ -206,6 +223,7 @@ export default function LoginAttempts() {
         .ip-table td{padding:11px 16px;font-size:13px;color:#1e293b;border-bottom:1px solid #f8fafc;}
         .ip-table tr:last-child td{border-bottom:none;}
         .ip-table tr:hover td{background:#fafbfd;}
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       <div className="la-scroll">
@@ -297,22 +315,47 @@ export default function LoginAttempts() {
               <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Attempt Log</div>
               <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Each failure is written to Audit Logs — threshold breach triggers Security Alert</div>
             </div>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '4px 12px', borderRadius: 20 }}>
+              {logs.length} total
+            </span>
           </div>
           <table>
             <thead>
-              <tr><th>Date & Time</th><th>Emp ID</th><th>User</th><th>IP Address</th><th>Reason</th><th>Status</th></tr>
+              <tr>
+                <th>Date & Time</th>
+                <th>Emp ID</th>
+                <th>User</th>
+                <th>IP Address</th>
+                <th>Reason</th>
+                <th>Status</th>
+              </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>Loading...</td></tr>
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, border: '3px solid #e2e8f0', borderTop: '3px solid #2db9a3', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                      <span style={{ fontSize: 13 }}>Loading...</span>
+                    </div>
+                  </td>
+                </tr>
               ) : paged.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No records found.</td></tr>
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 13 }}>
+                    No records found.
+                  </td>
+                </tr>
               ) : paged.map(l => {
                 const s = statusMap[l.status] ?? { label: l.status, color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' };
                 return (
                   <tr key={l.id}>
                     <td style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(l.attemptedAt)}</td>
-                    <td><span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>{l.employeeId}</span></td>
+                    <td>
+                      <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>
+                        {l.employeeId}
+                      </span>
+                    </td>
                     <td style={{ fontWeight: 600, color: '#0f172a' }}>{l.userName}</td>
                     <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64748b' }}>{l.ipAddress ?? '—'}</td>
                     <td style={{ fontSize: 12, color: '#64748b' }}>{l.failureReason ?? '—'}</td>
@@ -331,9 +374,13 @@ export default function LoginAttempts() {
               Showing <strong>{filtered.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}–{Math.min(safePage * itemsPerPage, filtered.length)}</strong> of <strong>{filtered.length}</strong>
             </span>
             <div className="pagination-controls">
-              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={14} /></button>
+              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>
+                <ChevronLeft size={14} />
+              </button>
               <span className="pg-counter">{safePage} / {totalPages}</span>
-              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}><ChevronRight size={14} /></button>
+              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>
+                <ChevronRight size={14} />
+              </button>
             </div>
           </div>
         </div>

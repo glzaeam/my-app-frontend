@@ -9,6 +9,7 @@ import {
   Shield, AlertTriangle,
 } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -77,7 +78,10 @@ const statusMap: Record<string, { label: string; color: string; bg: string; dot:
 };
 
 export default function LoginAttempts() {
-  const router = useRouter();  const [logs, setLogs]                 = useState<LoginAttempt[]>([]);
+  const router = useRouter();
+  const { hasAccess } = useAuth();
+
+  const [logs, setLogs]                 = useState<LoginAttempt[]>([]);
   const [summary, setSummary]           = useState<Summary | null>(null);
   const [blockedIps, setBlockedIps]     = useState<BlockedIp[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -88,6 +92,7 @@ export default function LoginAttempts() {
   const itemsPerPage = 10;
 
   const fetchAll = useCallback(async () => {
+    if (!hasAccess('failed-logins')) { setLoading(false); return; }
     setLoading(true);
     try {
       const [logsData, summaryRes, ipsData] = await Promise.all([
@@ -96,13 +101,12 @@ export default function LoginAttempts() {
         fetchArray(`${API}/login-attempts/blocked-ips`),
       ]);
       const summaryData = await summaryRes.json();
-
       setLogs(logsData);
       setSummary(summaryData);
       setBlockedIps(ipsData);
     } catch {}
     finally { setLoading(false); }
-  }, []);
+  }, [hasAccess]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -123,36 +127,34 @@ export default function LoginAttempts() {
 
   const formatDate = (iso: string) => {
     if (!iso) return '—';
-    // Ensure the string is parsed as UTC (append Z if missing)
     const utcString = iso.endsWith('Z') ? iso : iso + 'Z';
     const d = new Date(utcString);
     const today = new Date();
     const isToday = d.toDateString() === today.toDateString();
-    
-    const timeStr = d.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    });
-    
+    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
     if (isToday) return `Today ${timeStr}`;
-    
-    return d.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    }) + ' ' + timeStr;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) + ' ' + timeStr;
   };
 
   const stats = [
     { label: 'Total Attempts', value: summary?.total      ?? logs.length, accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Activity size={20} />    },
     { label: 'Failed',         value: summary?.failed     ?? 0,           accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)',   icon: <XCircle size={20} />     },
     { label: 'Blocked',        value: summary?.blocked    ?? 0,           accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)',  icon: <Lock size={20} />        },
-    { label: 'Today',          value: summary?.todayCount ?? 0,           accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)',  icon: <CheckCircle size={20} /> },
+    { label: 'Today',          value: summary?.todayCount ?? 0,           accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)', icon: <CheckCircle size={20} /> },
     { label: 'Blocked IPs',    value: summary?.blockedIps ?? 0,           accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)',   icon: <Shield size={20} />      },
   ];
+
+  // No permission — show access denied
+  if (!loading && !hasAccess('failed-logins')) {
+    return (
+      <DashboardLayout title="Login Attempts" activeMenu="login-attempts">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
+          <Shield size={40} style={{ opacity: 0.3 }} />
+          <p style={{ fontSize: 15 }}>You don't have permission to view this page.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Login Attempts" activeMenu="login-attempts">
@@ -197,8 +199,6 @@ export default function LoginAttempts() {
         .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
         .pg-btn.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
         .pg-counter{min-width:50px;text-align:center;font-size:13px;color:#475569;font-weight:500;}
-        .la-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:13px;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);color:#64748b;cursor:pointer;}
-
         .ip-table{width:100%;border-collapse:collapse;}
         .ip-table th{padding:10px 16px;text-align:left;font-size:10.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
         .ip-table td{padding:11px 16px;font-size:13px;color:#1e293b;border-bottom:1px solid #f8fafc;}
@@ -206,153 +206,136 @@ export default function LoginAttempts() {
         .ip-table tr:hover td{background:#fafbfd;}
       `}</style>
 
-      
-        
-        
-          
-          <div className="la-scroll">
-
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-              <div>
-                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Login Attempts</h1>
-                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor login attempt history — failures trigger audit logs and security alerts</p>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="stats-grid">
-              {stats.map((s, i) => (
-                <div key={i} className={`stat-card${i === 4 ? ' clickable' : ''}`}
-                  onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
-                  title={i === 4 ? 'Click to view blocked IPs' : undefined}>
-                  <div className="stat-top">
-                    <div>
-                      <div className="stat-label">{s.label}</div>
-                      <div className="stat-value">{s.value}</div>
-                    </div>
-                    <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
-                  </div>
-                  {i === 4 && s.value > 0 && (
-                    <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 2 }}>
-                      {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Blocked IPs panel */}
-            {showBlockedIps && blockedIps.length > 0 && (
-              <div className="table-card" style={{ marginBottom: 18 }}>
-                <div className="table-card-header">
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <AlertTriangle size={15} color="#dc2626" />
-                      <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Blocked IPs (last 24h)</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>IPs with 5+ failed attempts — fed to Security Monitoring</div>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '4px 12px', borderRadius: 20 }}>{blockedIps.length} IPs</span>
-                </div>
-                <table className="ip-table">
-                  <thead>
-                    <tr><th>IP Address</th><th>Failed Attempts</th><th>Last Attempt</th><th>Risk</th></tr>
-                  </thead>
-                  <tbody>
-                    {blockedIps.map((ip, i) => (
-                      <tr key={i}>
-                        <td><span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 6 }}>{ip.ipAddress}</span></td>
-                        <td style={{ fontWeight: 700, color: '#1e293b' }}>{ip.failureCount}</td>
-                        <td style={{ fontSize: 12, color: '#94a3b8' }}>{formatDate(ip.lastAttempt)}</td>
-                        <td>
-                          <span className="badge" style={{ background: ip.failureCount >= 10 ? '#fee2e2' : '#fef3c7', color: ip.failureCount >= 10 ? '#dc2626' : '#d97706' }}>
-                            <span className="badge-dot" style={{ background: ip.failureCount >= 10 ? '#ef4444' : '#f59e0b' }} />
-                            {ip.failureCount >= 10 ? 'Critical' : 'High'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Controls */}
-            <div className="controls-bar">
-              <div className="search-wrap">
-                <Search size={14} className="search-icon" />
-                <input className="search-input" placeholder="Search by user, ID, or IP..."
-                  value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
-              </div>
-              <CustomSelect
-                options={[
-                  { value: 'all',     label: 'All Statuses' },
-                  { value: 'Failed',  label: 'Failed'       },
-                  { value: 'Blocked', label: 'Blocked'      },
-                  { value: 'Success', label: 'Success'      },
-                ]}
-                value={statusFilter}
-                onChange={v => { setStatusFilter(v); setCurrentPage(1); }}
-              />
-              <span style={{ fontSize: 13, color: '#94a3b8', marginLeft: 'auto' }}>{filtered.length} records</span>
-            </div>
-
-            {/* Attempts Table */}
-            <div className="table-card">
-              <div className="table-card-header">
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Attempt Log</div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Each failure is written to Audit Logs — threshold breach triggers Security Alert</div>
-                </div>
-              </div>
-              <table>
-                <thead>
-                  <tr><th>Date &amp; Time</th><th>Emp ID</th><th>User</th><th>IP Address</th><th>Reason</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>Loading...</td></tr>
-                  ) : paged.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No records found.</td></tr>
-                  ) : paged.map(l => {
-                    const s = statusMap[l.status] ?? { label: l.status, color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' };
-                    return (
-                      <tr key={l.id}>
-                        <td style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(l.attemptedAt)}</td>
-                        <td>
-                          <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>
-                            {l.employeeId}
-                          </span>
-                        </td>
-                        <td style={{ fontWeight: 600, color: '#0f172a' }}>{l.userName}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64748b' }}>{l.ipAddress ?? '—'}</td>
-                        <td style={{ fontSize: 12, color: '#64748b' }}>{l.failureReason ?? '—'}</td>
-                        <td>
-                          <span className="badge" style={{ background: s.bg, color: s.color }}>
-                            <span className="badge-dot" style={{ background: s.dot }} />{s.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <div className="pagination-bar">
-                <span className="pagination-info">
-                  Showing <strong>{filtered.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}–{Math.min(safePage * itemsPerPage, filtered.length)}</strong> of <strong>{filtered.length}</strong>
-                </span>
-                <div className="pagination-controls">
-                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={14} /></button>
-                  <span className="pg-counter">{safePage} / {totalPages}</span>
-                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}><ChevronRight size={14} /></button>
-                </div>
-              </div>
-            </div>
-
+      <div className="la-scroll">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Login Attempts</h1>
+            <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor login attempt history — failures trigger audit logs and security alerts</p>
           </div>
+        </div>
+
+        <div className="stats-grid">
+          {stats.map((s, i) => (
+            <div key={i} className={`stat-card${i === 4 ? ' clickable' : ''}`}
+              onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
+              title={i === 4 ? 'Click to view blocked IPs' : undefined}>
+              <div className="stat-top">
+                <div>
+                  <div className="stat-label">{s.label}</div>
+                  <div className="stat-value">{s.value}</div>
+                </div>
+                <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
+              </div>
+              {i === 4 && s.value > 0 && (
+                <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 2 }}>
+                  {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {showBlockedIps && blockedIps.length > 0 && (
+          <div className="table-card" style={{ marginBottom: 18 }}>
+            <div className="table-card-header">
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <AlertTriangle size={15} color="#dc2626" />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Blocked IPs (last 24h)</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>IPs with 5+ failed attempts — fed to Security Monitoring</div>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '4px 12px', borderRadius: 20 }}>{blockedIps.length} IPs</span>
+            </div>
+            <table className="ip-table">
+              <thead>
+                <tr><th>IP Address</th><th>Failed Attempts</th><th>Last Attempt</th><th>Risk</th></tr>
+              </thead>
+              <tbody>
+                {blockedIps.map((ip, i) => (
+                  <tr key={i}>
+                    <td><span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 6 }}>{ip.ipAddress}</span></td>
+                    <td style={{ fontWeight: 700, color: '#1e293b' }}>{ip.failureCount}</td>
+                    <td style={{ fontSize: 12, color: '#94a3b8' }}>{formatDate(ip.lastAttempt)}</td>
+                    <td>
+                      <span className="badge" style={{ background: ip.failureCount >= 10 ? '#fee2e2' : '#fef3c7', color: ip.failureCount >= 10 ? '#dc2626' : '#d97706' }}>
+                        <span className="badge-dot" style={{ background: ip.failureCount >= 10 ? '#ef4444' : '#f59e0b' }} />
+                        {ip.failureCount >= 10 ? 'Critical' : 'High'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="controls-bar">
+          <div className="search-wrap">
+            <Search size={14} className="search-icon" />
+            <input className="search-input" placeholder="Search by user, ID, or IP..."
+              value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
+          </div>
+          <CustomSelect
+            options={[
+              { value: 'all',     label: 'All Statuses' },
+              { value: 'Failed',  label: 'Failed'       },
+              { value: 'Blocked', label: 'Blocked'      },
+              { value: 'Success', label: 'Success'      },
+            ]}
+            value={statusFilter}
+            onChange={v => { setStatusFilter(v); setCurrentPage(1); }}
+          />
+          <span style={{ fontSize: 13, color: '#94a3b8', marginLeft: 'auto' }}>{filtered.length} records</span>
+        </div>
+
+        <div className="table-card">
+          <div className="table-card-header">
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Attempt Log</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Each failure is written to Audit Logs — threshold breach triggers Security Alert</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Date & Time</th><th>Emp ID</th><th>User</th><th>IP Address</th><th>Reason</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>Loading...</td></tr>
+              ) : paged.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No records found.</td></tr>
+              ) : paged.map(l => {
+                const s = statusMap[l.status] ?? { label: l.status, color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' };
+                return (
+                  <tr key={l.id}>
+                    <td style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(l.attemptedAt)}</td>
+                    <td><span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>{l.employeeId}</span></td>
+                    <td style={{ fontWeight: 600, color: '#0f172a' }}>{l.userName}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64748b' }}>{l.ipAddress ?? '—'}</td>
+                    <td style={{ fontSize: 12, color: '#64748b' }}>{l.failureReason ?? '—'}</td>
+                    <td>
+                      <span className="badge" style={{ background: s.bg, color: s.color }}>
+                        <span className="badge-dot" style={{ background: s.dot }} />{s.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="pagination-bar">
+            <span className="pagination-info">
+              Showing <strong>{filtered.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}–{Math.min(safePage * itemsPerPage, filtered.length)}</strong> of <strong>{filtered.length}</strong>
+            </span>
+            <div className="pagination-controls">
+              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={14} /></button>
+              <span className="pg-counter">{safePage} / {totalPages}</span>
+              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}><ChevronRight size={14} /></button>
+            </div>
+          </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 }
-
-

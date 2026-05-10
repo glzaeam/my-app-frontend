@@ -7,7 +7,13 @@ namespace NexumAPI.Authorization
     public class PermissionRequirement : IAuthorizationRequirement
     {
         public string ModuleName { get; }
-        public PermissionRequirement(string moduleName) => ModuleName = moduleName;
+        public string Action     { get; }
+
+        public PermissionRequirement(string moduleName, string action = "view")
+        {
+            ModuleName = moduleName;
+            Action     = action;
+        }
     }
 
     public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
@@ -40,7 +46,9 @@ namespace NexumAPI.Authorization
                 .AnyAsync(p =>
                     p.RoleId == role.Id &&
                     p.Module.Name == requirement.ModuleName &&
-                    p.CanView);
+                    (requirement.Action == "view"   ? p.CanView   :
+                     requirement.Action == "edit"   ? p.CanEdit   :
+                     requirement.Action == "delete" ? p.CanDelete : false));
 
             if (hasPermission)
                 context.Succeed(requirement);

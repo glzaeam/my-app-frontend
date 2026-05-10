@@ -68,9 +68,9 @@ namespace NexumAPI.Controllers
             return Ok(new { success = true, message = "Access request submitted successfully" });
         }
 
-        // GET /api/access-requests — System Admin only
+        // GET /api/access-requests — needs CanView
         [HttpGet]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "CanViewAccessRequests")]
         public async Task<IActionResult> GetAll([FromQuery] string? status)
         {
             var query = _context.AccessRequests.AsQueryable();
@@ -100,9 +100,9 @@ namespace NexumAPI.Controllers
             return Ok(requests);
         }
 
-        // PUT /api/access-requests/{id}/review — System Admin only
+        // PUT /api/access-requests/{id}/review — needs CanEdit
         [HttpPut("{id}/review")]
-        [Authorize(Policy = "SystemAdmin")]
+        [Authorize(Policy = "CanEditAccessRequests")]
         public async Task<IActionResult> Review(Guid id, [FromBody] ReviewAccessRequestDto dto)
         {
             var request = await _context.AccessRequests.FindAsync(id);

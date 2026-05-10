@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Download, Filter, Search, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -69,7 +70,9 @@ const statusCfg: Record<string, { color: string; bg: string; dot: string }> = {
 const ITEMS_PER_PAGE = 10;
 
 export default function ActivityLogs() {
-  const router = useRouter();  const [logs, setLogs]                 = useState<AuditLog[]>([]);
+  const router = useRouter();
+  const { hasAccess } = useAuth();
+  const [logs, setLogs]                 = useState<AuditLog[]>([]);
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -77,6 +80,7 @@ export default function ActivityLogs() {
   const [currentPage, setCurrentPage]   = useState(1);
 
   const fetchLogs = useCallback(async () => {
+    if (!hasAccess('activity-logs')) { setLoading(false); return; }
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: '500' });
@@ -85,7 +89,7 @@ export default function ActivityLogs() {
       setLogs(data);
     } catch {}
     finally { setLoading(false); }
-  }, [statusFilter]);
+  }, [statusFilter, hasAccess]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
   useEffect(() => { const interval = setInterval(() => fetchLogs(), 5000); return () => clearInterval(interval); }, [fetchLogs]);

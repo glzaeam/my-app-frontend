@@ -59,6 +59,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("CanViewSecurityMonitor",    policy => policy.AddRequirements(new PermissionRequirement("security-monitoring")));
     options.AddPolicy("CanViewPermissionMatrix",   policy => policy.AddRequirements(new PermissionRequirement("permission-matrix")));
     options.AddPolicy("CanViewRoleManagement",     policy => policy.AddRequirements(new PermissionRequirement("role-management")));
+    options.AddPolicy("CanViewAccessRequests",     policy => policy.AddRequirements(new PermissionRequirement("access-requests")));
+    options.AddPolicy("CanEditAccessRequests",     policy => policy.AddRequirements(new PermissionRequirement("access-requests", "edit")));
 });
 
 // ✅ CORS — includes all Vercel frontend URLs

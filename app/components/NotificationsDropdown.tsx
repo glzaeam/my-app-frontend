@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react
 import { createPortal } from 'react-dom';
 import { Check, AlertCircle, Info, Shield, RefreshCw, UserPlus, X } from 'lucide-react';
 import { auth } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -55,6 +56,7 @@ type FilterTab = 'all' | 'alerts' | 'requests' | 'resolved';
 export default function NotificationsDropdown({
   isOpen, onClose, triggerRef, onRead,
 }: NotificationsDropdownProps) {
+  const { hasAccess } = useAuth();
   const [allItems,  setAllItems]  = useState<Alert[]>([]);
   const [filter,    setFilter]    = useState<FilterTab>('all');
   const [loading,   setLoading]   = useState(false);
@@ -91,8 +93,12 @@ export default function NotificationsDropdown({
     try {
       const headers = { Authorization: `Bearer ${auth.getToken()}` };
       const [alertsRes, requestsRes] = await Promise.all([
-        fetch(`${API}/security/alerts`, { headers }),
-        fetch(`${API}/access-requests`, { headers }),
+        hasAccess('live-alerts')
+          ? fetch(`${API}/security/alerts`, { headers })
+          : Promise.resolve(new Response('[]')),
+        hasAccess('access-requests')
+          ? fetch(`${API}/access-requests`, { headers })
+          : Promise.resolve(new Response('[]')),
       ]);
       const alertsData   = alertsRes.ok   ? await alertsRes.json()   : [];
       const requestsData = requestsRes.ok ? await requestsRes.json() : [];

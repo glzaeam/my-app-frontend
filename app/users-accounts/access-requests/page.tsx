@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, XCircle, Clock, X, Filter, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { auth } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const ROWS_PER_PAGE = 10;
@@ -134,7 +135,9 @@ function FilterDropdown({ options, value, onChange }: { options:{value:string;la
 }
 
 export default function AccessRequestsPage() {
-  const router = useRouter();  const [requests, setRequests]       = useState<AccessRequest[]>([]);
+  const router = useRouter();
+  const { hasAccess } = useAuth();
+  const [requests, setRequests]       = useState<AccessRequest[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading]         = useState(true);
   const [filter, setFilter]           = useState('');
@@ -142,6 +145,10 @@ export default function AccessRequestsPage() {
   const [toast, setToast]             = useState<{msg:string;type:'success'|'error'}|null>(null);
 
   const fetchRequests = useCallback(async () => {
+    if (!hasAccess('access-requests')) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const url = filter ? `${API}/access-requests?status=${filter}` : `${API}/access-requests`;
@@ -150,7 +157,7 @@ export default function AccessRequestsPage() {
       setRequests(data);
     } catch { setToast({ msg:'Failed to load requests',type:'error' }); }
     finally { setLoading(false); }
-  },[filter]);
+  },[filter, hasAccess]);
 
   useEffect(() => { fetchRequests(); },[fetchRequests]);
 

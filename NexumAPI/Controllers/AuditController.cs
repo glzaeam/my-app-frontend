@@ -24,9 +24,9 @@ namespace NexumAPI.Controllers
             return Ok(new { isAuthenticated = isAuth, claims });
         }
 
-        // GET /api/audit — Auditor and above
+        // GET /api/audit — Matrix-driven permission check
         [HttpGet]
-        [Authorize(Policy = "Auditor")]
+        [Authorize(Policy = "CanViewAuditLogs")]
         public async Task<IActionResult> GetLogs(
             [FromQuery] int     page      = 1,
             [FromQuery] int     pageSize  = 10,
@@ -104,9 +104,9 @@ namespace NexumAPI.Controllers
             ));
         }
 
-        // GET /api/audit/summary — Auditor and above
+        // GET /api/audit/summary — Matrix-driven permission check
         [HttpGet("summary")]
-        [Authorize(Policy = "Auditor")]
+        [Authorize(Policy = "CanViewAuditLogs")]
         public async Task<IActionResult> GetSummary()
         {
             var total   = await _context.AuditLogs.CountAsync();
@@ -117,9 +117,9 @@ namespace NexumAPI.Controllers
             return Ok(new { total, success, failed, today });
         }
 
-        // GET /api/audit/transactions — Auditor and above
+        // GET /api/audit/transactions — Matrix-driven permission check
         [HttpGet("transactions")]
-        [Authorize(Policy = "Auditor")]
+        [Authorize(Policy = "CanViewTransactionTrail")]
         public async Task<IActionResult> GetTransactions(
             [FromQuery] int     page      = 1,
             [FromQuery] int     pageSize  = 10,
@@ -189,9 +189,9 @@ namespace NexumAPI.Controllers
             ));
         }
 
-        // GET /api/audit/export — Auditor and above
+        // GET /api/audit/export — Matrix-driven permission check
         [HttpGet("export")]
-        [Authorize(Policy = "Auditor")]
+        [Authorize(Policy = "CanViewAuditLogs")]
         public async Task<IActionResult> Export(
             [FromQuery] string  format    = "csv",
             [FromQuery] string? dateRange = null,

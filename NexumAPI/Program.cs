@@ -6,6 +6,7 @@ using NexumAPI.Data;
 using NexumAPI.Middleware;
 using NexumAPI.Services;
 using NexumAPI.Services.Interfaces;
+using NexumAPI.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,14 +37,28 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// ✅ RBAC Policies
+// ✅ RBAC Policies + Permission Matrix
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionHandler>();
+
 builder.Services.AddAuthorization(options =>
 {
+    // ✅ Keep existing role policies
     options.AddPolicy("SystemAdmin",   policy => policy.RequireRole("System Admin"));
     options.AddPolicy("BranchManager", policy => policy.RequireRole("System Admin", "Branch Manager"));
     options.AddPolicy("Auditor",       policy => policy.RequireRole("System Admin", "Auditor"));
     options.AddPolicy("User",          policy => policy.RequireRole("System Admin", "Branch Manager", "Auditor", "User"));
     options.AddPolicy("BankTeller",    policy => policy.RequireRole("System Admin", "Branch Manager", "Auditor", "Bank Teller"));
+
+    // ✅ Permission-matrix-based policies
+    options.AddPolicy("CanViewLiveAlerts",         policy => policy.AddRequirements(new PermissionRequirement("live-alerts")));
+    options.AddPolicy("CanViewFailedLogins",       policy => policy.AddRequirements(new PermissionRequirement("failed-logins")));
+    options.AddPolicy("CanViewDeviceTracking",     policy => policy.AddRequirements(new PermissionRequirement("device-tracking")));
+    options.AddPolicy("CanViewAuditLogs",          policy => policy.AddRequirements(new PermissionRequirement("audit-logs")));
+    options.AddPolicy("CanViewSuspiciousActivity", policy => policy.AddRequirements(new PermissionRequirement("suspicious-activity")));
+    options.AddPolicy("CanViewTransactionTrail",   policy => policy.AddRequirements(new PermissionRequirement("transaction-trail")));
+    options.AddPolicy("CanViewSecurityMonitor",    policy => policy.AddRequirements(new PermissionRequirement("security-monitoring")));
+    options.AddPolicy("CanViewPermissionMatrix",   policy => policy.AddRequirements(new PermissionRequirement("permission-matrix")));
+    options.AddPolicy("CanViewRoleManagement",     policy => policy.AddRequirements(new PermissionRequirement("role-management")));
 });
 
 // ✅ CORS — includes all Vercel frontend URLs

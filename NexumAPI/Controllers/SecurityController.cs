@@ -15,9 +15,9 @@ namespace NexumAPI.Controllers
         private readonly NexumDbContext _context;
         public SecurityController(NexumDbContext context) => _context = context;
 
-        // GET /api/security/alerts — Auditor and above
+        // GET /api/security/alerts — Matrix-driven permission check
         [HttpGet("alerts")]
-        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
+        [Authorize(Policy = "CanViewLiveAlerts")]
         public async Task<IActionResult> GetAlerts()
         {
             var alerts = await _context.SecurityAlerts
@@ -141,9 +141,9 @@ namespace NexumAPI.Controllers
             return Ok(new { success = true, message = "Alert marked for investigation" });
         }
 
-        // GET /api/security/failed-logins — Auditor and above
+        // GET /api/security/failed-logins — Matrix-driven permission check
         [HttpGet("failed-logins")]
-        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
+        [Authorize(Policy = "CanViewFailedLogins")]
         public async Task<IActionResult> GetFailedLogins(
             [FromQuery] int page     = 1,
             [FromQuery] int pageSize = 10)
@@ -177,9 +177,9 @@ namespace NexumAPI.Controllers
             ));
         }
 
-        // GET /api/security/failed-logins/summary — Auditor and above
+        // GET /api/security/failed-logins/summary — Matrix-driven permission check
         [HttpGet("failed-logins/summary")]
-        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
+        [Authorize(Policy = "CanViewFailedLogins")]
         public async Task<IActionResult> GetFailedLoginSummary()
         {
             var total   = await _context.LoginAttempts.CountAsync(l => l.Status == "Failed");
@@ -190,9 +190,9 @@ namespace NexumAPI.Controllers
             return Ok(new { total, today, blocked, locked });
         }
 
-        // GET /api/security/devices — Auditor and above
+        // GET /api/security/devices — Matrix-driven permission check
         [HttpGet("devices")]
-        [Authorize(Policy = "Auditor")]  // ✅ was "BranchManager" — Auditor excluded
+        [Authorize(Policy = "CanViewDeviceTracking")]
         public async Task<IActionResult> GetDevices()
         {
             var devices = await _context.Devices

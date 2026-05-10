@@ -9,6 +9,7 @@ import {
   ChevronDown, Activity, CheckCircle, XCircle, Clock,
 } from 'lucide-react';
 import { auth } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -115,7 +116,9 @@ const reportTemplates = [
 const ROWS_PER_PAGE = 10;
 
 export default function ExportReports() {
-  const router = useRouter();  const [dateRange, setDateRange]     = useState('last-30');
+  const router = useRouter();
+  const { hasAccess } = useAuth();
+  const [dateRange, setDateRange]     = useState('last-30');
   const [reportType, setReportType]   = useState('activity');
   const [format, setFormat]           = useState('CSV');
   const [generating, setGenerating]   = useState(false);
@@ -124,12 +127,13 @@ export default function ExportReports() {
   const [page, setPage]               = useState(1);
 
   const fetchSummary = useCallback(async () => {
+    if (!hasAccess('audit-logs')) return;
     try {
       const res  = await fetch(`${API}/audit/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
       const data = await res.json();
       setSummary(data);
     } catch {}
-  }, []);
+  }, [hasAccess]);
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 

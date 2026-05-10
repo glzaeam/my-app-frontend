@@ -327,9 +327,9 @@ namespace NexumAPI.Controllers
             return Ok(new { success = true, message = "Hierarchy saved" });
         }
 
-        // GET /api/roles/transaction-trail — Auditor and above
+        // GET /api/roles/transaction-trail — Matrix-driven permission check
         [HttpGet("transaction-trail")]
-        [Authorize(Policy = "Auditor")]
+        [Authorize(Policy = "CanViewAuditLogs")]
         public async Task<IActionResult> GetTransactionTrail(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)

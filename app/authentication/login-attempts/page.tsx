@@ -1,341 +1,499 @@
 'use client';
-import DashboardLayout from '@/app/components/DashboardLayout';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
-  CheckCircle, XCircle, Lock, Search, Activity,
-  ChevronLeft, ChevronRight, Filter, ChevronDown,
-  Shield, AlertTriangle,
+  LogOut, ChevronRight, LayoutDashboard, Lock, Users, Key, Eye, FileText,
+  Settings, Shield, Layers, AlertCircle, Activity, ArrowRight,
+  Download, UserPlus, UserMinus, Users2, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
-import { auth, fetchArray } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
-const API = process.env.NEXT_PUBLIC_API_URL;
-
-interface LoginAttempt {
-  id: string;
-  ipAddress: string | null;
-  status: string;
-  failureReason: string | null;
-  attemptedAt: string;
-  employeeId: string;
-  userName: string;
+function getHDImageUrl(url: string | null | undefined, size = 400): string | null {
+  if (!url) return null;
+  return url.replace('/upload/', `/upload/w_${size},h_${size},c_fill,q_auto:best,f_auto/`);
 }
 
-interface Summary {
-  total: number;
-  failed: number;
-  blocked: number;
-  todayCount: number;
-  blockedIps: number;
+interface SidebarProps {
+  activeMenu:      string;
+  setActiveMenu:   (menu: string) => void;
+  sidebarOpen:     boolean;
+  setSidebarOpen?: (open: boolean) => void;
+  onLogout:        () => void;
 }
 
-interface BlockedIp {
-  ipAddress: string;
-  failureCount: number;
-  lastAttempt: string;
-}
+const allMenuItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, submenu: null },
+  {
+    id: 'authentication', label: 'Authentication', icon: Lock,
+    submenu: [
+      { id: 'login-settings',   label: 'Login Settings',   icon: Settings    },
+      { id: 'mfa-settings',     label: 'MFA Settings',     icon: Shield      },
+      { id: 'session-settings', label: 'Session Settings', icon: Users       },
+      { id: 'password-policy',  label: 'Password Policy',  icon: Key         },
+      { id: 'login-attempts',   label: 'Login Attempts',   icon: AlertCircle },
+    ],
+  },
+  {
+    id: 'role-management', label: 'Role Management', icon: Users,
+    submenu: [
+      { id: 'all-roles',      label: 'All Roles',      icon: Layers },
+      { id: 'assign-role',    label: 'Assign Role',    icon: Users2 },
+      { id: 'role-hierarchy', label: 'Role Hierarchy', icon: Layers },
+    ],
+  },
+  {
+    id: 'permissions', label: 'Permissions', icon: Key,
+    submenu: [
+      { id: 'permission-matrix', label: 'Permission Matrix', icon: Layers },
+      { id: 'module-access',     label: 'Module Access',     icon: Lock   },
+    ],
+  },
+  {
+    id: 'security-monitoring', label: 'Security Monitoring', icon: Eye,
+    submenu: [
+      { id: 'live-alerts',         label: 'Live Alerts',         icon: AlertCircle },
+      { id: 'failed-logins',       label: 'Failed Logins',       icon: AlertCircle },
+      { id: 'suspicious-activity', label: 'Suspicious Activity', icon: Eye         },
+      { id: 'device-tracking',     label: 'Device Tracking',     icon: Users       },
+    ],
+  },
+  {
+    id: 'audit-logs', label: 'Audit Logs', icon: FileText,
+    submenu: [
+      { id: 'activity-logs',     label: 'Activity Logs',     icon: Activity   },
+      { id: 'transaction-trail', label: 'Transaction Trail', icon: ArrowRight },
+      { id: 'export-reports',    label: 'Export Reports',    icon: Download   },
+    ],
+  },
+  {
+    id: 'users-accounts', label: 'Users & Accounts', icon: Users,
+    submenu: [
+      { id: 'access-requests', label: 'Access Requests', icon: UserPlus  },
+      { id: 'user-accounts',   label: 'User Accounts',   icon: Users     },
+      { id: 'deactivate-user', label: 'Deactivate User', icon: UserMinus },
+    ],
+  },
+];
 
-function CustomSelect({ options, value, onChange }: {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (val: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const selected = options.find(o => o.value === value);
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-  return (
-    <div ref={ref} style={{ position: 'relative', minWidth: 150 }}>
-      <button type="button" onClick={() => setOpen(v => !v)} style={{ width: '100%', padding: '9px 14px', borderRadius: 20, border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`, fontSize: 13, color: open ? '#2db9a3' : '#64748b', background: open ? '#f0fdf9' : '#fff', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontWeight: 500, outline: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Filter size={13} style={{ flexShrink: 0, color: open ? '#2db9a3' : '#94a3b8' }} />
-        <span style={{ flex: 1, textAlign: 'left' }}>{selected?.label ?? 'All'}</span>
-        <ChevronDown size={13} style={{ color: open ? '#2db9a3' : '#94a3b8', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-      </button>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999, overflow: 'hidden' }}>
-          {options.map(opt => (
-            <button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }}
-              style={{ width: '100%', padding: '10px 14px', fontSize: 13.5, color: opt.value === value ? '#2db9a3' : '#1e293b', background: opt.value === value ? 'rgba(45,185,163,0.08)' : '#fff', fontWeight: opt.value === value ? 600 : 400, fontFamily: "'DM Sans',sans-serif", border: 'none', cursor: 'pointer', textAlign: 'left', display: 'block' }}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const statusMap: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-  Failed:  { label: 'Failed',  color: '#dc2626', bg: '#fee2e2', dot: '#ef4444' },
-  Blocked: { label: 'Blocked', color: '#d97706', bg: '#fef3c7', dot: '#f59e0b' },
-  Success: { label: 'Success', color: '#059669', bg: '#dcfce7', dot: '#10b981' },
+const routeMap: Record<string, string> = {
+  'dashboard':           '/dashboard',
+  'login-settings':      '/authentication/login-settings',
+  'mfa-settings':        '/authentication/mfa-settings',
+  'session-settings':    '/authentication/session-settings',
+  'password-policy':     '/authentication/password-policy',
+  'login-attempts':      '/authentication/login-attempts',
+  'all-roles':           '/role-management/all-roles',
+  'assign-role':         '/role-management/assign-role',
+  'role-hierarchy':      '/role-management/role-hierarchy',
+  'permission-matrix':   '/permissions/permission-matrix',
+  'module-access':       '/permissions/module-access',
+  'live-alerts':         '/security-monitoring/live-alerts',
+  'failed-logins':       '/security-monitoring/failed-logins',
+  'suspicious-activity': '/security-monitoring/suspicious-activity',
+  'device-tracking':     '/security-monitoring/device-tracking',
+  'activity-logs':       '/audit-logs/activity-logs',
+  'transaction-trail':   '/audit-logs/transaction-trail',
+  'export-reports':      '/audit-logs/export-reports',
+  'access-requests':     '/users-accounts/access-requests',
+  'user-accounts':       '/users-accounts/user-accounts',
+  'deactivate-user':     '/users-accounts/deactivate-user',
 };
 
-export default function LoginAttempts() {
+export default function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen, onLogout }: SidebarProps) {
   const router = useRouter();
-  const { hasAccess } = useAuth();
+  const { user, hasAccess, loading } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mounted, setMounted]         = useState(false);
 
-  const [logs, setLogs]                 = useState<LoginAttempt[]>([]);
-  const [summary, setSummary]           = useState<Summary | null>(null);
-  const [blockedIps, setBlockedIps]     = useState<BlockedIp[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [searchQuery, setSearchQuery]   = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [currentPage, setCurrentPage]   = useState(1);
-  const [showBlockedIps, setShowBlockedIps] = useState(false);
-  const itemsPerPage = 10;
+  useEffect(() => { setMounted(true); }, []);
 
-  const fetchAll = useCallback(async () => {
-    if (!hasAccess('failed-logins')) { setLoading(false); return; }
-    setLoading(true);
-    try {
-      const [logsData, summaryRes, ipsData] = await Promise.all([
-        fetchArray(`${API}/security/failed-logins`),
-        fetch(`${API}/login-attempts/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }),
-        fetchArray(`${API}/login-attempts/blocked-ips`),
-      ]);
-      const summaryData = await summaryRes.json();
-      setLogs(logsData);
-      setSummary(summaryData);
-      setBlockedIps(ipsData);
-    } catch {}
-    finally { setLoading(false); }
-  }, [hasAccess]);
+  // Filter menu items based on permission matrix
+  // For parent groups: show if ANY submenu child is accessible
+  // For solo items: show if the item itself is accessible
+  const menuItems = allMenuItems
+    .map(item => {
+      if (!item.submenu) {
+        // Solo item — check its own slug
+        return hasAccess(item.id) ? item : null;
+      }
+      // Group with submenu — show only accessible children
+      const visibleSubs = item.submenu.filter(sub => hasAccess(sub.id));
+      // Show the parent group if at least one child is visible
+      return visibleSubs.length > 0 ? { ...item, submenu: visibleSubs } : null;
+    })
+    .filter(Boolean) as typeof allMenuItems;
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  const filtered = logs.filter(l => {
-    if (statusFilter !== 'all' && l.status !== statusFilter) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!l.userName.toLowerCase().includes(q) &&
-          !l.employeeId.toLowerCase().includes(q) &&
-          !(l.ipAddress ?? '').toLowerCase().includes(q)) return false;
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    for (const item of menuItems) {
+      if (item.submenu?.some(s => s.id === activeMenu)) initial.add(item.id);
     }
-    return true;
+    return initial;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-  const safePage   = Math.min(currentPage, totalPages);
-  const paged      = filtered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768 && setSidebarOpen) setSidebarOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [setSidebarOpen]);
 
-  const formatDate = (iso: string) => {
-    if (!iso) return '—';
-    const utcString = iso.endsWith('Z') ? iso : iso + 'Z';
-    const d = new Date(utcString);
-    const today = new Date();
-    const isToday = d.toDateString() === today.toDateString();
-    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
-    if (isToday) return `Today ${timeStr}`;
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) + ' ' + timeStr;
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen]);
+
+  // Auto-open the group that contains the active menu item
+  useEffect(() => {
+    for (const item of menuItems) {
+      if (item.submenu?.some(s => s.id === activeMenu)) {
+        setOpenGroups(prev => new Set([...prev, item.id]));
+      }
+    }
+  }, [activeMenu, menuItems.length]);
+
+  const toggleGroup = (id: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
-  const stats = [
-    { label: 'Total Attempts', value: summary?.total      ?? logs.length, accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Activity size={20} />    },
-    { label: 'Failed',         value: summary?.failed     ?? 0,           accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)',   icon: <XCircle size={20} />     },
-    { label: 'Blocked',        value: summary?.blocked    ?? 0,           accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)',  icon: <Lock size={20} />        },
-    { label: 'Today',          value: summary?.todayCount ?? 0,           accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)', icon: <CheckCircle size={20} /> },
-    { label: 'Blocked IPs',    value: summary?.blockedIps ?? 0,           accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)',   icon: <Shield size={20} />      },
-  ];
+  const handleParentClick = (id: string, hasSubmenuItems: boolean) => {
+    if (isCollapsed) { setIsCollapsed(false); return; }
+    if (hasSubmenuItems) {
+      toggleGroup(id);
+    } else {
+      setActiveMenu(id);
+      const route = routeMap[id];
+      if (route) router.push(route);
+      if (setSidebarOpen) setSidebarOpen(false);
+    }
+  };
 
-  // No permission — show access denied
-  if (!loading && !hasAccess('failed-logins')) {
-    return (
-      <DashboardLayout title="Login Attempts" activeMenu="login-attempts">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
-          <Shield size={40} style={{ opacity: 0.3 }} />
-          <p style={{ fontSize: 15 }}>You don't have permission to view this page.</p>
+  const handleSubmenuClick = (submenuId: string) => {
+    setActiveMenu(submenuId);
+    const route = routeMap[submenuId];
+    if (route) router.push(route);
+    if (setSidebarOpen) setSidebarOpen(false);
+  };
+
+  const initials = user?.name
+    ?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
+
+  const sidebarContent = (
+    <>
+      <div className="sb-header">
+        <div className="sb-logo-area">
+          <img src="/images/logo.png" alt="Nexum" className="sb-logo" />
         </div>
-      </DashboardLayout>
+        <button
+          className="sb-toggle-btn sb-desktop-only"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        </button>
+      </div>
+
+      <nav className="sb-nav">
+        {menuItems.map(item => {
+          const Icon           = item.icon;
+          const hasSubmenuList = !!(item.submenu?.length);
+          const isOpen         = openGroups.has(item.id);
+          const hasActiveChild = hasSubmenuList && item.submenu!.some(s => s.id === activeMenu);
+          const isSoloActive   = !hasSubmenuList && activeMenu === item.id;
+
+          return (
+            <div key={item.id}>
+              <div
+                className={[
+                  'sb-parent',
+                  isSoloActive             ? 'solo-active'      : '',
+                  hasActiveChild           ? 'has-active-child' : '',
+                  isOpen && hasSubmenuList ? 'open'             : '',
+                ].filter(Boolean).join(' ')}
+                onClick={() => handleParentClick(item.id, hasSubmenuList)}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <Icon size={16} className="sb-parent-icon" />
+                <span className="sb-parent-label">{item.label}</span>
+                {hasSubmenuList && <ChevronRight size={14} className="sb-chevron" />}
+              </div>
+
+              {hasSubmenuList && item.submenu && (
+                <div className={`sb-sub-wrap ${isOpen ? 'open' : ''}`}>
+                  <div className="sb-sub-inner">
+                    {item.submenu.map(sub => {
+                      const SubIcon = sub.icon;
+                      return (
+                        <div
+                          key={sub.id}
+                          className={`sb-sub-item ${activeMenu === sub.id ? 'active' : ''}`}
+                          onClick={() => handleSubmenuClick(sub.id)}
+                        >
+                          <SubIcon size={13} className="sb-sub-icon" />
+                          <span>{sub.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="sb-footer">
+        <div className="sb-avatar">
+          {user?.profileImageUrl
+            ? <img src={getHDImageUrl(user.profileImageUrl, 150) || ''} alt={user.name} />
+            : initials
+          }
+        </div>
+        <div className="sb-user">
+          <p className="sb-user-name">{user?.name || 'User'}</p>
+          <p className="sb-user-role">{user?.role || 'Bank Teller'}</p>
+        </div>
+        <button className="sb-logout" onClick={onLogout} title="Logout">
+          <LogOut size={15} />
+        </button>
+      </div>
+    </>
+  );
+
+  if (loading) {
+    return (
+      <aside className={`sb-wrap ${isCollapsed ? 'sb-collapsed' : ''}`}>
+        <div className="sb-header">
+          <div className="sb-logo-area">
+            <img src="/images/logo.png" alt="Nexum" className="sb-logo" />
+          </div>
+          <button className="sb-toggle-btn sb-desktop-only" onClick={() => setIsCollapsed(!isCollapsed)}>
+            {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        </div>
+        <nav className="sb-nav" style={{ padding: '20px 16px', gap: 8 }}>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} style={{ height: 36, borderRadius: 10, background: '#f1f5f9', opacity: 1 - i * 0.1 }} />
+          ))}
+        </nav>
+      </aside>
     );
   }
 
   return (
-    <DashboardLayout title="Login Attempts" activeMenu="login-attempts">
+    <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        .la-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);}
-        .la-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-        .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
-        .la-scroll::-webkit-scrollbar{width:6px;}
-        .la-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;}
-        .stat-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;padding:16px 18px;cursor:default;transition:box-shadow 0.15s;}
-        .stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);}
-        .stat-card.clickable{cursor:pointer;}
-        .stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
-        .stat-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
-        .stat-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;}
-        .stat-value{font-size:26px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;}
-        .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
-        .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
-        .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;}
-        .search-input{width:100%;padding:9px 14px 9px 36px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);outline:none;}
-        .search-input:focus{border-color:#2db9a3;}
-        .table-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);margin-bottom:18px;}
-        .table-card-header{padding:16px 22px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9;}
-        table{width:100%;border-collapse:collapse;}
-        thead tr{background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
-        thead th{padding:11px 16px;text-align:center;font-size:10.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.09em;white-space:nowrap;}
-        tbody tr{border-bottom:1px solid #f8fafc;transition:background 0.13s;}
-        tbody tr:last-child{border-bottom:none;}
-        tbody tr:hover{background:#fafbfd;}
-        tbody td{padding:12px 16px;font-size:13px;color:#1e293b;font-weight:500;vertical-align:middle;text-align:center;}
-        .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;}
-        .badge-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
-        .pagination-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid #f1f5f9;}
-        .pagination-info{font-size:13px;color:#94a3b8;}
-        .pagination-info strong{color:#475569;font-weight:600;}
-        .pagination-controls{display:flex;align-items:center;gap:4px;}
-        .pg-btn{width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#64748b;transition:all 0.15s;}
-        .pg-btn:hover:not(:disabled){border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
-        .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
-        .pg-btn.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
-        .pg-counter{min-width:50px;text-align:center;font-size:13px;color:#475569;font-weight:500;}
-        .ip-table{width:100%;border-collapse:collapse;}
-        .ip-table th{padding:10px 16px;text-align:left;font-size:10.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
-        .ip-table td{padding:11px 16px;font-size:13px;color:#1e293b;border-bottom:1px solid #f8fafc;}
-        .ip-table tr:last-child td{border-bottom:none;}
-        .ip-table tr:hover td{background:#fafbfd;}
+        :root {
+          --accent: #2db9a3;
+          --accent-light: rgba(45,185,163,0.10);
+          --accent-mid: rgba(45,185,163,0.18);
+          --sidebar-bg: #ffffff;
+          --sidebar-border: #e8edf3;
+          --text-primary: #111827;
+          --text-secondary: #6b7280;
+          --text-muted: #9ca3af;
+          --item-hover: #f1f5f9;
+          --radius: 10px;
+          --sb-full-width: 260px;
+          --sb-icon-width: 68px;
+        }
+        .sb-wrap {
+          width: var(--sb-full-width);
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          background: var(--sidebar-bg);
+          border-right: 1px solid var(--sidebar-border);
+          font-family: 'DM Sans', sans-serif;
+          flex-shrink: 0;
+          overflow: hidden;
+          transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
+          position: sticky;
+          top: 0;
+          z-index: 95;
+        }
+        .sb-wrap.sb-collapsed { width: var(--sb-icon-width); }
+        .sb-desktop-only { display: flex !important; }
+
+        .sb-backdrop {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.25s ease;
+          z-index: 197;
+        }
+        .sb-backdrop.open { opacity: 1; pointer-events: auto; }
+
+        .sb-mobile-drawer {
+          position: fixed;
+          top: 0; left: 0; bottom: 0;
+          width: 280px;
+          max-width: 85vw;
+          background: var(--sidebar-bg);
+          border-right: 1px solid var(--sidebar-border);
+          font-family: 'DM Sans', sans-serif;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          z-index: 198;
+          transform: translateX(-100%);
+          transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+          box-shadow: 2px 0 16px rgba(0,0,0,0.15);
+        }
+        .sb-mobile-drawer.open { transform: translateX(0); }
+
+        .sb-header {
+          height: 66px;
+          padding: 0 14px;
+          border-bottom: 1px solid var(--sidebar-border);
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          overflow: hidden;
+        }
+        .sb-logo-area { flex: 1; overflow: hidden; display: flex; align-items: center; }
+        .sb-logo { height: 34px; width: auto; display: block; transition: opacity 0.2s ease, width 0.25s ease; opacity: 1; }
+        .sb-wrap.sb-collapsed .sb-logo { opacity: 0; width: 0; pointer-events: none; }
+
+        .sb-toggle-btn {
+          width: 32px; height: 32px;
+          display: flex; align-items: center; justify-content: center;
+          background: transparent;
+          border: 1.5px solid var(--sidebar-border);
+          border-radius: 8px;
+          color: var(--text-muted);
+          cursor: pointer; flex-shrink: 0;
+          transition: all 0.18s; padding: 0;
+        }
+        .sb-toggle-btn:hover { background: var(--item-hover); color: var(--text-primary); border-color: #cbd5e1; }
+        .sb-wrap.sb-collapsed .sb-toggle-btn { margin: 0 auto; }
+
+        .sb-nav {
+          flex: 1; overflow-y: auto;
+          padding: 8px 8px 12px;
+          display: flex; flex-direction: column; gap: 2px;
+          scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent;
+        }
+        .sb-nav::-webkit-scrollbar { width: 3px; }
+        .sb-nav::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+
+        .sb-parent {
+          display: flex; align-items: center; gap: 10px;
+          padding: 9px 12px; border-radius: var(--radius);
+          cursor: pointer; font-size: 13.5px; font-weight: 500;
+          color: var(--text-secondary);
+          transition: background 0.15s, color 0.15s;
+          user-select: none; position: relative;
+          white-space: nowrap; overflow: hidden; min-height: 40px;
+        }
+        .sb-wrap.sb-collapsed .sb-parent { padding: 10px; justify-content: center; gap: 0; }
+        .sb-parent:hover { background: var(--item-hover); color: var(--text-primary); }
+        .sb-parent.solo-active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+        .sb-parent.solo-active::before {
+          content: ''; position: absolute; left: 0; top: 50%;
+          transform: translateY(-50%); width: 3px; height: 20px;
+          background: var(--accent); border-radius: 0 3px 3px 0;
+        }
+        .sb-wrap.sb-collapsed .sb-parent.solo-active::before { display: none; }
+        .sb-parent.has-active-child { color: var(--accent); font-weight: 600; }
+        .sb-parent-icon { width: 17px; height: 17px; flex-shrink: 0; }
+        .sb-parent-label { flex: 1; line-height: 1; transition: opacity 0.15s ease; }
+        .sb-wrap.sb-collapsed .sb-parent-label { display: none; }
+        .sb-chevron { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); transition: transform 0.22s ease; }
+        .sb-wrap.sb-collapsed .sb-chevron { display: none; }
+        .sb-parent.open .sb-chevron { transform: rotate(90deg); color: var(--accent); }
+
+        .sb-sub-wrap { overflow: hidden; max-height: 0; transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1); }
+        .sb-wrap.sb-collapsed .sb-sub-wrap { display: none; }
+        .sb-sub-wrap.open { max-height: 500px; }
+        .sb-sub-inner { margin: 2px 0 4px 24px; padding-left: 14px; border-left: 1.5px solid #e2e8f0; display: flex; flex-direction: column; gap: 1px; }
+        .sb-sub-item {
+          display: flex; align-items: center; gap: 9px;
+          padding: 7px 10px; border-radius: 8px;
+          cursor: pointer; font-size: 13px; font-weight: 500;
+          color: var(--text-muted);
+          transition: background 0.13s, color 0.13s; user-select: none;
+        }
+        .sb-sub-item:hover { background: var(--item-hover); color: var(--text-secondary); }
+        .sb-sub-item.active { background: var(--accent-mid); color: var(--accent); font-weight: 600; }
+        .sb-sub-icon { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.8; }
+
+        .sb-footer {
+          border-top: 1px solid var(--sidebar-border);
+          padding: 12px 14px;
+          display: flex; align-items: center; gap: 10px;
+          flex-shrink: 0; background: #fff; overflow: hidden;
+        }
+        .sb-wrap.sb-collapsed .sb-footer { padding: 12px 8px; justify-content: center; }
+        .sb-avatar {
+          width: 36px; height: 36px; border-radius: 10px;
+          background: linear-gradient(135deg, #2db9a3 0%, #6366f1 100%);
+          display: flex; align-items: center; justify-content: center;
+          color: white; font-weight: 700; font-size: 13px;
+          flex-shrink: 0; overflow: hidden;
+        }
+        .sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+        .sb-user { flex: 1; min-width: 0; }
+        .sb-wrap.sb-collapsed .sb-user { display: none; }
+        .sb-user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sb-user-role { font-size: 11px; color: var(--text-muted); margin: 2px 0 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sb-logout {
+          width: 32px; height: 32px; padding: 0;
+          background: transparent; border: 1.5px solid var(--sidebar-border);
+          border-radius: 8px; color: var(--text-muted);
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          transition: all 0.18s; flex-shrink: 0;
+        }
+        .sb-logout:hover { background: #fee2e2; border-color: #fecaca; color: #ef4444; }
+
+        @media (max-width: 1279px) { :root { --sb-full-width: 240px; } }
+        @media (max-width: 1023px) {
+          :root { --sb-full-width: 220px; }
+          .sb-parent { font-size: 13px; }
+          .sb-sub-item { font-size: 12.5px; }
+        }
+        @media (max-width: 767px) {
+          .sb-wrap { display: none !important; }
+          .sb-desktop-only { display: none !important; }
+          .sb-parent { font-size: 13.5px; min-height: 44px; }
+          .sb-sub-item { font-size: 13px; min-height: 40px; }
+        }
       `}</style>
 
-      <div className="la-scroll">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Login Attempts</h1>
-            <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Monitor login attempt history — failures trigger audit logs and security alerts</p>
-          </div>
-        </div>
+      {/* DESKTOP SIDEBAR */}
+      <aside className={`sb-wrap ${isCollapsed ? 'sb-collapsed' : ''}`}>
+        {sidebarContent}
+      </aside>
 
-        <div className="stats-grid">
-          {stats.map((s, i) => (
-            <div key={i} className={`stat-card${i === 4 ? ' clickable' : ''}`}
-              onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
-              title={i === 4 ? 'Click to view blocked IPs' : undefined}>
-              <div className="stat-top">
-                <div>
-                  <div className="stat-label">{s.label}</div>
-                  <div className="stat-value">{s.value}</div>
-                </div>
-                <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
-              </div>
-              {i === 4 && s.value > 0 && (
-                <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 2 }}>
-                  {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {showBlockedIps && blockedIps.length > 0 && (
-          <div className="table-card" style={{ marginBottom: 18 }}>
-            <div className="table-card-header">
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <AlertTriangle size={15} color="#dc2626" />
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Blocked IPs (last 24h)</span>
-                </div>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>IPs with 5+ failed attempts — fed to Security Monitoring</div>
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '4px 12px', borderRadius: 20 }}>{blockedIps.length} IPs</span>
-            </div>
-            <table className="ip-table">
-              <thead>
-                <tr><th>IP Address</th><th>Failed Attempts</th><th>Last Attempt</th><th>Risk</th></tr>
-              </thead>
-              <tbody>
-                {blockedIps.map((ip, i) => (
-                  <tr key={i}>
-                    <td><span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 6 }}>{ip.ipAddress}</span></td>
-                    <td style={{ fontWeight: 700, color: '#1e293b' }}>{ip.failureCount}</td>
-                    <td style={{ fontSize: 12, color: '#94a3b8' }}>{formatDate(ip.lastAttempt)}</td>
-                    <td>
-                      <span className="badge" style={{ background: ip.failureCount >= 10 ? '#fee2e2' : '#fef3c7', color: ip.failureCount >= 10 ? '#dc2626' : '#d97706' }}>
-                        <span className="badge-dot" style={{ background: ip.failureCount >= 10 ? '#ef4444' : '#f59e0b' }} />
-                        {ip.failureCount >= 10 ? 'Critical' : 'High'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div className="controls-bar">
-          <div className="search-wrap">
-            <Search size={14} className="search-icon" />
-            <input className="search-input" placeholder="Search by user, ID, or IP..."
-              value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
-          </div>
-          <CustomSelect
-            options={[
-              { value: 'all',     label: 'All Statuses' },
-              { value: 'Failed',  label: 'Failed'       },
-              { value: 'Blocked', label: 'Blocked'      },
-              { value: 'Success', label: 'Success'      },
-            ]}
-            value={statusFilter}
-            onChange={v => { setStatusFilter(v); setCurrentPage(1); }}
+      {/* MOBILE DRAWER */}
+      {mounted && createPortal(
+        <>
+          <div
+            className={`sb-backdrop ${sidebarOpen ? 'open' : ''}`}
+            onClick={() => setSidebarOpen && setSidebarOpen(false)}
+            aria-hidden="true"
           />
-          <span style={{ fontSize: 13, color: '#94a3b8', marginLeft: 'auto' }}>{filtered.length} records</span>
-        </div>
-
-        <div className="table-card">
-          <div className="table-card-header">
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Attempt Log</div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Each failure is written to Audit Logs — threshold breach triggers Security Alert</div>
-            </div>
+          <div
+            className={`sb-mobile-drawer ${sidebarOpen ? 'open' : ''}`}
+            role="dialog"
+            aria-modal="true"
+          >
+            {sidebarContent}
           </div>
-          <table>
-            <thead>
-              <tr><th>Date & Time</th><th>Emp ID</th><th>User</th><th>IP Address</th><th>Reason</th><th>Status</th></tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>Loading...</td></tr>
-              ) : paged.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No records found.</td></tr>
-              ) : paged.map(l => {
-                const s = statusMap[l.status] ?? { label: l.status, color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' };
-                return (
-                  <tr key={l.id}>
-                    <td style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(l.attemptedAt)}</td>
-                    <td><span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>{l.employeeId}</span></td>
-                    <td style={{ fontWeight: 600, color: '#0f172a' }}>{l.userName}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64748b' }}>{l.ipAddress ?? '—'}</td>
-                    <td style={{ fontSize: 12, color: '#64748b' }}>{l.failureReason ?? '—'}</td>
-                    <td>
-                      <span className="badge" style={{ background: s.bg, color: s.color }}>
-                        <span className="badge-dot" style={{ background: s.dot }} />{s.label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="pagination-bar">
-            <span className="pagination-info">
-              Showing <strong>{filtered.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}–{Math.min(safePage * itemsPerPage, filtered.length)}</strong> of <strong>{filtered.length}</strong>
-            </span>
-            <div className="pagination-controls">
-              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={14} /></button>
-              <span className="pg-counter">{safePage} / {totalPages}</span>
-              <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}><ChevronRight size={14} /></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </DashboardLayout>
+        </>,
+        document.body
+      )}
+    </>
   );
 }

@@ -54,10 +54,10 @@ export default function Dashboard() {
   const [mfaAdoption,      setMfaAdoption]      = useState<any[]>([]);
 
   const [securityMetrics, setSecurityMetrics] = useState([
-    { label: 'Live Alerts',         value: '—', icon: AlertTriangle, trend: 'down' as const },
-    { label: 'Failed Logins Today', value: '—', icon: Lock,          trend: 'down' as const },
+    { label: 'Failed Logins (7d)',  value: '—', icon: AlertTriangle, trend: 'down' as const },
+    { label: 'Success Logins (7d)', value: '—', icon: Shield,        trend: 'up'   as const },
     { label: 'Suspicious Events',   value: '—', icon: Eye,           trend: 'down' as const },
-    { label: 'Devices Tracked',     value: '—', icon: Shield,        trend: 'up'   as const },
+    { label: 'Total Activity',      value: '—', icon: Activity,      trend: 'up'   as const },
   ]);
   const [failedLoginTrend,   setFailedLoginTrend]   = useState<any[]>([]);
   const [suspiciousActivity, setSuspiciousActivity] = useState<any[]>([]);
@@ -87,10 +87,10 @@ export default function Dashboard() {
     return [];
   };
 
+  // ── ADMIN ──────────────────────────────────────────────────────────────────
   const fetchAdminDashboard = useCallback(async () => {
     try {
       const token = auth.getToken();
-
       const [summary, logsRaw, trend, roles, mfa] = await Promise.allSettled([
         apiFetch(`${API}/audit/summary`,                     token),
         apiFetch(`${API}/audit?page=1&pageSize=50`,          token),
@@ -117,13 +117,11 @@ export default function Dashboard() {
       }
 
       if (Array.isArray(roles)) {
-        setRoleDistribution(
-          roles.map((r: any, i: number) => ({
-            name:  r.name  ?? r.Name  ?? `Role ${i + 1}`,
-            value: r.value ?? r.Value ?? 0,
-            color: ROLE_COLORS[i % ROLE_COLORS.length],
-          }))
-        );
+        setRoleDistribution(roles.map((r: any, i: number) => ({
+          name:  r.name  ?? r.Name  ?? `Role ${i + 1}`,
+          value: r.value ?? r.Value ?? 0,
+          color: ROLE_COLORS[i % ROLE_COLORS.length],
+        })));
       }
 
       if (Array.isArray(mfa)) {
@@ -134,27 +132,29 @@ export default function Dashboard() {
       }
 
       const logs = extractItems(logsRaw);
-      const filtered = logs
-        .filter((log: any) =>
-          !log.action?.startsWith('GET ')    &&
-          !log.action?.startsWith('POST ')   &&
-          !log.action?.startsWith('PUT ')    &&
-          !log.action?.startsWith('DELETE ') &&
-          !log.action?.startsWith('PATCH ')
-        )
-        .slice(0, 10);
-
-      setRecentActivity(filtered.map((l: any) => ({
-        time:   formatTime(l.createdAt),
-        user:   l.userName   ?? l.userEmail ?? '—',
-        role:   l.userEmpId  ?? '—',
-        action: l.action     ?? '—',
-        module: l.module     ?? '—',
-        status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
-      })));
+      setRecentActivity(
+        logs
+          .filter((log: any) =>
+            !log.action?.startsWith('GET ')    &&
+            !log.action?.startsWith('POST ')   &&
+            !log.action?.startsWith('PUT ')    &&
+            !log.action?.startsWith('DELETE ') &&
+            !log.action?.startsWith('PATCH ')
+          )
+          .slice(0, 10)
+          .map((l: any) => ({
+            time:   formatTime(l.createdAt),
+            user:   l.userName   ?? l.userEmail ?? '—',
+            role:   l.userEmpId  ?? '—',
+            action: l.action     ?? '—',
+            module: l.module     ?? '—',
+            status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
+          }))
+      );
     } catch (err) { console.error('Admin dashboard error:', err); }
   }, []);
 
+  // ── BRANCH MANAGER ─────────────────────────────────────────────────────────
   const fetchBranchManagerDashboard = useCallback(async () => {
     try {
       const token = auth.getToken();
@@ -173,14 +173,13 @@ export default function Dashboard() {
           failed:  t.failed  ?? t.Failed  ?? 0,
         })));
 
-        // Build metrics from trend data since no audit/summary access
         const totalFailed  = trend.reduce((sum: number, t: any) => sum + (t.failed  ?? t.Failed  ?? 0), 0);
         const totalSuccess = trend.reduce((sum: number, t: any) => sum + (t.success ?? t.Success ?? 0), 0);
         setSecurityMetrics([
-          { label: 'Failed Logins (7d)',  value: String(totalFailed),  icon: AlertTriangle, trend: 'down' as const },
-          { label: 'Success Logins (7d)', value: String(totalSuccess), icon: Shield,        trend: 'up'   as const },
-          { label: 'Suspicious Events',   value: '—',                  icon: Eye,           trend: 'down' as const },
-          { label: 'Total Activity',      value: String(totalFailed + totalSuccess), icon: Activity, trend: 'up' as const },
+          { label: 'Failed Logins (7d)',  value: String(totalFailed),               icon: AlertTriangle, trend: 'down' as const },
+          { label: 'Success Logins (7d)', value: String(totalSuccess),              icon: Shield,        trend: 'up'   as const },
+          { label: 'Suspicious Events',   value: '—',                               icon: Eye,           trend: 'down' as const },
+          { label: 'Total Activity',      value: String(totalFailed + totalSuccess), icon: Activity,      trend: 'up'   as const },
         ]);
       }
 
@@ -202,36 +201,54 @@ export default function Dashboard() {
     } catch (err) { console.error('Branch manager dashboard error:', err); }
   }, [hasAccess]);
 
+  // ── AUDITOR ────────────────────────────────────────────────────────────────
+  // Auditor has: activity-logs (View Only), transaction-trail (View Only)
+  // Does NOT have: audit-logs — so never call /audit/summary
   const fetchAuditorDashboard = useCallback(async () => {
     try {
       const token = auth.getToken();
 
-      const [summary, logsRaw] = await Promise.allSettled([
-        apiFetch(`${API}/audit/summary`,            token),
-        apiFetch(`${API}/audit?page=1&pageSize=50`, token),
+      const [logsRaw, trend] = await Promise.allSettled([
+        hasAccess('activity-logs')
+          ? apiFetch(`${API}/audit?page=1&pageSize=50`, token)
+          : Promise.resolve(null),
+        apiFetch(`${API}/audit/dashboard/login-trend`, token),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
 
-      if (!summary) return;
+      if (logsRaw) {
+        const logs = extractItems(logsRaw);
 
-      setAuditorMetrics([
-        { label: 'Total Log Entries', value: String(summary.total   ?? 0), icon: FileText,      trend: 'up'   as const },
-        { label: 'Success Events',    value: String(summary.success ?? 0), icon: Shield,        trend: 'up'   as const },
-        { label: 'Failed Events',     value: String(summary.failed  ?? 0), icon: AlertTriangle, trend: 'down' as const },
-        { label: 'Events Today',      value: String(summary.today   ?? 0), icon: Activity,      trend: 'up'   as const },
-      ]);
+        // Build metrics from actual log data
+        const total   = logs.length;
+        const success = logs.filter((l: any) => l.status === 'Success').length;
+        const failed  = logs.filter((l: any) => l.status === 'Failed').length;
+        const today   = logs.filter((l: any) => {
+          const d = new Date(l.createdAt + (l.createdAt.endsWith('Z') ? '' : 'Z'));
+          return d.toDateString() === new Date().toDateString();
+        }).length;
 
-      const logs = extractItems(logsRaw);
-      setAuditLogs(logs.slice(0, 10).map((l: any) => ({
-        time:   formatTime(l.createdAt),
-        user:   l.userName  ?? '—',
-        empId:  l.userEmpId ?? '—',
-        action: l.action    ?? '—',
-        module: l.module    ?? '—',
-        status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
-      })));
+        setAuditorMetrics([
+          { label: 'Total Log Entries', value: String(total),   icon: FileText,      trend: 'up'   as const },
+          { label: 'Success Events',    value: String(success), icon: Shield,        trend: 'up'   as const },
+          { label: 'Failed Events',     value: String(failed),  icon: AlertTriangle, trend: 'down' as const },
+          { label: 'Events Today',      value: String(today),   icon: Activity,      trend: 'up'   as const },
+        ]);
+
+        setAuditLogs(
+          logs.slice(0, 10).map((l: any) => ({
+            time:   formatTime(l.createdAt),
+            user:   l.userName  ?? '—',
+            empId:  l.userEmpId ?? '—',
+            action: l.action    ?? '—',
+            module: l.module    ?? '—',
+            status: l.status === 'Success' ? 'success' : l.status === 'Failed' ? 'failed' : 'warning',
+          }))
+        );
+      }
     } catch (err) { console.error('Auditor dashboard error:', err); }
-  }, []);
+  }, [hasAccess]);
 
+  // ── BANK TELLER ────────────────────────────────────────────────────────────
   const fetchTellerDashboard = useCallback(async () => {
     try {
       const token = auth.getToken();
@@ -247,15 +264,14 @@ export default function Dashboard() {
     } catch (err) { console.error('Teller dashboard error:', err); }
   }, []);
 
+  // ── FETCH DISPATCHER ───────────────────────────────────────────────────────
   const fetchDashboard = useCallback(() => {
     if (!user || loading) return;
-
     if      (user.role === 'System Admin')   fetchAdminDashboard();
     else if (user.role === 'Branch Manager') fetchBranchManagerDashboard();
-    else if (user.role === 'Auditor' && hasAccess('audit-logs')) fetchAuditorDashboard();
-    else if (user.role === 'Auditor')        fetchTellerDashboard(); // fallback if no audit perm
+    else if (user.role === 'Auditor')        fetchAuditorDashboard();
     else                                     fetchTellerDashboard();
-  }, [user, loading, hasAccess, fetchAdminDashboard, fetchBranchManagerDashboard, fetchAuditorDashboard, fetchTellerDashboard]);
+  }, [user, loading, fetchAdminDashboard, fetchBranchManagerDashboard, fetchAuditorDashboard, fetchTellerDashboard]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
@@ -353,10 +369,7 @@ export default function Dashboard() {
     .loading-wrap { display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; gap: 16px; }
     .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top: 3px solid #2db9a3; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    @media (max-width: 900px) {
-      .charts-grid { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
     @media (max-width: 768px) {
       .main-scroll { padding: 18px 16px; }
       .metrics-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -402,6 +415,7 @@ export default function Dashboard() {
     );
   };
 
+  // ── RENDER: ADMIN ──────────────────────────────────────────────────────────
   const renderAdminDashboard = () => (
     <>
       {renderGreeting("Here's what's happening with your IAM system today")}
@@ -429,10 +443,7 @@ export default function Dashboard() {
             <div className="chart-legend-item"><span className="legend-dot" style={{ background: 'hsl(0,84%,60%)' }} />Failed</div>
           </div>
           {loginTrend.length === 0 ? (
-            <div className="empty-chart">
-              <AlertTriangle size={24} style={{ opacity: 0.3 }} />
-              No login data yet
-            </div>
+            <div className="empty-chart"><AlertTriangle size={24} style={{ opacity: 0.3 }} />No login data yet</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={loginTrend} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
@@ -461,38 +472,21 @@ export default function Dashboard() {
           <div className="chart-card-title">User Distribution</div>
           <p className="chart-card-sub">Active users by role assignment</p>
           {roleDistribution.length === 0 ? (
-            <div className="empty-chart">
-              <Users size={24} style={{ opacity: 0.3 }} />
-              No role data yet
-            </div>
+            <div className="empty-chart"><Users size={24} style={{ opacity: 0.3 }} />No role data yet</div>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie
-                    data={roleDistribution}
-                    cx="50%" cy="50%"
-                    innerRadius={52} outerRadius={78}
-                    paddingAngle={4}
-                    dataKey="value"
-                    nameKey="name"
-                    strokeWidth={0}
-                  >
-                    {roleDistribution.map((entry, i) => (
-                      <Cell key={`cell-${i}`} fill={entry.color} />
-                    ))}
+                  <Pie data={roleDistribution} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={4} dataKey="value" nameKey="name" strokeWidth={0}>
+                    {roleDistribution.map((entry, i) => <Cell key={`cell-${i}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip
-                    contentStyle={{ borderRadius: '10px', border: '1px solid #e8ecf2', fontSize: '12px' }}
-                    formatter={(value: any, name: any) => [value, name]}
-                  />
+                  <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e8ecf2', fontSize: '12px' }} formatter={(value: any, name: any) => [value, name]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="role-legend">
                 {roleDistribution.map(r => (
                   <span key={r.name} className="role-legend-item">
-                    <span className="role-dot" style={{ background: r.color }} />
-                    {r.name} ({r.value})
+                    <span className="role-dot" style={{ background: r.color }} />{r.name} ({r.value})
                   </span>
                 ))}
               </div>
@@ -506,20 +500,14 @@ export default function Dashboard() {
           <div className="chart-card-title">MFA Adoption</div>
           <p className="chart-card-sub">6-month enrollment trend (%)</p>
           {mfaAdoption.length === 0 ? (
-            <div className="empty-chart">
-              <Shield size={24} style={{ opacity: 0.3 }} />
-              No MFA data yet
-            </div>
+            <div className="empty-chart"><Shield size={24} style={{ opacity: 0.3 }} />No MFA data yet</div>
           ) : (
             <ResponsiveContainer width="100%" height={190}>
               <BarChart data={mfaAdoption} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#edf0f5" vertical={false} />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                 <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <Tooltip
-                  formatter={(v: any) => [`${v}%`, 'MFA Rate']}
-                  contentStyle={{ borderRadius: '10px', border: '1px solid #e8ecf2', fontSize: '12px' }}
-                />
+                <Tooltip formatter={(v: any) => [`${v}%`, 'MFA Rate']} contentStyle={{ borderRadius: '10px', border: '1px solid #e8ecf2', fontSize: '12px' }} />
                 <Bar dataKey="rate" fill="hsl(174,83%,32%)" radius={[6, 6, 0, 0]} name="MFA Rate" />
               </BarChart>
             </ResponsiveContainer>
@@ -534,9 +522,7 @@ export default function Dashboard() {
       <div className="table-card">
         <div className="table-scroll">
           <table className="al-table">
-            <thead>
-              <tr><th>Time</th><th>User</th><th>Emp ID</th><th>Action</th><th>Module</th><th>Status</th></tr>
-            </thead>
+            <thead><tr><th>Time</th><th>User</th><th>Emp ID</th><th>Action</th><th>Module</th><th>Status</th></tr></thead>
             <tbody>
               {paged.length === 0
                 ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px 0', color: '#94a3b8' }}>No activity yet</td></tr>
@@ -569,6 +555,7 @@ export default function Dashboard() {
     </>
   );
 
+  // ── RENDER: BRANCH MANAGER ─────────────────────────────────────────────────
   const renderBranchManagerDashboard = () => (
     <>
       {renderGreeting('Security overview — monitoring alerts, failed logins & suspicious activity')}
@@ -576,9 +563,7 @@ export default function Dashboard() {
         {securityMetrics.map((m, i) => (
           <div key={i} className="metric-card">
             <div className="metric-card-top">
-              <div className={`metric-icon ${i === 0 || i === 2 ? 'alert' : i === 3 ? 'info' : ''}`}>
-                <m.icon size={22} />
-              </div>
+              <div className={`metric-icon ${i === 0 || i === 2 ? 'alert' : i === 3 ? 'info' : ''}`}><m.icon size={22} /></div>
               <span className={`metric-trend ${m.trend}`}>
                 {m.trend === 'up' ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
               </span>
@@ -597,10 +582,7 @@ export default function Dashboard() {
             <div className="chart-legend-item"><span className="legend-dot" style={{ background: 'hsl(174,83%,32%)' }} />Success</div>
           </div>
           {failedLoginTrend.length === 0 ? (
-            <div className="empty-chart">
-              <AlertTriangle size={24} style={{ opacity: 0.3 }} />
-              No login data yet
-            </div>
+            <div className="empty-chart"><AlertTriangle size={24} style={{ opacity: 0.3 }} />No login data yet</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={failedLoginTrend} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
@@ -652,6 +634,7 @@ export default function Dashboard() {
     </>
   );
 
+  // ── RENDER: AUDITOR ────────────────────────────────────────────────────────
   const renderAuditorDashboard = () => (
     <>
       {renderGreeting('Audit overview — read-only view of all system activity logs')}
@@ -701,10 +684,11 @@ export default function Dashboard() {
     </>
   );
 
+  // ── RENDER: BANK TELLER ────────────────────────────────────────────────────
   const renderTellerDashboard = () => (
     <>
       {renderGreeting('Welcome — view your own recent activity and profile')}
-      <div className="info-banner">
+      <div className="info-banner" style={{ background: '#f0fdf9', border: '1px solid #a7f3d0', color: '#065f46' }}>
         <Users size={15} />
         You can only view your own activity logs. Contact your System Admin for access changes.
       </div>

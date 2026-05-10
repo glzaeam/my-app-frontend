@@ -108,7 +108,7 @@ const formatCfg: Record<string, { color: string; bg: string; border: string }> =
 const reportTemplates = [
   { name: 'Activity Log Report',      desc: 'All system actions with user, module, and status', icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#1D9E75', accentBg: '#E1F5EE' },
   { name: 'Transaction Trail Export', desc: 'All TXN-ID records for compliance tracing',        icon: FileSpreadsheet, formats: ['PDF', 'CSV'], type: 'transactions', accent: '#7c3aed', accentBg: '#ede9fe' },
-  { name: 'Security Report',          desc: 'Failed logins, alerts, and device events',          icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#dc2626', accentBg: '#fee2e2' },
+  { name: 'Security Report',          desc: 'Failed logins, alerts, and device events',         icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#dc2626', accentBg: '#fee2e2' },
   { name: 'User Access Summary',      desc: 'Role assignments and permission changes',           icon: FileSpreadsheet, formats: ['PDF', 'CSV'], type: 'activity',     accent: '#4f46e5', accentBg: '#e0e7ff' },
   { name: 'Compliance Summary',       desc: 'MFA, password policy, and session audit',          icon: FileText,        formats: ['PDF', 'CSV'], type: 'activity',     accent: '#d97706', accentBg: '#fef3c7' },
 ];
@@ -118,33 +118,52 @@ const ROWS_PER_PAGE = 10;
 export default function ExportReports() {
   const router = useRouter();
   const { hasAccess } = useAuth();
-  const [dateRange, setDateRange]     = useState('last-30');
-  const [reportType, setReportType]   = useState('activity');
-  const [format, setFormat]           = useState('CSV');
-  const [generating, setGenerating]   = useState(false);
-  const [exports, setExports]         = useState<ExportRecord[]>([]);
-  const [summary, setSummary]         = useState({ total: 0, success: 0, failed: 0, today: 0 });
-  const [page, setPage]               = useState(1);
+  const [dateRange, setDateRange]   = useState('last-30');
+  const [reportType, setReportType] = useState('activity');
+  const [format, setFormat]         = useState('CSV');
+  const [generating, setGenerating] = useState(false);
+  const [exports, setExports]       = useState<ExportRecord[]>([]);
+  const [summary, setSummary]       = useState({ total: 0, success: 0, failed: 0, today: 0 });
+  const [page, setPage]             = useState(1);
 
+  // ✅ FIX: was checking hasAccess('audit-logs') which Auditor doesn't have.
+  // Now fetches from /api/audit (activity-logs) which Auditor CAN access,
+  // and computes the summary counts from the returned records.
   const fetchSummary = useCallback(async () => {
-    if (!hasAccess('audit-logs')) return;
+    if (!hasAccess('export-reports') && !hasAccess('activity-logs')) return;
     try {
-      const res  = await fetch(`${API}/audit/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+      const res  = await fetch(`${API}/audit?page=1&pageSize=500`, {
+        headers: { Authorization: `Bearer ${auth.getToken()}` },
+      });
+      if (!res.ok) return;
       const data = await res.json();
-      setSummary(data);
+      const logs: any[] = Array.isArray(data) ? data : data.items ?? data.data ?? [];
+
+      const todayStr = new Date().toDateString();
+      setSummary({
+        total:   logs.length,
+        success: logs.filter((l: any) => l.status === 'Success').length,
+        failed:  logs.filter((l: any) => l.status === 'Failed').length,
+        today:   logs.filter((l: any) => {
+          const d = new Date(l.createdAt + (l.createdAt?.endsWith('Z') ? '' : 'Z'));
+          return d.toDateString() === todayStr;
+        }).length,
+      });
     } catch {}
   }, [hasAccess]);
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('nexum_exports');
-    if (saved) setExports(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('nexum_exports');
+      if (saved) setExports(JSON.parse(saved));
+    } catch {}
   }, []);
 
   const saveExports = (list: ExportRecord[]) => {
     setExports(list);
-    localStorage.setItem('nexum_exports', JSON.stringify(list));
+    try { localStorage.setItem('nexum_exports', JSON.stringify(list)); } catch {}
   };
 
   const handleGenerate = async () => {
@@ -177,28 +196,30 @@ export default function ExportReports() {
   };
 
   const handleTemplateDownload = async (template: typeof reportTemplates[0], fmt = 'PDF') => {
-    let res: Response;
-    if (fmt === 'PDF') {
-      const params = new URLSearchParams({ dateRange: 'last-30', type: template.type, tzOffset: (-new Date().getTimezoneOffset()).toString() });
-      res = await fetch(`${API}/audit/export/pdf?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
-    } else {
-      const params = new URLSearchParams({ format: 'csv', dateRange: 'last-30', type: template.type });
-      res = await fetch(`${API}/audit/export?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
-    }
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `${template.type}-report-last-30.${fmt.toLowerCase()}`;
-    a.click();
-    URL.revokeObjectURL(url);
-    const newExport: ExportRecord = {
-      name: `${template.name} — Last 30 Days`, format: fmt,
-      dateRange: 'last-30', type: template.type,
-      generatedAt: new Date().toISOString(), generatedBy: 'Admin',
-    };
-    saveExports([newExport, ...exports].slice(0, 20));
+    try {
+      let res: Response;
+      if (fmt === 'PDF') {
+        const params = new URLSearchParams({ dateRange: 'last-30', type: template.type, tzOffset: (-new Date().getTimezoneOffset()).toString() });
+        res = await fetch(`${API}/audit/export/pdf?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+      } else {
+        const params = new URLSearchParams({ format: 'csv', dateRange: 'last-30', type: template.type });
+        res = await fetch(`${API}/audit/export?${params}`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
+      }
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${template.type}-report-last-30.${fmt.toLowerCase()}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      const newExport: ExportRecord = {
+        name: `${template.name} — Last 30 Days`, format: fmt,
+        dateRange: 'last-30', type: template.type,
+        generatedAt: new Date().toISOString(), generatedBy: 'Admin',
+      };
+      saveExports([newExport, ...exports].slice(0, 20));
+    } catch {}
   };
 
   const formatDate = (iso: string) => {
@@ -236,7 +257,7 @@ export default function ExportReports() {
   };
 
   return (
-   <DashboardLayout title="Export Reports" activeMenu="export-reports">
+    <DashboardLayout title="Export Reports" activeMenu="export-reports">
       <div style={{ background: '#ffffff', overflow: 'hidden', fontFamily: "'DM Sans', -apple-system, sans-serif", height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
@@ -271,15 +292,43 @@ export default function ExportReports() {
           <p style={sectionLabel}>Generate new report</p>
           <div style={{ ...card, padding: 20, marginBottom: 24 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
-              <CustomSelect label="Report type" options={[{ value: 'activity', label: 'Activity logs' }, { value: 'transactions', label: 'Transaction trail' }]} value={reportType} onChange={setReportType} />
-              <CustomSelect label="Date range" options={[{ value: 'today', label: 'Today' }, { value: 'last-7', label: 'Last 7 days' }, { value: 'last-30', label: 'Last 30 days' }, { value: 'last-90', label: 'Last 90 days' }]} value={dateRange} onChange={setDateRange} />
-              <CustomSelect label="Format" options={[{ value: 'PDF', label: 'PDF report' }, { value: 'CSV', label: 'CSV spreadsheet' }]} value={format} onChange={setFormat} />
+              <CustomSelect
+                label="Report type"
+                options={[
+                  { value: 'activity',     label: 'Activity logs'      },
+                  { value: 'transactions', label: 'Transaction trail'  },
+                ]}
+                value={reportType}
+                onChange={setReportType}
+              />
+              <CustomSelect
+                label="Date range"
+                options={[
+                  { value: 'today',   label: 'Today'       },
+                  { value: 'last-7',  label: 'Last 7 days' },
+                  { value: 'last-30', label: 'Last 30 days'},
+                  { value: 'last-90', label: 'Last 90 days'},
+                ]}
+                value={dateRange}
+                onChange={setDateRange}
+              />
+              <CustomSelect
+                label="Format"
+                options={[
+                  { value: 'PDF', label: 'PDF report'      },
+                  { value: 'CSV', label: 'CSV spreadsheet' },
+                ]}
+                value={format}
+                onChange={setFormat}
+              />
               <div>
                 <div style={{ fontSize: 11, marginBottom: 6, visibility: 'hidden' }}>.</div>
-                <button onClick={handleGenerate} disabled={generating}
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 8, border: 'none', background: generating ? '#9ca3af' : '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 500, cursor: generating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'background 0.15s' }}>
                   <Download size={14} />
-                  {generating ? 'Generating…' : 'Generate & download'}
+                  {generating ? 'Generating...' : 'Generate & download'}
                 </button>
               </div>
             </div>
@@ -382,9 +431,9 @@ export default function ExportReports() {
               </>
             )}
           </div>
+
         </div>
       </div>
     </DashboardLayout>
   );
 }
-

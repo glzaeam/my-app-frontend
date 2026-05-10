@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermission } from '@/hooks/usePermission';
 import { Activity, AlertTriangle, Shield, Lock, TrendingUp, TrendingDown, Eye, FileText, Users } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { auth } from '@/lib/api';
@@ -40,6 +41,7 @@ export default function Dashboard() {
     new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
   );
   const { user, loading } = useAuth();
+  const { canView: canViewAudit } = usePermission('audit-logs');
   const itemsPerPage = 10;
 
   const [metrics, setMetrics] = useState([
@@ -159,18 +161,29 @@ export default function Dashboard() {
     try {
       const token = auth.getToken();
 
-      // ✅ Only call endpoints Branch Manager has access to
-      const [trend] = await Promise.allSettled([
+      // ✅ Only call endpoints if user has audit-logs permission
+      const [trend, summary] = await Promise.allSettled([
         apiFetch(`${API}/audit/dashboard/login-trend`, token),
+        canViewAudit ? apiFetch(`${API}/audit/summary`, token) : Promise.resolve(null),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
 
-      // Use placeholder values for metrics (no audit/summary access)
-      setSecurityMetrics([
-        { label: 'Live Alerts',         value: '—', icon: AlertTriangle, trend: 'down' as const },
-        { label: 'Failed Logins Today', value: '—', icon: Lock,          trend: 'down' as const },
-        { label: 'Suspicious Events',   value: '—', icon: Eye,           trend: 'down' as const },
-        { label: 'Devices Tracked',     value: '—', icon: Shield,        trend: 'up'   as const },
-      ]);
+      // Only set metrics if we got summary data
+      if (summary) {
+        setSecurityMetrics([
+          { label: 'Live Alerts',         value: String(summary.failed ?? 0), icon: AlertTriangle, trend: 'down' as const },
+          { label: 'Failed Logins Today', value: String(summary.failed ?? 0), icon: Lock,          trend: 'down' as const },
+          { label: 'Suspicious Events',   value: String(summary.today  ?? 0), icon: Eye,           trend: 'down' as const },
+          { label: 'Devices Tracked',     value: String(summary.total  ?? 0), icon: Shield,        trend: 'up'   as const },
+        ]);
+      } else {
+        // Fallback to placeholder values if no audit access
+        setSecurityMetrics([
+          { label: 'Live Alerts',         value: '—', icon: AlertTriangle, trend: 'down' as const },
+          { label: 'Failed Logins Today', value: '—', icon: Lock,          trend: 'down' as const },
+          { label: 'Suspicious Events',   value: '—', icon: Eye,           trend: 'down' as const },
+          { label: 'Devices Tracked',     value: '—', icon: Shield,        trend: 'up'   as const },
+        ]);
+      }
 
       if (Array.isArray(trend)) {
         setFailedLoginTrend(trend.map((t: any) => ({
@@ -183,7 +196,7 @@ export default function Dashboard() {
       // No suspicious activity table (requires audit access)
       setSuspiciousActivity([]);
     } catch (err) { console.error('Branch manager dashboard error:', err); }
-  }, []);
+  }, [canViewAudit]);
 
   const fetchAuditorDashboard = useCallback(async () => {
     try {
@@ -233,18 +246,12 @@ export default function Dashboard() {
   const fetchDashboard = useCallback(() => {
     if (!user || loading) return;
 
-    const slugs: string[] = (user.permissions ?? []).map((p: any) =>
-      typeof p === 'string' ? p : p.slug ?? ''
-    );
-
-    const hasAudit = user.role === 'System Admin' || slugs.includes('audit-logs');
-
     if      (user.role === 'System Admin')   fetchAdminDashboard();
     else if (user.role === 'Branch Manager') fetchBranchManagerDashboard();
-    else if (user.role === 'Auditor' && hasAudit) fetchAuditorDashboard();
+    else if (user.role === 'Auditor' && canViewAudit) fetchAuditorDashboard();
     else if (user.role === 'Auditor')        fetchTellerDashboard(); // fallback if no audit perm
     else                                     fetchTellerDashboard();
-  }, [user, loading, fetchAdminDashboard, fetchBranchManagerDashboard, fetchAuditorDashboard, fetchTellerDashboard]);
+  }, [user, loading, canViewAudit, fetchAdminDashboard, fetchBranchManagerDashboard, fetchAuditorDashboard, fetchTellerDashboard]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 

@@ -54,6 +54,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("CanViewFailedLogins",       policy => policy.AddRequirements(new PermissionRequirement("failed-logins")));
     options.AddPolicy("CanViewDeviceTracking",     policy => policy.AddRequirements(new PermissionRequirement("device-tracking")));
     options.AddPolicy("CanViewAuditLogs",          policy => policy.AddRequirements(new PermissionRequirement("audit-logs")));
+    options.AddPolicy("CanViewActivityLogs",      policy => policy.AddRequirements(new PermissionRequirement("activity-logs")));
     options.AddPolicy("CanViewSuspiciousActivity", policy => policy.AddRequirements(new PermissionRequirement("suspicious-activity")));
     options.AddPolicy("CanViewTransactionTrail",   policy => policy.AddRequirements(new PermissionRequirement("transaction-trail")));
     options.AddPolicy("CanViewSecurityMonitor",    policy => policy.AddRequirements(new PermissionRequirement("security-monitoring")));

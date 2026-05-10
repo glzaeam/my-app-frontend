@@ -26,7 +26,7 @@ namespace NexumAPI.Controllers
 
         // GET /api/audit — Matrix-driven permission check
         [HttpGet]
-        [Authorize(Policy = "CanViewAuditLogs")]
+        [Authorize(Policy = "CanViewActivityLogs")]
         public async Task<IActionResult> GetLogs(
             [FromQuery] int     page      = 1,
             [FromQuery] int     pageSize  = 10,

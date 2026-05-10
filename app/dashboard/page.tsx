@@ -158,24 +158,13 @@ export default function Dashboard() {
   const fetchBranchManagerDashboard = useCallback(async () => {
     try {
       const token = auth.getToken();
-      const canViewAudit = hasAccess('audit-logs');
 
-      // ✅ Only call audit/summary if user has audit-logs permission
-      const [trend, summary] = await Promise.allSettled([
+      const [trend, logsRaw] = await Promise.allSettled([
         apiFetch(`${API}/audit/dashboard/login-trend`, token),
-        canViewAudit
-          ? apiFetch(`${API}/audit/summary`, token)
+        hasAccess('activity-logs')
+          ? apiFetch(`${API}/audit?page=1&pageSize=50`, token)
           : Promise.resolve(null),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
-
-      if (summary) {
-        setSecurityMetrics([
-          { label: 'Live Alerts',         value: String(summary.failed ?? 0), icon: AlertTriangle, trend: 'down' as const },
-          { label: 'Failed Logins Today', value: String(summary.failed ?? 0), icon: Lock,          trend: 'down' as const },
-          { label: 'Suspicious Events',   value: String(summary.today  ?? 0), icon: Eye,           trend: 'down' as const },
-          { label: 'Total Events',        value: String(summary.total  ?? 0), icon: Shield,        trend: 'up'   as const },
-        ]);
-      }
 
       if (Array.isArray(trend)) {
         setFailedLoginTrend(trend.map((t: any) => ({
@@ -183,11 +172,19 @@ export default function Dashboard() {
           success: t.success ?? t.Success ?? 0,
           failed:  t.failed  ?? t.Failed  ?? 0,
         })));
+
+        // Build metrics from trend data since no audit/summary access
+        const totalFailed  = trend.reduce((sum: number, t: any) => sum + (t.failed  ?? t.Failed  ?? 0), 0);
+        const totalSuccess = trend.reduce((sum: number, t: any) => sum + (t.success ?? t.Success ?? 0), 0);
+        setSecurityMetrics([
+          { label: 'Failed Logins (7d)',  value: String(totalFailed),  icon: AlertTriangle, trend: 'down' as const },
+          { label: 'Success Logins (7d)', value: String(totalSuccess), icon: Shield,        trend: 'up'   as const },
+          { label: 'Suspicious Events',   value: '—',                  icon: Eye,           trend: 'down' as const },
+          { label: 'Total Activity',      value: String(totalFailed + totalSuccess), icon: Activity, trend: 'up' as const },
+        ]);
       }
 
-      // Only fetch suspicious activity if permitted
-      if (canViewAudit) {
-        const logsRaw = await apiFetch(`${API}/audit?page=1&pageSize=50`, token);
+      if (logsRaw) {
         const allLogs = extractItems(logsRaw);
         setSuspiciousActivity(
           allLogs

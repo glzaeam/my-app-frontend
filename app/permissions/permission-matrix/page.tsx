@@ -257,10 +257,10 @@ export default function PermissionMatrix() {
 
                           <div className="toggle-group">
                             {([
-                              { key: 'canView',   label: 'View',    icon: Eye     },
-                              { key: 'canEdit',   label: 'Edit',    icon: Pencil  },
-                              { key: 'canDelete', label: 'Archive', icon: Archive },
-                            ] as const).map(({ key, label, icon: Icon }) => {
+                              { key: 'canView',   label: 'View',    icon: Eye,     bgColor: '#6366f122', textColor: '#6366f1' },
+                              { key: 'canEdit',   label: 'Edit',    icon: Pencil,  bgColor: '#2db9a322', textColor: '#2db9a3' },
+                              { key: 'canDelete', label: 'Archive', icon: Archive, bgColor: '#ef444422', textColor: '#ef4444' },
+                            ] as const).map(({ key, label, icon: Icon, bgColor, textColor }) => {
                               const on = p[key];
                               return (
                                 <button
@@ -273,12 +273,12 @@ export default function PermissionMatrix() {
                                     padding:     '6px 12px',
                                     borderRadius: '8px',
                                     border:      on ? 'none' : '1.5px solid #e2e8f0',
-                                    background:  on ? accent : '#fff',
+                                    background:  on ? bgColor : '#fff',
                                     fontSize:    '12px',
                                     fontWeight:  600,
                                     cursor:      'pointer',
                                     fontFamily:  "'Open Sans', sans-serif",
-                                    color:       on ? '#fff' : '#94a3b8',
+                                    color:       on ? textColor : '#94a3b8',
                                     transition:  'all 0.15s',
                                   }}
                                 >

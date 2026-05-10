@@ -8,5 +8,6 @@ appsettings.Development.json
 appsettings.Local.json
 *.pfx
 *.key
-Properties/launchSettings.jsonpublish/ 
-Properties/launchSettings.json 
+Properties/launchSettings.json
+publish/
+

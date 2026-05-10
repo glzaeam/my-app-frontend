@@ -57,7 +57,8 @@ builder.Services.AddCors(options =>
             "https://localhost:3001",
             "https://my-app-frontend-lake.vercel.app",
             "https://my-app-frontend-git-main-glzaeams-projects.vercel.app",
-            "https://my-app-frontend-jw76x3gvs-glzaeams-projects.vercel.app"
+            "https://my-app-frontend-jw76x3gvs-glzaeams-projects.vercel.app",
+            "https://nexumiam.vercel.app"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()

@@ -1,0 +1,12 @@
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\TestApi.exe
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\appsettings.Development.json
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\appsettings.json
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\TestApi.dll
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\TestApi.deps.json
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\TestApi.runtimeconfig.json
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\TestApi.pdb
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\Microsoft.AspNetCore.OpenApi.dll
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\Microsoft.OpenApi.dll
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\Honey Mae Incio\Desktop\glaiza_school_files\3RDYR_2NDSEM\IT15\FinalProject\nexum\publish\Swashbuckle.AspNetCore.SwaggerUI.dll

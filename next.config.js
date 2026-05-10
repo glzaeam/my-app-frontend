@@ -4,7 +4,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:5026/api/:path*',
+        destination: 'https://nexum.runasp.net/api/:path*',
       },
     ];
   },

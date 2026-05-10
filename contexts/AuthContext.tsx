@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, fetchPermissions } from '@/lib/api';  // ✅ import fetchPermissions
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5026/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://nexum.runasp.net/api';
 
 export type UserRole = 'System Admin' | 'Branch Manager' | 'Auditor' | 'Bank Teller';
 

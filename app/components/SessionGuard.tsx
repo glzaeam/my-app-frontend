@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth } from '@/lib/api';
 
-const API_BASE = 'http://localhost:5026/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://nexum.runasp.net/api';
 
 // Pages that should NOT trigger session enforcement
 const PUBLIC_PATHS = ['/', '/2fa', '/register', '/forgot-password', '/reset-password', '/unlock-account'];

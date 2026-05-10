@@ -6,7 +6,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { checkPwnedPassword } from '@/lib/passwordValidator';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5204';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://nexum.runasp.net/api';
 
 const glassInput = {
   background: 'rgba(255,255,255,0.06)',

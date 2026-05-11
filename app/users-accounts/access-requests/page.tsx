@@ -3,7 +3,7 @@ import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, XCircle, Clock, X, Filter, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, X, Filter, ChevronDown, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -189,12 +189,12 @@ export default function AccessRequestsPage() {
         .ar-scroll::-webkit-scrollbar{width:6px;}
         .ar-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
         .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:22px;}
-        .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;}
+        .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
         .metric-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
-        .metric-icon-wrapper{display:flex;justify-content:flex-end;margin-bottom:12px;}
-        .metric-icon{width:40px;height:40px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--color);}
-        .metric-val{font-size:28px;font-weight:700;color:var(--color);line-height:1;text-align:right;margin-bottom:4px;}
-        .metric-label{font-size:12px;color:var(--color);margin-top:0;text-transform:capitalize;}
+        .metric-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+        .metric-icon{width:42px;height:42px;border-radius:10px;background:rgba(45,185,163,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .metric-val{font-size:30px;font-weight:700;color:#1a2332;line-height:1;text-align:right;margin-bottom:4px;}
+        .metric-label{font-size:12.5px;color:#94a3b8;margin-top:0;text-transform:capitalize;font-weight:500;}
         .ar-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.04);}
         table{width:100%;border-collapse:collapse;font-family:'DM Sans',sans-serif;table-layout:fixed;}
         thead tr{background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
@@ -233,21 +233,22 @@ export default function AccessRequestsPage() {
 
             <div className="metrics-grid">
               {[
-                { label:'Total',    value:counts.total,    color:'#2db9a3', bg:'rgba(45,185,163,0.1)' },
-                { label:'Pending',  value:counts.pending,  color:'#e5a623', bg:'rgba(229,166,35,0.1)' },
-                { label:'Approved', value:counts.approved, color:'#2db9a3', bg:'rgba(45,185,163,0.1)' },
-                { label:'Rejected', value:counts.rejected, color:'#e55353', bg:'rgba(229,83,83,0.1)' },
+                { label:'Total',    value:counts.total,    color:'#2db9a3' },
+                { label:'Pending',  value:counts.pending,  color:'#e5a623' },
+                { label:'Approved', value:counts.approved, color:'#2db9a3' },
+                { label:'Rejected', value:counts.rejected, color:'#e55353' },
               ].map(s => (
-                <div key={s.label} className="metric-card" style={{ '--color': s.color, '--bg': s.bg } as React.CSSProperties}>
-                  <div className="metric-icon-wrapper">
-                    <div className="metric-icon" style={{ background: s.bg, color: s.color }}>
+                <div key={s.label} className="metric-card">
+                  <div className="metric-card-top">
+                    <div className="metric-icon" style={{ background: `${s.color}15`, color: s.color }}>
                       <span style={{ fontSize:16,fontWeight:700 }}>{s.value}</span>
                     </div>
+                    <span style={{ fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 20, color: '#059669', background: '#ecfdf5', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <TrendingUp size={13} />
+                    </span>
                   </div>
-                  <div>
-                    <div className="metric-label">{s.label}</div>
-                    <div className="metric-val">{s.value}</div>
-                  </div>
+                  <div className="metric-val" style={{ color:s.color }}>{s.value}</div>
+                  <div className="metric-label" style={{ color:s.color }}>{s.label}</div>
                 </div>
               ))}
             </div>

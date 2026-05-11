@@ -7,7 +7,7 @@ import {
   Search, Filter, UserPlus, Users, Pencil,
   KeyRound, ChevronLeft,
   ChevronRight, X, AlertTriangle, ChevronDown,
-  Eye, EyeOff, CheckCircle, XCircle,
+  Eye, EyeOff, CheckCircle, XCircle, TrendingUp,
 } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 
@@ -749,13 +749,13 @@ export default function UserAccounts() {
         .ua-add-btn{display:flex;align-items:center;gap:7px;padding:9px 18px;background:#2db9a3;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background 0.18s;}
         .ua-add-btn:hover{background:#24a08d;}
         .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px;}
-        .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;}
+        .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
         .metric-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
-        .metric-icon-wrapper{display:flex;justify-content:flex-end;margin-bottom:12px;}
-        .metric-icon{width:40px;height:40px;border-radius:10px;background:rgba(45,185,163,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .metric-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+        .metric-icon{width:42px;height:42px;border-radius:10px;background:rgba(45,185,163,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
         .metric-icon.red{background:rgba(229,83,83,0.1);}
-        .metric-val{font-size:28px;font-weight:700;color:#1a2332;line-height:1;text-align:right;margin-bottom:4px;}
-        .metric-label{font-size:12px;color:#94a3b8;margin-top:0;text-transform:capitalize;}
+        .metric-val{font-size:30px;font-weight:700;color:#1a2332;line-height:1;text-align:right;margin-bottom:4px;}
+        .metric-label{font-size:12.5px;color:#94a3b8;margin-top:0;text-transform:capitalize;font-weight:500;}
         .ua-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
         .ua-search-wrap{position:relative;flex:1;min-width:180px;max-width:280px;}
         .ua-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#b0bece;pointer-events:none;}
@@ -811,13 +811,14 @@ export default function UserAccounts() {
                 { label:'MFA Enabled', value: users.filter(u => u.mfaEnabled).length,                       red:false },
               ].map(s => (
                 <div key={s.label} className="metric-card">
-                  <div className="metric-icon-wrapper">
-                    <div className={`metric-icon${s.red?' red':''}`}><Users size={20} color={s.red?'#e55353':'#2db9a3'}/></div>
+                  <div className="metric-card-top">
+                    <div className={`metric-icon${s.red?' red':''}`}><Users size={22} color={s.red?'#e55353':'#2db9a3'}/></div>
+                    <span style={{ fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 20, color: '#059669', background: '#ecfdf5', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <TrendingUp size={13} />
+                    </span>
                   </div>
-                  <div>
-                    <div className="metric-label">{s.label}</div>
-                    <div className="metric-val">{s.value}</div>
-                  </div>
+                  <div className="metric-val">{s.value}</div>
+                  <div className="metric-label">{s.label}</div>
                 </div>
               ))}
             </div>

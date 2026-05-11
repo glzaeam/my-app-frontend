@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   CheckCircle, XCircle, Lock, Search, Activity,
   ChevronLeft, ChevronRight, Filter, ChevronDown,
-  Shield, AlertTriangle,
+  Shield, AlertTriangle, TrendingUp,
 } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -185,17 +185,15 @@ export default function LoginAttempts() {
         .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .la-scroll::-webkit-scrollbar{width:6px;}
         .la-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px;}
-        .stat-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;cursor:default;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
-        .stat-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
-        .stat-card.clickable{cursor:pointer;}
-        .stat-top{display:flex;flex-direction:column;gap:0;}
-        .stat-icon-wrapper{display:flex;justify-content:flex-end;margin-bottom:16px;}
-        .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
-        .stat-content{display:flex;flex-direction:column;gap:0;}
-        .stat-label{font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;text-align:left;}
-        .stat-value{font-size:28px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;text-align:right;line-height:1.2;}
-        .stat-toggle{font-size:11px;color:#dc2626;font-weight:600;margin-top:6px;text-align:right;}
+        .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px;}
+        .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);cursor:default;}
+        .metric-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
+        .metric-card.clickable{cursor:pointer;}
+        .metric-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+        .metric-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+        .metric-label{font-size:12.5px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;}
+        .metric-value{font-size:30px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;line-height:1.2;}
+        .metric-toggle{font-size:11px;color:#2db9a3;font-weight:600;margin-top:4px;}
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
         .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;}
@@ -243,18 +241,19 @@ export default function LoginAttempts() {
               onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
               title={i === 4 ? 'Click to view blocked IPs' : undefined}>
               <div className="metric-card-top">
-                <div className="metric-icon-wrapper">
-                  <div className="metric-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
-                </div>
-                <div className="metric-content">
-                  <div className="metric-label">{s.label}</div>
-                  <div className="metric-value">{s.value}</div>
-                  {i === 4 && s.value > 0 && (
-                    <div className="metric-toggle">
-                      {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
-                    </div>
-                  )}
-                </div>
+                <div className="metric-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
+                <span style={{ fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 20, color: '#059669', background: '#ecfdf5', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <TrendingUp size={13} />
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div className="metric-label">{s.label}</div>
+                <div className="metric-value">{s.value}</div>
+                {i === 4 && s.value > 0 && (
+                  <div className="metric-toggle">
+                    {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
+                  </div>
+                )}
               </div>
             </div>
           ))}

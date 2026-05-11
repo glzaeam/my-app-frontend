@@ -185,14 +185,14 @@ export default function LoginAttempts() {
         .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .la-scroll::-webkit-scrollbar{width:6px;}
         .la-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;}
-        .stat-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;padding:16px 18px;cursor:default;transition:box-shadow 0.15s;}
-        .stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px;}
+        .stat-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;cursor:default;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+        .stat-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
         .stat-card.clickable{cursor:pointer;}
-        .stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
-        .stat-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
-        .stat-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;}
-        .stat-value{font-size:26px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;}
+        .stat-top{display:flex;flex-direction:column;justify-content:space-between;height:100%;}
+        .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;align-self:flex-end;margin-bottom:12px;}
+        .stat-label{font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;}
+        .stat-value{font-size:28px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;text-align:right;}
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
         .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;}
@@ -240,17 +240,17 @@ export default function LoginAttempts() {
               onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
               title={i === 4 ? 'Click to view blocked IPs' : undefined}>
               <div className="stat-top">
+                <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
                 <div>
                   <div className="stat-label">{s.label}</div>
                   <div className="stat-value">{s.value}</div>
+                  {i === 4 && s.value > 0 && (
+                    <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 4 }}>
+                      {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
+                    </div>
+                  )}
                 </div>
-                <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
               </div>
-              {i === 4 && s.value > 0 && (
-                <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 2 }}>
-                  {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
-                </div>
-              )}
             </div>
           ))}
         </div>

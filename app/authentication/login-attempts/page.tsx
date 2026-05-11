@@ -189,10 +189,13 @@ export default function LoginAttempts() {
         .stat-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;cursor:default;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
         .stat-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
         .stat-card.clickable{cursor:pointer;}
-        .stat-top{display:flex;flex-direction:column;justify-content:space-between;height:100%;}
-        .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;align-self:flex-end;margin-bottom:12px;}
-        .stat-label{font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;}
-        .stat-value{font-size:28px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;text-align:right;}
+        .stat-top{display:flex;flex-direction:column;gap:0;}
+        .stat-icon-wrapper{display:flex;justify-content:flex-end;margin-bottom:16px;}
+        .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+        .stat-content{display:flex;flex-direction:column;gap:0;}
+        .stat-label{font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;text-align:left;}
+        .stat-value{font-size:28px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;text-align:right;line-height:1.2;}
+        .stat-toggle{font-size:11px;color:#dc2626;font-weight:600;margin-top:6px;text-align:right;}
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
         .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;}
@@ -240,12 +243,14 @@ export default function LoginAttempts() {
               onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
               title={i === 4 ? 'Click to view blocked IPs' : undefined}>
               <div className="stat-top">
-                <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
-                <div>
+                <div className="stat-icon-wrapper">
+                  <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
+                </div>
+                <div className="stat-content">
                   <div className="stat-label">{s.label}</div>
                   <div className="stat-value">{s.value}</div>
                   {i === 4 && s.value > 0 && (
-                    <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 4 }}>
+                    <div className="stat-toggle">
                       {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
                     </div>
                   )}

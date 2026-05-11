@@ -237,20 +237,20 @@ export default function LoginAttempts() {
           </div>
         </div>
 
-        <div className="stats-grid">
+        <div className="metrics-grid">
           {stats.map((s, i) => (
-            <div key={i} className={`stat-card${i === 4 ? ' clickable' : ''}`}
+            <div key={i} className={`metric-card${i === 4 ? ' clickable' : ''}`}
               onClick={i === 4 ? () => setShowBlockedIps(v => !v) : undefined}
               title={i === 4 ? 'Click to view blocked IPs' : undefined}>
-              <div className="stat-top">
-                <div className="stat-icon-wrapper">
-                  <div className="stat-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
+              <div className="metric-card-top">
+                <div className="metric-icon-wrapper">
+                  <div className="metric-icon" style={{ background: s.iconBg, color: s.accent }}>{s.icon}</div>
                 </div>
-                <div className="stat-content">
-                  <div className="stat-label">{s.label}</div>
-                  <div className="stat-value">{s.value}</div>
+                <div className="metric-content">
+                  <div className="metric-label">{s.label}</div>
+                  <div className="metric-value">{s.value}</div>
                   {i === 4 && s.value > 0 && (
-                    <div className="stat-toggle">
+                    <div className="metric-toggle">
                       {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}
                     </div>
                   )}

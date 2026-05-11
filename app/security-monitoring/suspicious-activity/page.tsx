@@ -195,12 +195,14 @@ export default function SuspiciousActivity() {
         .sa-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .sa-scroll::-webkit-scrollbar{width:6px;}
         .sa-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:22px;}
-        .stat-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
-        .stat-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
-        .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--accent);flex-shrink:0;align-self:flex-end;margin-bottom:12px;}
-        .stat-val{font-size:28px;font-weight:600;color:var(--accent);letter-spacing:-0.03em;line-height:1;text-align:right;margin-bottom:4px;}
-        .stat-label{font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-top:0;}
+        .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:22px;}
+        .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+        .metric-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
+        .metric-card-top{display:flex;flex-direction:column;gap:0;}
+        .metric-icon-wrapper{display:flex;justify-content:flex-end;margin-bottom:12px;}
+        .metric-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--accent);flex-shrink:0;}
+        .metric-value{font-size:28px;font-weight:600;color:var(--accent);letter-spacing:-0.03em;line-height:1;text-align:right;margin-bottom:4px;}
+        .metric-label{font-size:12px;font-weight:500;color:#94a3b8;text-transform:capitalize;margin-top:0;}
         .controls-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
         .filter-select{padding:8px 14px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;color:#64748b;font-family:'Open Sans',sans-serif;cursor:pointer;outline:none;}
         .filter-select:focus{border-color:#2db9a3;}
@@ -237,11 +239,18 @@ export default function SuspiciousActivity() {
               <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Suspicious Activity</h1>
             </div>
 
-            <div className="stats-grid">
+            <div className="metrics-grid">
               {statCards.map(sc => (
-                <div key={sc.label} className="stat-card" style={{ '--accent': sc.accent, '--icon-bg': sc.iconBg } as React.CSSProperties}>
-                  <div className="stat-icon"><AlertTriangle size={20} /></div>
-                  <div><div className="stat-label">{sc.label}</div><div className="stat-val">{sc.value}</div></div>
+                <div key={sc.label} className="metric-card" style={{ '--accent': sc.accent, '--icon-bg': sc.iconBg } as React.CSSProperties}>
+                  <div className="metric-card-top">
+                    <div className="metric-icon-wrapper">
+                      <div className="metric-icon"><AlertTriangle size={20} /></div>
+                    </div>
+                    <div>
+                      <div className="metric-label">{sc.label}</div>
+                      <div className="metric-value">{sc.value}</div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

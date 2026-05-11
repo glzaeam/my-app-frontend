@@ -188,12 +188,13 @@ export default function AccessRequestsPage() {
         .ar-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .ar-scroll::-webkit-scrollbar{width:6px;}
         .ar-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-        .ar-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:22px;}
-        .ar-stat{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;}
-        .ar-stat:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
-        .ar-stat-icon{width:40px;height:40px;border-radius:10px;background:rgba(45,185,163,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end;margin-bottom:12px;}
-        .ar-stat-val{font-size:28px;font-weight:700;color:#1a2332;line-height:1;text-align:right;margin-bottom:4px;}
-        .ar-stat-label{font-size:12px;color:#94a3b8;margin-top:0;text-transform:uppercase;letter-spacing:0.07em;}
+        .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:22px;}
+        .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;}
+        .metric-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
+        .metric-icon-wrapper{display:flex;justify-content:flex-end;margin-bottom:12px;}
+        .metric-icon{width:40px;height:40px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--color);}
+        .metric-val{font-size:28px;font-weight:700;color:var(--color);line-height:1;text-align:right;margin-bottom:4px;}
+        .metric-label{font-size:12px;color:var(--color);margin-top:0;text-transform:capitalize;}
         .ar-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.04);}
         table{width:100%;border-collapse:collapse;font-family:'DM Sans',sans-serif;table-layout:fixed;}
         thead tr{background:#f8fafc;border-bottom:1.5px solid #f1f5f9;}
@@ -230,18 +231,23 @@ export default function AccessRequestsPage() {
               </div>
             </div>
 
-            <div className="ar-stats">
+            <div className="metrics-grid">
               {[
-                { label:'Total',    value:counts.total,    color:'#2db9a3' },
-                { label:'Pending',  value:counts.pending,  color:'#e5a623' },
-                { label:'Approved', value:counts.approved, color:'#2db9a3' },
-                { label:'Rejected', value:counts.rejected, color:'#e55353' },
+                { label:'Total',    value:counts.total,    color:'#2db9a3', bg:'rgba(45,185,163,0.1)' },
+                { label:'Pending',  value:counts.pending,  color:'#e5a623', bg:'rgba(229,166,35,0.1)' },
+                { label:'Approved', value:counts.approved, color:'#2db9a3', bg:'rgba(45,185,163,0.1)' },
+                { label:'Rejected', value:counts.rejected, color:'#e55353', bg:'rgba(229,83,83,0.1)' },
               ].map(s => (
-                <div key={s.label} className="ar-stat">
-                  <div className="ar-stat-icon" style={{ background: `${s.color}15`, color: s.color }}>
-                    <span style={{ fontSize:16,fontWeight:700 }}>{s.value}</span>
+                <div key={s.label} className="metric-card" style={{ '--color': s.color, '--bg': s.bg } as React.CSSProperties}>
+                  <div className="metric-icon-wrapper">
+                    <div className="metric-icon" style={{ background: s.bg, color: s.color }}>
+                      <span style={{ fontSize:16,fontWeight:700 }}>{s.value}</span>
+                    </div>
                   </div>
-                  <div><div className="ar-stat-label" style={{ color:s.color }}>{s.label}</div><div className="ar-stat-val" style={{ color:s.color }}>{s.value}</div></div>
+                  <div>
+                    <div className="metric-label">{s.label}</div>
+                    <div className="metric-val">{s.value}</div>
+                  </div>
                 </div>
               ))}
             </div>

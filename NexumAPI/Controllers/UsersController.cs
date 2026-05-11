@@ -42,18 +42,19 @@ namespace NexumAPI.Controllers
                 .Skip(PaginationHelper.CalculateSkip(page, pageSize))
                 .Take(pageSize)
                .Select(u => new {
-    u.Id,
-    u.EmployeeId,
-    u.Name,
-    u.Email,
-    u.Department,
-    u.Status,
-    u.MfaEnabled,
-    u.CreatedAt,
-    u.LastLogin,
-    u.ProfileImageUrl,
-    Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
-})
+                    u.Id,
+                    u.EmployeeId,
+                    u.Name,
+                    u.Email,
+                    u.Department,
+                    u.Status,
+                    u.MfaEnabled,
+                    u.CreatedAt,
+                    u.LastLogin,
+                    u.ProfileImageUrl,
+                    u.Phone,
+                    Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
+                })
                 .ToListAsync();
 
             return Ok(new PaginatedResponse<dynamic>(
@@ -80,7 +81,6 @@ namespace NexumAPI.Controllers
                 c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" &&
                 (c.Value == "System Admin" || c.Value == "Branch Manager"));
 
-            // Non-admin/manager can only fetch their own profile
             if (!isAdminOrManager && callerId != id)
                 return Forbid();
 
@@ -103,6 +103,7 @@ namespace NexumAPI.Controllers
                 user.ProfileImageUrl,
                 user.FirstName,
                 user.LastName,
+                user.Phone,                          // ✅ ADDED
                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
             });
         }
@@ -197,7 +198,6 @@ namespace NexumAPI.Controllers
                 c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" &&
                 c.Value == "System Admin");
 
-            // Non-admins can only edit their own profile
             if (!isAdmin && callerId != id)
                 return Forbid();
 
@@ -224,7 +224,9 @@ namespace NexumAPI.Controllers
 
             if (!string.IsNullOrEmpty(dto.Department)) user.Department = dto.Department;
 
-            // Only System Admin can change status and role
+            // ✅ Save phone number
+            if (dto.Phone != null) user.Phone = dto.Phone;
+
             if (isAdmin)
             {
                 if (!string.IsNullOrEmpty(dto.Status)) user.Status = dto.Status;
@@ -463,6 +465,7 @@ namespace NexumAPI.Controllers
         public string? Branch     { get; set; }
         public string? Role       { get; set; }
         public string? Status     { get; set; }
+        public string? Phone      { get; set; }   // ✅ ADDED
     }
 
     public class DeactivateUserRequest

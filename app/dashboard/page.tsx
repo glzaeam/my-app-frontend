@@ -325,7 +325,7 @@ export default function Dashboard() {
     .metric-trend { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 20px; }
     .metric-trend.up   { color: #059669; background: #ecfdf5; }
     .metric-trend.down { color: #dc2626; background: #fef2f2; }
-    .metric-value { font-size: 30px; font-weight: 600; color: #0f172a; letter-spacing: -0.03em; margin-bottom: 4px; }
+    .metric-value { font-size: 30px; font-weight: 600; color: #0f172a; letter-spacing: -0.03em; margin-bottom: 4px; text-align: right; }
     .metric-label { font-size: 12.5px; color: #94a3b8; font-weight: 500; }
     .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 24px; }
     .chart-card { background: #fff; border: 1px solid #e8ecf2; border-radius: 14px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); min-width: 0; }
@@ -378,14 +378,14 @@ export default function Dashboard() {
       .al-table thead th { padding: 10px 12px; font-size: 10px; }
       .chart-card { padding: 18px; }
       .metric-card { padding: 16px; }
-      .metric-value { font-size: 24px; }
+      .metric-value { font-size: 24px; text-align: right; }
     }
     @media (max-width: 480px) {
       .main-scroll { padding: 14px 12px; }
       .greeting-row h1 { font-size: 18px; }
       .metrics-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
       .metric-card { padding: 14px; }
-      .metric-value { font-size: 22px; }
+      .metric-value { font-size: 22px; text-align: right; }
       .metric-label { font-size: 11px; }
       .chart-card-title { font-size: 14px; }
       .pagination-bar { padding: 12px 16px; justify-content: center; }

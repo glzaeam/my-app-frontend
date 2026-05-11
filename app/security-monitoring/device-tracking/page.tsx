@@ -261,11 +261,12 @@ export default function DeviceTracking() {
         .dt-scroll::-webkit-scrollbar{width:6px;}
         .dt-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
         .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;}
-        .stat-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;padding:18px 20px;}
-        .stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
-        .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--accent);}
-        .stat-label{font-size:11.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;}
-        .stat-value{font-size:28px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;}
+        .stat-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+        .stat-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
+        .stat-top{display:flex;flex-direction:column;justify-content:space-between;height:100%;}
+        .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--accent);align-self:flex-end;margin-bottom:12px;}
+        .stat-label{font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;}
+        .stat-value{font-size:28px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;text-align:right;}
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:340px;}
         .search-input{width:100%;padding:8px 14px 8px 38px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:'Open Sans',sans-serif;outline:none;}
@@ -316,8 +317,8 @@ export default function DeviceTracking() {
           {stats.map((s, i) => (
             <div key={i} className="stat-card" style={{ '--accent': s.accent, '--icon-bg': s.iconBg } as React.CSSProperties}>
               <div className="stat-top">
-                <div><div className="stat-label">{s.label}</div><div className="stat-value">{s.value}</div></div>
                 <div className="stat-icon">{s.icon}</div>
+                <div><div className="stat-label">{s.label}</div><div className="stat-value">{s.value}</div></div>
               </div>
             </div>
           ))}

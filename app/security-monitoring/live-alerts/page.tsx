@@ -196,10 +196,13 @@ export default function LiveAlerts() {
         .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .la-scroll::-webkit-scrollbar{width:6px;}
         .la-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-        .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px;}
-        .stat-box{background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:16px 18px;}
-        .stat-val{font-size:26px;font-weight:600;letter-spacing:-0.03em;color:var(--accent);}
-        .stat-lbl{font-size:11.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-top:2px;}
+        .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:22px;}
+        .stat-box{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+        .stat-box:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
+        .stat-box-top{display:flex;align-items:flex-start;justify-content:flex-end;margin-bottom:12px;}
+        .stat-icon{width:40px;height:40px;border-radius:10px;background:rgba(45,185,163,0.1);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;}
+        .stat-val{font-size:28px;font-weight:600;letter-spacing:-0.03em;color:#0f172a;text-align:right;margin-bottom:4px;}
+        .stat-lbl{font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;text-align:left;}
         .section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
         .live-badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#059669;background:#dcfce7;padding:5px 12px;border-radius:20px;}
         .live-dot{width:6px;height:6px;background:#10b981;border-radius:50%;animation:blink 2s ease-in-out infinite;}
@@ -245,16 +248,26 @@ export default function LiveAlerts() {
 
             <div className="stats-row">
               {[
-                { label: 'Total Alerts',    value: alerts.length, accent: '#6366f1' },
-                { label: 'Active',          value: active.length, accent: '#ef4444' },
-                { label: 'Critical',        value: critical,      accent: '#dc2626' },
-                { label: 'Resolved',        value: alerts.filter(a => a.status === 'resolved').length, accent: '#2db9a3' },
-              ].map((s, i) => (
-                <div key={i} className="stat-box" style={{ '--accent': s.accent } as React.CSSProperties}>
-                  <div className="stat-val">{s.value}</div>
-                  <div className="stat-lbl">{s.label}</div>
-                </div>
-              ))}
+                { label: 'Total Alerts',    value: alerts.length, accent: '#6366f1', icon: AlertTriangle },
+                { label: 'Active',          value: active.length, accent: '#ef4444', icon: Eye },
+                { label: 'Critical',        value: critical,      accent: '#dc2626', icon: AlertTriangle },
+                { label: 'Resolved',        value: alerts.filter(a => a.status === 'resolved').length, accent: '#2db9a3', icon: CheckCircle },
+              ].map((s, i) => {
+                const Icon = s.icon;
+                return (
+                  <div key={i} className="stat-box" style={{ '--accent': s.accent } as React.CSSProperties}>
+                    <div className="stat-box-top">
+                      <div className="stat-icon" style={{ background: `${s.accent}15`, color: s.accent }}>
+                        <Icon size={20} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="stat-val">{s.value}</div>
+                      <div className="stat-lbl">{s.label}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="section-title">

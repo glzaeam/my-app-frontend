@@ -51,7 +51,6 @@ export default function AddUserPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [pwErrors, setPwErrors] = useState<string[]>([]);
-  const [validating, setValidating] = useState(false);
   const [roles, setRoles] = useState<ApiRole[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
 
@@ -60,6 +59,7 @@ export default function AddUserPage() {
     lastName: '',
     employeeId: '',
     email: '',
+    phone: '',           // ✅ ADDED
     department: '',
     branch: '',
     role: '',
@@ -67,7 +67,6 @@ export default function AddUserPage() {
     confirmPassword: '',
   });
 
-  // Fetch roles
   useEffect(() => {
     setRolesLoading(true);
     fetch(`${API}/roles`, { headers: { Authorization: `Bearer ${auth.getToken()}` } })
@@ -80,27 +79,19 @@ export default function AddUserPage() {
       .finally(() => setRolesLoading(false));
   }, []);
 
-  // Fetch password policy
   useEffect(() => {
     fetch(`${API}/password-policy`, { headers: { Authorization: `Bearer ${auth.getToken()}` } })
       .then(r => r.json())
       .then(d => {
-        const p: Policy = {
+        setPolicy({
           minLength: Math.max(12, d.minLength ?? d.MinLength ?? 12),
           requireUppercase: d.requireUppercase ?? d.RequireUppercase ?? true,
           requireLowercase: d.requireLowercase ?? d.RequireLowercase ?? true,
           requireNumbers: d.requireNumbers ?? d.RequireNumbers ?? true,
           requireSpecial: d.requireSpecial ?? d.RequireSpecial ?? true,
-        };
-        setPolicy(p);
+        });
       })
-      .catch(() => setPolicy({
-        minLength: 12,
-        requireUppercase: true,
-        requireLowercase: true,
-        requireNumbers: true,
-        requireSpecial: true,
-      }));
+      .catch(() => setPolicy({ minLength: 12, requireUppercase: true, requireLowercase: true, requireNumbers: true, requireSpecial: true }));
   }, []);
 
   const validatePassword = (pw: string, p: Policy | null) => {
@@ -119,6 +110,10 @@ export default function AddUserPage() {
     const { name, value } = e.target;
     if (name === 'firstName' || name === 'lastName') {
       setFormData(prev => ({ ...prev, [name]: autoCapitalize(value) }));
+    } else if (name === 'phone') {
+      // Only digits, max 10
+      const digits = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, phone: digits }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
       if (name === 'password') validatePassword(value, policy);
@@ -129,28 +124,14 @@ export default function AddUserPage() {
     e.preventDefault();
     setError(null);
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError('First and last names are required.');
-      return;
-    }
-    if (!formData.employeeId.trim() || !formData.email.trim()) {
-      setError('Employee ID and email are required.');
-      return;
-    }
-    if (!formData.department || !formData.branch || !formData.role) {
-      setError('Department, branch, and role are required.');
-      return;
-    }
-    if (pwErrors.length > 0) {
-      setError('Password does not meet requirements.');
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
+    if (!formData.firstName.trim() || !formData.lastName.trim()) return setError('First and last names are required.');
+    if (!formData.employeeId.trim() || !formData.email.trim()) return setError('Employee ID and email are required.');
+    if (!formData.department || !formData.branch || !formData.role) return setError('Department, branch, and role are required.');
+    if (pwErrors.length > 0) return setError('Password does not meet requirements.');
+    if (formData.password !== formData.confirmPassword) return setError('Passwords do not match.');
 
     const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
+    const phone    = formData.phone ? `+63${formData.phone}` : undefined;  // ✅ format as +63
 
     setLoading(true);
     try {
@@ -158,13 +139,14 @@ export default function AddUserPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
         body: JSON.stringify({
-          name: fullName,
+          name:       fullName,
           employeeId: formData.employeeId,
-          email: formData.email,
-          password: formData.password,
+          email:      formData.email,
+          phone,                           // ✅ ADDED
+          password:   formData.password,
           department: formData.department,
-          branch: formData.branch,
-          role: formData.role,
+          branch:     formData.branch,
+          role:       formData.role,
         }),
       });
       const data = await res.json();
@@ -172,10 +154,7 @@ export default function AddUserPage() {
         setSuccess(true);
         setTimeout(() => {
           setSuccess(false);
-          setFormData({
-            firstName: '', lastName: '', employeeId: '', email: '',
-            department: '', branch: '', role: '', password: '', confirmPassword: '',
-          });
+          setFormData({ firstName: '', lastName: '', employeeId: '', email: '', phone: '', department: '', branch: '', role: '', password: '', confirmPassword: '' });
         }, 2000);
       } else {
         setError(data.message || 'Failed to create user.');
@@ -191,8 +170,11 @@ export default function AddUserPage() {
   const strength = pw ? getStrength(pw) : null;
   const roleNames = roles.map(r => r.name);
 
+  const inputStyle = { width: '100%', height: 38, padding: '0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#111827', background: '#fff', outline: 'none' } as React.CSSProperties;
+  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase' as const, letterSpacing: 0.4, marginBottom: 5 };
+
   return (
-   <DashboardLayout title="Add User" activeMenu="add-user">
+    <DashboardLayout title="Add User" activeMenu="add-user">
       <div style={{ maxWidth: 700 }}>
         <div style={{ background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 14, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
@@ -212,51 +194,50 @@ export default function AddUserPage() {
 
                 {/* First Name */}
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>First name *</label>
-                  <input
-                    style={{ width: '100%', height: 38, padding: '0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }}
-                    name="firstName"
-                    placeholder="Juan"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                  />
+                  <label style={labelStyle}>First name *</label>
+                  <input style={inputStyle} name="firstName" placeholder="Juan" value={formData.firstName} onChange={handleInputChange} />
                 </div>
 
                 {/* Last Name */}
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Last name *</label>
-                  <input
-                    style={{ width: '100%', height: 38, padding: '0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }}
-                    name="lastName"
-                    placeholder="Dela Cruz"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                  />
+                  <label style={labelStyle}>Last name *</label>
+                  <input style={inputStyle} name="lastName" placeholder="Dela Cruz" value={formData.lastName} onChange={handleInputChange} />
                 </div>
 
                 {/* Employee ID */}
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Employee ID *</label>
-                  <input
-                    style={{ width: '100%', height: 38, padding: '0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }}
-                    name="employeeId"
-                    placeholder="EMP-001"
-                    value={formData.employeeId}
-                    onChange={handleInputChange}
-                  />
+                  <label style={labelStyle}>Employee ID *</label>
+                  <input style={inputStyle} name="employeeId" placeholder="EMP-001" value={formData.employeeId} onChange={handleInputChange} />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Email address *</label>
-                  <input
-                    style={{ width: '100%', height: 38, padding: '0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }}
-                    type="email"
-                    name="email"
-                    placeholder="employee@bank.com"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                  />
+                  <label style={labelStyle}>Email address *</label>
+                  <input style={inputStyle} type="email" name="email" placeholder="employee@bank.com" value={formData.email} onChange={handleInputChange} />
+                </div>
+
+                {/* ✅ Phone Number */}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>
+                    Phone Number <span style={{ color: '#0d9488', fontSize: 10, fontWeight: 600 }}>FOR SMS OTP</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontSize: 13, color: '#6b7280', flexShrink: 0, height: 38 }}>
+                      +63
+                    </div>
+                    <input
+                      style={{ ...inputStyle, flex: 1 }}
+                      type="tel"
+                      name="phone"
+                      placeholder="9XXXXXXXXX"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      maxLength={10}
+                    />
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                    Optional. Philippine mobile number used for SMS OTP during login.
+                  </div>
                 </div>
 
                 {/* Department */}
@@ -284,28 +265,20 @@ export default function AddUserPage() {
                 {/* Role */}
                 <div style={{ gridColumn: '1 / -1' }}>
                   {rolesLoading ? (
-                    <><label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Role</label>
-                    <div style={{ fontSize: 12, color: '#9ca3af', padding: '9px 0' }}>Loading roles…</div></>
+                    <><label style={labelStyle}>Role</label><div style={{ fontSize: 12, color: '#9ca3af', padding: '9px 0' }}>Loading roles…</div></>
                   ) : roleNames.length === 0 ? (
-                    <><label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Role</label>
-                    <div style={{ fontSize: 12, color: '#9ca3af', padding: '9px 0' }}>No roles found</div></>
+                    <><label style={labelStyle}>Role</label><div style={{ fontSize: 12, color: '#9ca3af', padding: '9px 0' }}>No roles found</div></>
                   ) : (
-                    <SelectDropdown
-                      label="Role"
-                      options={roleNames}
-                      value={formData.role}
-                      onChange={v => setFormData(prev => ({ ...prev, role: v }))}
-                      placeholder="Select role"
-                    />
+                    <SelectDropdown label="Role" options={roleNames} value={formData.role} onChange={v => setFormData(prev => ({ ...prev, role: v }))} placeholder="Select role" />
                   )}
                 </div>
 
                 {/* Password */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Password *</label>
+                  <label style={labelStyle}>Password *</label>
                   <div style={{ position: 'relative' }}>
                     <input
-                      style={{ width: '100%', height: 38, padding: '0 38px 0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }}
+                      style={{ ...inputStyle, padding: '0 38px 0 12px' }}
                       type={showPw ? 'text' : 'password'}
                       name="password"
                       placeholder="Enter password"
@@ -333,10 +306,10 @@ export default function AddUserPage() {
 
                 {/* Confirm Password */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Confirm Password *</label>
+                  <label style={labelStyle}>Confirm Password *</label>
                   <div style={{ position: 'relative' }}>
                     <input
-                      style={{ width: '100%', height: 38, padding: '0 38px 0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }}
+                      style={{ ...inputStyle, padding: '0 38px 0 12px' }}
                       type={showConfirm ? 'text' : 'password'}
                       name="confirmPassword"
                       placeholder="Confirm password"
@@ -349,7 +322,7 @@ export default function AddUserPage() {
                   </div>
                   {formData.password && formData.confirmPassword && (
                     <div style={{ fontSize: 12, marginTop: 4, color: formData.password === formData.confirmPassword ? '#10b981' : '#ef4444' }}>
-                      {formData.password === formData.confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+                      {formData.password === formData.confirmPassword ? '✔ Passwords match' : '✘ Passwords do not match'}
                     </div>
                   )}
                 </div>
@@ -362,10 +335,13 @@ export default function AddUserPage() {
               )}
 
               <div style={{ display: 'flex', gap: 8, marginTop: 24, justifyContent: 'flex-end' }}>
-                <button type="button" style={{ height: 36, padding: '0 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', color: '#6b7280', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background .14s' }} onClick={() => setFormData({ firstName: '', lastName: '', employeeId: '', email: '', department: '', branch: '', role: '', password: '', confirmPassword: '' })}>
+                <button type="button"
+                  style={{ height: 36, padding: '0 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', color: '#6b7280', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+                  onClick={() => setFormData({ firstName: '', lastName: '', employeeId: '', email: '', phone: '', department: '', branch: '', role: '', password: '', confirmPassword: '' })}>
                   Clear
                 </button>
-                <button type="submit" disabled={loading} style={{ height: 36, padding: '0 18px', border: 'none', borderRadius: 8, background: '#0d9488', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, transition: 'background .14s' }}>
+                <button type="submit" disabled={loading}
+                  style={{ height: 36, padding: '0 18px', border: 'none', borderRadius: 8, background: '#0d9488', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
                   {loading ? 'Creating...' : 'Create User'}
                 </button>
               </div>

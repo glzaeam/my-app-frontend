@@ -748,12 +748,13 @@ export default function UserAccounts() {
         .ua-page-header p{font-size:13px;color:#8a9ab0;margin:0;}
         .ua-add-btn{display:flex;align-items:center;gap:7px;padding:9px 18px;background:#2db9a3;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background 0.18s;}
         .ua-add-btn:hover{background:#24a08d;}
-        .ua-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
-        .ua-stat-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;padding:18px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 4px 12px rgba(0,0,0,0.06);}
-        .ua-stat-icon{width:42px;height:42px;border-radius:10px;background:rgba(45,185,163,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-        .ua-stat-icon.red{background:#fef2f2;}
-        .ua-stat-val{font-size:22px;font-weight:700;color:#1a2332;line-height:1;}
-        .ua-stat-label{font-size:12px;color:#8a9ab0;margin-top:3px;}
+        .ua-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px;}
+        .ua-stat-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;}
+        .ua-stat-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
+        .ua-stat-icon{width:40px;height:40px;border-radius:10px;background:rgba(45,185,163,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end;margin-bottom:12px;}
+        .ua-stat-icon.red{background:rgba(229,83,83,0.1);}
+        .ua-stat-val{font-size:28px;font-weight:700;color:#1a2332;line-height:1;text-align:right;margin-bottom:4px;}
+        .ua-stat-label{font-size:12px;color:#94a3b8;margin-top:0;text-transform:uppercase;letter-spacing:0.07em;}
         .ua-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
         .ua-search-wrap{position:relative;flex:1;min-width:180px;max-width:280px;}
         .ua-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#b0bece;pointer-events:none;}
@@ -809,8 +810,8 @@ export default function UserAccounts() {
                 { label:'MFA Enabled', value: users.filter(u => u.mfaEnabled).length,                       red:false },
               ].map(s => (
                 <div key={s.label} className="ua-stat-card">
-                  <div className={`ua-stat-icon${s.red?' red':''}`}><Users size={18} color={s.red?'#e55353':'#1D9E75'}/></div>
-                  <div><div className="ua-stat-val">{s.value}</div><div className="ua-stat-label">{s.label}</div></div>
+                  <div className={`ua-stat-icon${s.red?' red':''}`}><Users size={20} color={s.red?'#e55353':'#2db9a3'}/></div>
+                  <div><div className="ua-stat-label">{s.label}</div><div className="ua-stat-val">{s.value}</div></div>
                 </div>
               ))}
             </div>

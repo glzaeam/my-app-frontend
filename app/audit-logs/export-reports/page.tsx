@@ -271,17 +271,22 @@ export default function ExportReports() {
           </div>
 
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
             {stats.map(s => {
               const Icon = s.icon;
               return (
-                <div key={s.label} style={{ ...card, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={16} style={{ color: s.color }} />
+                <div key={s.label} style={{ ...card, padding: '22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '110px', transition: 'all 0.2s' } as React.CSSProperties}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2db9a3'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(45,185,163,0.12)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon size={20} style={{ color: s.color }} />
+                    </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{s.label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.02em' }}>{s.value.toLocaleString()}</div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 28, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.03em', textAlign: 'right' }}>{s.value.toLocaleString()}</div>
                   </div>
                 </div>
               );

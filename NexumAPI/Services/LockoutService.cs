@@ -67,7 +67,7 @@ namespace NexumAPI.Services
         public (bool isLocked, DateTime? lockedUntil) RecordFailedAttempt(
             string ip, string employeeId)
         {
-            // ✅ IP store only tracks count for CAPTCHA threshold — never locks the IP
+            //  IP store only tracks count for CAPTCHA threshold — never locks the IP
             var ipEntry = _ipStore.GetOrAdd(ip, _ => new LockoutEntry());
             lock (ipEntry)
             {
@@ -76,7 +76,7 @@ namespace NexumAPI.Services
                 // ❌ Removed: IP lockout — too aggressive, blocks all users on same network
             }
 
-            // ✅ Only the specific ACCOUNT gets locked
+            //  Only the specific ACCOUNT gets locked
             var accEntry = _accountStore.GetOrAdd(employeeId, _ => new LockoutEntry());
             lock (accEntry)
             {

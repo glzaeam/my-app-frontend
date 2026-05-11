@@ -12,6 +12,9 @@ import {
 } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 
+// Skip pre-rendering for this page since it requires Firebase client-side authentication
+export const dynamic = 'force-dynamic';
+
 declare global {
   interface Window { recaptchaVerifier: RecaptchaVerifier; }
 }

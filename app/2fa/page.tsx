@@ -121,6 +121,10 @@ export default function TwoFactorAuthPage() {
 
   // ✅ Send Firebase SMS OTP
   const sendFirebaseSms = async () => {
+    if (!firebaseAuth) {
+      setSmsError('SMS auth not available. Please use email OTP.');
+      return;
+    }
     if (!phone) return;
     setSmsStep('sending');
     setSmsError(null);

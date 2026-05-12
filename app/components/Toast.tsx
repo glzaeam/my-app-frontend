@@ -25,8 +25,9 @@ export default function Toast({ msg, type, onDone, duration = 3200 }: ToastProps
   return (
     <div style={{
       position:     'fixed',
-      top:          80,        // below the TopBar (66px) + small gap
-      right:        24,
+      top:          24,
+      left:         '50%',
+      transform:    'translateX(-50%)',
       zIndex:       99999,
       padding:      '12px 18px',
       borderRadius: 12,

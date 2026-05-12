@@ -191,8 +191,8 @@ export default function LoginAttempts() {
         .metric-card.clickable{cursor:pointer;}
         .metric-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
         .metric-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
-        .metric-label{font-size:12.5px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;}
-        .metric-value{font-size:30px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;line-height:1.2;}
+        .metric-label{font-size:12.5px;font-weight:500;color:#94a3b8;}
+        .metric-value{font-size:30px;font-weight:600;color:#0f172a;letter-spacing:-0.03em;line-height:1.2;text-align:right;}
         .metric-toggle{font-size:11px;color:#2db9a3;font-weight:600;margin-top:4px;}
         .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
         .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
@@ -246,9 +246,9 @@ export default function LoginAttempts() {
                   <TrendingUp size={13} />
                 </span>
               </div>
+              <div className="metric-value">{s.value}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div className="metric-label">{s.label}</div>
-                <div className="metric-value">{s.value}</div>
                 {i === 4 && s.value > 0 && (
                   <div className="metric-toggle">
                     {showBlockedIps ? '▲ Hide details' : '▼ View IPs'}

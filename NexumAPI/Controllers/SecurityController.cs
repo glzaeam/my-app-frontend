@@ -151,7 +151,10 @@ namespace NexumAPI.Controllers
             page     = PaginationHelper.ValidatePage(page);
             pageSize = PaginationHelper.ValidatePageSize(pageSize);
 
-            var query      = _context.LoginAttempts.Include(l => l.User).AsQueryable();
+            var query      = _context.LoginAttempts
+                .Include(l => l.User)
+                .Where(l => l.Status != "Success")
+                .AsQueryable();
             var totalItems = await query.CountAsync();
 
             var logs = await query
@@ -182,8 +185,8 @@ namespace NexumAPI.Controllers
         [Authorize(Policy = "CanViewFailedLogins")]
         public async Task<IActionResult> GetFailedLoginSummary()
         {
-            var total   = await _context.LoginAttempts.CountAsync(l => l.Status == "Failed");
-            var today   = await _context.LoginAttempts.CountAsync(l => l.Status == "Failed" && l.AttemptedAt >= DateTime.UtcNow.Date);
+            var total   = await _context.LoginAttempts.CountAsync(l => l.Status == "Failed" || l.Status == "Blocked");
+            var today   = await _context.LoginAttempts.CountAsync(l => (l.Status == "Failed" || l.Status == "Blocked") && l.AttemptedAt >= DateTime.UtcNow.Date);
             var blocked = await _context.LoginAttempts.CountAsync(l => l.Status == "Blocked");
             var locked  = await _context.LoginAttempts.CountAsync(l => l.Status == "Failed" && l.FailureReason == "Account locked");
 

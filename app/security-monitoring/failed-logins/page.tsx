@@ -156,7 +156,7 @@ export default function FailedLoginsPage() {
     setLoading(true);
     try {
       const [logsData, sumData] = await Promise.all([
-        fetchArray(`${API}/security/failed-logins`),
+        fetchArray(`${API}/security/failed-logins?page=1&pageSize=1000`),
         fetch(`${API}/security/failed-logins/summary`, { headers: { Authorization: `Bearer ${auth.getToken()}` } }).then(r => r.json()),
       ]);
       setLogs(logsData);

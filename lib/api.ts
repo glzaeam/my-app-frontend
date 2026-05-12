@@ -105,6 +105,7 @@ export async function fetchArray(url: string): Promise<any[]> {
   if (Array.isArray(data.data)) return data.data;
 
   return (
+    data.items        ??
     data.roles        ??
     data.users        ??
     data.modules      ??

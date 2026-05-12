@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/', '/login', '/forgot-password'];
+const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/2fa', '/request-access'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths
-  const isPublic = PUBLIC_PATHS.some(p => pathname === p);
+  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
   if (isPublic) return NextResponse.next();
 
-  // Allow Next.js internals, static files, and api routes
+  // Allow Next.js internals and static files
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -25,9 +25,11 @@ export function middleware(request: NextRequest) {
   // Check for token in cookies
   const token = request.cookies.get('nexum_token')?.value;
 
-  // No token — redirect to login
   if (!token) {
-    return NextResponse.redirect(new URL('/', request.url));
+    // Prevent redirect loop
+    const url = new URL('/', request.url);
+    if (request.nextUrl.pathname === '/') return NextResponse.next();
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();

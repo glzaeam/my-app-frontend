@@ -48,87 +48,37 @@ function FilterDropdown({ options, value, onChange }: { options: string[]; value
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const selectedLabel = value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Select Filter';
-  const isSelected = value === options[0];
-
   return (
     <div ref={ref} style={{ position: 'relative', minWidth: '160px' }}>
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
         style={{
-          width: '100%',
-          padding: '10px 14px',
-          borderRadius: 20,
+          width: '100%', padding: '10px 14px', borderRadius: 20,
           border: `1.5px solid ${open ? '#2db9a3' : '#e2e8f0'}`,
-          fontSize: 13,
-          fontWeight: 600,
+          fontSize: 13, fontWeight: 600,
           color: open ? '#2db9a3' : '#64748b',
           background: open ? '#f0fdf9' : '#fff',
-          cursor: 'pointer',
-          fontFamily: "'Open Sans',sans-serif",
-          outline: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-          transition: 'all 0.18s',
+          cursor: 'pointer', fontFamily: "'Open Sans',sans-serif",
+          outline: 'none', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 8, transition: 'all 0.18s',
         }}
       >
         <Filter size={14} style={{ flexShrink: 0, color: open ? '#2db9a3' : '#94a3b8' }} />
-        <span style={{ flex: 1, textAlign: 'left' }}>{selectedLabel}</span>
-        <ChevronDown
-          size={14}
-          style={{
-            flexShrink: 0,
-            color: open ? '#2db9a3' : '#94a3b8',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s',
-          }}
-        />
+        <span style={{ flex: 1, textAlign: 'left' }}>
+          {value.charAt(0).toUpperCase() + value.slice(1)}
+        </span>
+        <ChevronDown size={14} style={{ flexShrink: 0, color: open ? '#2db9a3' : '#94a3b8', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
       </button>
 
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            left: 0,
-            right: 0,
-            background: '#fff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 10,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
-            zIndex: 300,
-            overflow: 'hidden',
-          }}
-        >
+        <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.10)', zIndex: 300, overflow: 'hidden' }}>
           {options.map(opt => (
-            <button
-              key={opt}
-              type="button"
+            <button key={opt} type="button"
               onClick={() => { onChange(opt); setOpen(false); }}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                fontSize: 13,
-                color: opt === value ? '#2db9a3' : '#1e293b',
-                background: opt === value ? 'rgba(45,185,163,0.08)' : '#fff',
-                fontWeight: opt === value ? 700 : 500,
-                fontFamily: "'Open Sans',sans-serif",
-                border: 'none',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'block',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
-                e.currentTarget.style.background = opt === value ? 'rgba(45,185,163,0.12)' : '#f8fafc';
-              }}
-              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
-                e.currentTarget.style.background = opt === value ? 'rgba(45,185,163,0.08)' : '#fff';
-              }}
-            >
+              style={{ width: '100%', padding: '10px 14px', fontSize: 13, color: opt === value ? '#2db9a3' : '#1e293b', background: opt === value ? 'rgba(45,185,163,0.08)' : '#fff', fontWeight: opt === value ? 700 : 500, fontFamily: "'Open Sans',sans-serif", border: 'none', cursor: 'pointer', textAlign: 'left', display: 'block' }}
+              onMouseEnter={e => { if (opt !== value) e.currentTarget.style.background = '#f8fafc'; }}
+              onMouseLeave={e => { if (opt !== value) e.currentTarget.style.background = '#fff'; }}>
               {opt.charAt(0).toUpperCase() + opt.slice(1)}
             </button>
           ))}
@@ -140,11 +90,28 @@ function FilterDropdown({ options, value, onChange }: { options: string[]; value
 
 export default function LiveAlerts() {
   const router = useRouter();
-  const [alerts,      setAlerts]      = useState<SecurityAlert[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [filter,      setFilter]      = useState('all');
-  const [resolving,   setResolving]   = useState<string | null>(null);
-  const [toast,       setToast]       = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [alerts,    setAlerts]    = useState<SecurityAlert[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [filter,    setFilter]    = useState('all');
+  const [resolving, setResolving] = useState<string | null>(null);
+  const [toast,     setToast]     = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  // ── Live clock — updates every minute so "X hr ago" stays current ──
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (iso: string) => {
+    if (!iso) return '—';
+    const utcString = iso.endsWith('Z') ? iso : iso + 'Z';
+    const diff = Math.floor((now.getTime() - new Date(utcString).getTime()) / 1000);
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+    return `${Math.floor(diff / 86400)} day ago`;
+  };
 
   const fetchAlerts = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -158,7 +125,7 @@ export default function LiveAlerts() {
 
   useEffect(() => {
     fetchAlerts();
-    const interval = setInterval(() => fetchAlerts(true), 10000); // silent refresh every 10 seconds
+    const interval = setInterval(() => fetchAlerts(true), 10000);
     return () => clearInterval(interval);
   }, [fetchAlerts]);
 
@@ -182,21 +149,11 @@ export default function LiveAlerts() {
   const active   = alerts.filter(a => a.status === 'active');
   const critical = alerts.filter(a => a.severity === 'critical').length;
 
-  const formatTime = (d: string) => {
-    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-    if (diff < 1)  return 'just now';
-    if (diff < 60) return `${diff} min ago`;
-    if (diff < 1440) return `${Math.floor(diff / 60)} hr ago`;
-    return `${Math.floor(diff / 1440)} day ago`;
-  };
-
   return (
     <DashboardLayout title="Security Monitoring" activeMenu="live-alerts">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        .la-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:'Open Sans',sans-serif;}
-        .la-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
         .la-scroll{flex:1;overflow-y:auto;padding:28px 32px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
         .la-scroll::-webkit-scrollbar{width:6px;}
         .la-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
@@ -204,14 +161,10 @@ export default function LiveAlerts() {
         .metric-card{background:#fff;border:1px solid #e8ecf2;border-radius:14px;padding:22px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
         .metric-card:hover{border-color:#2db9a3;box-shadow:0 4px 16px rgba(45,185,163,0.12);}
         .metric-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-        .metric-icon{width:42px;height:42px;border-radius:10px;background:rgba(45,185,163,0.1);display:flex;align-items:center;justify-content:center;color:var(--accent);}
-        .metric-trend{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:20px;}
-        .metric-trend.up{color:#059669;background:#ecfdf5;}
-        .metric-trend.down{color:#dc2626;background:#fef2f2;}
+        .metric-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+        .metric-trend{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:20px;color:#059669;background:#ecfdf5;}
         .metric-value{font-size:30px;font-weight:600;letter-spacing:-0.03em;color:#0f172a;text-align:right;margin-bottom:4px;}
         .metric-label{font-size:12.5px;color:#94a3b8;font-weight:500;}
-        .section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-        .live-badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#059669;background:#dcfce7;padding:5px 12px;border-radius:20px;}
         .live-dot{width:6px;height:6px;background:#10b981;border-radius:50%;animation:blink 2s ease-in-out infinite;}
         @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
         .alerts-list{display:flex;flex-direction:column;gap:10px;}
@@ -225,114 +178,103 @@ export default function LiveAlerts() {
         .alert-meta{font-size:12px;color:#64748b;margin-top:4px;}
         .sev-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;text-transform:capitalize;margin-left:8px;}
         .time-text{font-size:11.5px;color:#94a3b8;white-space:nowrap;}
-       .resolve-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid #2db9a3;background:#fff;color:#2db9a3;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;}
-.resolve-btn:hover{background:#2db9a3;color:#fff;}
-.resolve-btn:disabled{opacity:0.5;cursor:not-allowed;}
+        .resolve-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid #2db9a3;background:#fff;color:#2db9a3;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;}
+        .resolve-btn:hover{background:#2db9a3;color:#fff;}
+        .resolve-btn:disabled{opacity:0.5;cursor:not-allowed;}
         .filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
-        .filter-chip{padding:6px 14px;border-radius:20px;border:1.5px solid #e2e8f0;background:#fff;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;font-family:'Open Sans',sans-serif;transition:all 0.15s;}
-        .filter-chip:hover{border-color:#2db9a3;color:#2db9a3;}
-        .filter-chip.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
-
         .empty-state{text-align:center;padding:40px 0;color:#94a3b8;font-size:13px;}
       `}</style>
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
 
-      
-        
-        
-          
-          <div className="la-scroll">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-              <div>
-                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Live Alerts</h1>
-                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Real-time security alerts and active threats — monitor system activity and suspicious events</p>
+      <div className="la-scroll">
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Live Alerts</h1>
+            <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Real-time security alerts and active threats — monitor system activity and suspicious events</p>
+          </div>
+        </div>
+
+        {/* Metrics */}
+        <div className="metrics-grid">
+          {[
+            { label: 'Total Alerts', value: alerts.length,                                  accent: '#6366f1', icon: AlertTriangle },
+            { label: 'Active',       value: active.length,                                  accent: '#ef4444', icon: Eye          },
+            { label: 'Critical',     value: critical,                                        accent: '#dc2626', icon: AlertTriangle },
+            { label: 'Resolved',     value: alerts.filter(a => a.status === 'resolved').length, accent: '#2db9a3', icon: CheckCircle },
+          ].map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <div key={i} className="metric-card">
+                <div className="metric-card-top">
+                  <div className="metric-icon" style={{ background: `${s.accent}15`, color: s.accent }}>
+                    <Icon size={22} />
+                  </div>
+                  <span className="metric-trend"><TrendingUp size={13} /></span>
+                </div>
+                <div className="metric-value">{s.value}</div>
+                <div className="metric-label">{s.label}</div>
               </div>
+            );
+          })}
+        </div>
 
-            </div>
+        {/* Filter */}
+        <div className="filter-bar">
+          <FilterDropdown
+            options={['all', 'active', 'critical', 'high', 'medium', 'low', 'resolved']}
+            value={filter}
+            onChange={f => setFilter(f)}
+          />
+        </div>
 
-            <div className="metrics-grid">
-              {[
-                { label: 'Total Alerts',    value: alerts.length, accent: '#6366f1', icon: AlertTriangle },
-                { label: 'Active',          value: active.length, accent: '#ef4444', icon: Eye },
-                { label: 'Critical',        value: critical,      accent: '#dc2626', icon: AlertTriangle },
-                { label: 'Resolved',        value: alerts.filter(a => a.status === 'resolved').length, accent: '#2db9a3', icon: CheckCircle },
-              ].map((s, i) => {
-                const Icon = s.icon;
+        {/* Alerts */}
+        {loading ? (
+          <p className="empty-state">Loading alerts...</p>
+        ) : (
+          <div className="alerts-list">
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8', fontSize: 13 }}>
+                <AlertTriangle size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
+                <p>No alerts found in this filter.</p>
+              </div>
+            ) : (
+              filtered.map(a => {
+                const cfg  = alertCfg[a.severity] ?? alertCfg.info;
+                const Icon = a.severity === 'critical' || a.severity === 'high' ? AlertTriangle : a.severity === 'medium' ? Eye : Lock;
                 return (
-                  <div key={i} className="metric-card" style={{ '--accent': s.accent } as React.CSSProperties}>
-                    <div className="metric-card-top">
-                      <div className="metric-icon" style={{ background: `${s.accent}15`, color: s.accent }}>
-                        <Icon size={22} />
+                  <div key={a.id} className={`alert-card${a.status === 'resolved' ? ' resolved' : ''}`}
+                    style={{ '--a-color': cfg.color, '--a-border': cfg.border, '--a-icon-bg': cfg.iconBg } as React.CSSProperties}>
+                    <div className="alert-icon-wrap"><Icon size={16} /></div>
+                    <div className="alert-body">
+                      <div className="alert-header-row">
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span className="alert-title">{a.alertType}</span>
+                          <span className="sev-badge" style={{ background: cfg.bg, color: cfg.color }}>{a.severity}</span>
+                        </div>
+                        {/* ── Real-time timestamp ── */}
+                        <span className="time-text">{formatTime(a.createdAt)}</span>
                       </div>
-                      <span className="metric-trend up">
-                        <TrendingUp size={13} />
-                      </span>
+                      <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0' }}>{a.description}</p>
+                      <div className="alert-meta">User: {a.userName} · {a.employeeId}</div>
                     </div>
-                    <div className="metric-value">{s.value}</div>
-                    <div className="metric-label">{s.label}</div>
+                    {a.status === 'active' ? (
+                      <button className="resolve-btn" onClick={() => handleResolve(a.id)} disabled={resolving === a.id} title="Resolve Alert">
+                        {resolving === a.id ? <Lock size={14} /> : <CheckCircle size={14} />}
+                      </button>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#059669', background: '#dcfce7', padding: '4px 10px', borderRadius: 20, flexShrink: 0 }}>
+                        <CheckCircle size={12} /> Resolved
+                      </span>
+                    )}
                   </div>
                 );
-              })}
-            </div>
-
-            <div className="section-title">
-            </div>
-
-            <div className="filter-bar">
-              <FilterDropdown
-                options={['all', 'active', 'critical', 'high', 'medium', 'low', 'resolved']}
-                value={filter}
-                onChange={f => setFilter(f)}
-              />
-            </div>
-
-            {loading ? (
-              <p className="empty-state">Loading alerts...</p>
-            ) : (
-              <div className="alerts-list">
-                {filtered.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8', fontSize: 13 }}>
-                    <AlertTriangle size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-                    <p>No alerts found in this filter.</p>
-                  </div>
-                ) : (
-                  filtered.map(a => {
-                    const cfg  = alertCfg[a.severity] ?? alertCfg.info;
-                    const Icon = a.severity === 'critical' || a.severity === 'high' ? AlertTriangle : a.severity === 'medium' ? Eye : Lock;
-                    return (
-                      <div key={a.id} className={`alert-card${a.status === 'resolved' ? ' resolved' : ''}`} style={{ '--a-color': cfg.color, '--a-border': cfg.border, '--a-icon-bg': cfg.iconBg } as React.CSSProperties}>
-                        <div className="alert-icon-wrap"><Icon size={16} /></div>
-                        <div className="alert-body">
-                          <div className="alert-header-row">
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                              <span className="alert-title">{a.alertType}</span>
-                              <span className="sev-badge" style={{ background: cfg.bg, color: cfg.color }}>{a.severity}</span>
-                            </div>
-                            <span className="time-text">{formatTime(a.createdAt)}</span>
-                          </div>
-                          <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0' }}>{a.description}</p>
-                          <div className="alert-meta">User: {a.userName} · {a.employeeId}</div>
-                        </div>
-                        {a.status === 'active' ? (
-                        <button className="resolve-btn" onClick={() => handleResolve(a.id)} disabled={resolving === a.id} title="Resolve Alert">
-  {resolving === a.id ? <Lock size={14} /> : <CheckCircle size={14} />}
-</button>
-                        ) : (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#059669', background: '#dcfce7', padding: '4px 10px', borderRadius: 20, flexShrink: 0 }}>
-                            <CheckCircle size={12} /> Resolved
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              })
             )}
           </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }
-
-
-

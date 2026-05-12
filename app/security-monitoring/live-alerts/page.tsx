@@ -273,7 +273,6 @@ export default function LiveAlerts() {
             </div>
 
             <div className="section-title">
-              <div className="live-badge"><div className="live-dot" />Live</div>
             </div>
 
             <div className="filter-bar">

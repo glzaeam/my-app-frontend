@@ -276,15 +276,9 @@ export default function FailedLoginsPage() {
         
           
           <div className="fl-scroll">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-              <div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
-                  
-                </div>
-                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Failed Logins</h1>
-                <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Track and investigate failed login attempts</p>
-              </div>
-
+            <div style={{ marginBottom: 24 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Failed Logins</h1>
+              <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Track and investigate failed login attempts</p>
             </div>
 
             <div className="metrics-grid">

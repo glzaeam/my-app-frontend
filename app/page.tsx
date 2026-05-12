@@ -82,7 +82,7 @@ export default function LoginPage() {
 
       if (!data.success) {
         setAttemptsLeft(data.attemptsLeft ?? null);
-        setError('Invalid credentials.');
+        setError(data.message || 'Invalid credentials.');
         recaptchaRef.current?.reset();
         setCaptchaToken(null);
         return;

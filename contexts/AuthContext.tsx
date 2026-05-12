@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { auth, fetchPermissions } from '@/lib/api';  // ✅ import fetchPermissions
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://nexum.runasp.net/api';
@@ -46,9 +47,21 @@ function slugify(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
+// Helper to get user's public IP
+async function getClientIp(): Promise<string> {
+  try {
+    const res = await fetch('https://api.ipify.org?format=json');
+    const data = await res.json();
+    return data.ip || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,    setUser]    = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const refreshUser = async () => {
     const token = auth.getToken();
@@ -158,6 +171,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Then refresh from API
     refreshUser();
   }, []);
+
+  // ✅ Auto-logout if user's IP gets blocked while logged in
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const ip = await getClientIp();
+        const res = await fetch(`${API_BASE}/login-settings/check-ip?ip=${ip}`);
+        const data = await res.json();
+
+        if (data.blocked) {
+          auth.clear();
+          setUser(null);
+          router.push('/?reason=ip_blocked');
+        }
+      } catch (err) {
+        console.error('[AuthContext] IP check error:', err);
+      }
+    }, 30000); // check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user, router]);
 
   return (
     <AuthContext.Provider value={{

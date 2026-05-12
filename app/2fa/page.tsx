@@ -40,6 +40,7 @@ export default function TwoFactorAuthPage() {
   const [focused, setFocused]   = useState<string | null>(null);
   const [error, setError]       = useState<string | null>(null);
   const [loading, setLoading]   = useState(false);
+  const [mfaChannels, setMfaChannels] = useState<string[]>([]);
 
   // totp-setup state
   const [qrUri, setQrUri]         = useState('');
@@ -86,6 +87,9 @@ export default function TwoFactorAuthPage() {
         .then(data => {
           if (data.phone) {
             setPhone(data.phone);
+          }
+          if (data.mfaChannels) {
+            setMfaChannels(data.mfaChannels);
           }
         })
         .catch(() => {});
@@ -370,18 +374,21 @@ export default function TwoFactorAuthPage() {
             ) : (
               <>
                 {/* ✅ Show SMS status */}
-                {phone ? (
-                  smsStep === 'sending' ? (
-                    <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>Sending SMS to <strong style={{ color: 'white' }}>{phone}</strong>…</p>
-                  ) : smsSent ? (
-                    <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
-                      SMS code sent to <strong style={{ color: 'white' }}>{phone}</strong>
-                    </p>
-                  ) : (
-                    <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>Preparing SMS verification…</p>
-                  )
+                {smsStep === 'sending' ? (
+                  <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>Sending SMS to <strong style={{ color: 'white' }}>{phone}</strong>…</p>
+                ) : smsSent ? (
+                  <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
+                    SMS code sent to <strong style={{ color: 'white' }}>{phone}</strong>
+                  </p>
                 ) : (
-                  <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>Enter the 6-digit code sent to your email</p>
+                  <p className="text-sm" style={{ color: 'hsl(210,15%,55%)' }}>
+                    Enter the 6-digit code sent to your{' '}
+                    {mfaChannels.includes('email') && mfaChannels.includes('sms')
+                      ? 'email/SMS'
+                      : mfaChannels.includes('sms')
+                      ? 'SMS'
+                      : 'email'}
+                  </p>
                 )}
               </>
             )}

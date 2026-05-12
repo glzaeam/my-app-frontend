@@ -3,7 +3,7 @@ import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, MessageSquare, Mail, Smartphone, ChevronLeft, ChevronRight, ChevronDown, Edit2, X } from 'lucide-react';
+import { Settings, Mail, Smartphone, ChevronLeft, ChevronRight, ChevronDown, Edit2, X } from 'lucide-react';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -81,7 +81,6 @@ export default function MFASettings() {
   const [saving, setSaving]           = useState(false);
   const [toast, setToast]             = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  const [smsEnabled, setSmsEnabled]                     = useState(true);
   const [emailEnabled, setEmailEnabled]                 = useState(true);
   const [authenticatorEnabled, setAuthenticatorEnabled] = useState(false);
   const [codeExpiry, setCodeExpiry]                     = useState('5');
@@ -110,7 +109,6 @@ export default function MFASettings() {
       const config    = await configRes.json();
       const rolesData = await rolesRes.json();
 
-      setSmsEnabled(config.smsEnabled ?? true);
       setEmailEnabled(config.emailEnabled ?? true);
       setAuthenticatorEnabled(config.authenticatorEnabled ?? false);
       setCodeExpiry(String(config.codeExpiryMinutes ?? 5));
@@ -133,7 +131,7 @@ export default function MFASettings() {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.getToken()}` },
         body: JSON.stringify({
-          smsEnabled, emailEnabled, authenticatorEnabled,
+          emailEnabled, authenticatorEnabled,
           codeExpiryMinutes: parseInt(codeExpiry),
           graceLogins:       parseInt(graceLogins),
         }),
@@ -216,9 +214,9 @@ export default function MFASettings() {
         headers: { Authorization: `Bearer ${auth.getToken()}` },
       });
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (data.success) {
         setAuthenticatorEnabled(false);
-        setToast({ msg: 'Authenticator disabled. Login will now use SMS/Email OTP.', type: 'success' });
+        setToast({ msg: 'Authenticator disabled. Login will now use Email OTP.', type: 'success' });
       } else {
         setToast({ msg: data.message || 'Failed to disable authenticator', type: 'error' });
       }
@@ -238,7 +236,6 @@ export default function MFASettings() {
   };
 
   const authMethods = [
-    { icon: <Smartphone size={18} />, label: 'SMS OTP',          desc: 'Send one-time codes via SMS',      value: smsEnabled,           toggle: () => setSmsEnabled(v => !v),   accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)' },
     { icon: <Mail size={18} />,       label: 'Email OTP',         desc: 'Send one-time codes via email',    value: emailEnabled,         toggle: () => setEmailEnabled(v => !v), accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)'  },
     { icon: <Settings size={18} />,   label: 'Authenticator App', desc: 'Google / Microsoft Authenticator', value: authenticatorEnabled, toggle: () => {},                      accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)'  },
   ];
@@ -400,7 +397,7 @@ export default function MFASettings() {
                             </button>
                           </div>
                         ) : (
-                          // SMS and Email toggles — guarded by isEditable
+                          // Email and Authenticator toggles — guarded by isEditable
                           <button
                             className={`toggle ${m.value ? 'on' : ''}`}
                             onClick={() => isEditable && m.toggle()}
@@ -501,7 +498,7 @@ export default function MFASettings() {
                             </td>
                             <td style={{ textAlign: 'center' }}>
                               <span style={{ fontSize: 12, color: '#64748b' }}>
-                                {role.allowedMfaMethods || 'SMS,Email'}
+                                {role.allowedMfaMethods || 'Email'}
                               </span>
                             </td>
                             {isEditable && (
@@ -512,7 +509,7 @@ export default function MFASettings() {
                                     setEditingRole(role.id);
                                     setEditForm({
                                       mfaRequirement:    role.mfaRequirement    || 'Optional',
-                                      allowedMfaMethods: role.allowedMfaMethods || 'SMS,Email',
+                                      allowedMfaMethods: role.allowedMfaMethods || 'Email',
                                     });
                                   }}
                                   title="Edit MFA settings"
@@ -580,13 +577,9 @@ export default function MFASettings() {
                         <label className="modal-label">Allowed MFA Methods</label>
                         <CustomSelect
                           options={[
-                            { value: 'SMS',                     label: 'SMS only'               },
                             { value: 'Email',                   label: 'Email only'             },
                             { value: 'Authenticator',           label: 'Authenticator App only' },
-                            { value: 'SMS,Email',               label: 'SMS & Email'            },
-                            { value: 'SMS,Authenticator',       label: 'SMS & Authenticator'    },
                             { value: 'Email,Authenticator',     label: 'Email & Authenticator'  },
-                            { value: 'SMS,Email,Authenticator', label: 'All Methods'            },
                           ]}
                           value={editForm.allowedMfaMethods}
                           onChange={val => setEditForm(f => ({ ...f, allowedMfaMethods: val }))}

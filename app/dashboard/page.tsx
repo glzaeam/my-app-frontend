@@ -97,20 +97,18 @@ export default function Dashboard() {
         apiFetch(`${API}/audit/dashboard/login-trend`,           token),
         apiFetch(`${API}/audit/dashboard/role-distribution`,     token),
         apiFetch(`${API}/audit/dashboard/mfa-adoption`,          token),
-        apiFetch(`${API}/audit/failed-logins?page=1&pageSize=1000`, token),
+        apiFetch(`${API}/security/failed-logins?page=1&pageSize=1000`, token),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
-
-      console.log('[dashboard] summary:', summary);
-      console.log('[dashboard] trend:', trend);
-      console.log('[dashboard] failedRaw:', failedRaw);
-      console.log('[dashboard] failedItems:', extractItems(failedRaw));
 
       if (!summary) return;
 
       const failedItems = extractItems(failedRaw);
+      const todayStr = new Date().toDateString();
       const failedToday = failedItems.filter((f: any) => {
-        const d = new Date((f.createdAt ?? f.timestamp ?? '') + 'Z'.repeat(!(f.createdAt ?? '').endsWith('Z') ? 1 : 0));
-        return d.toDateString() === new Date().toDateString();
+        const raw = f.attemptedAt ?? '';
+        if (!raw) return false;
+        const utc = raw.endsWith('Z') ? raw : raw + 'Z';
+        return new Date(utc).toDateString() === todayStr;
       }).length;
 
       setMetrics([

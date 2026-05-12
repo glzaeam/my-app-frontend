@@ -111,7 +111,8 @@ namespace NexumAPI.Controllers
         {
             var total   = await _context.AuditLogs.CountAsync();
             var success = await _context.AuditLogs.CountAsync(a => a.Status == "Success");
-            var failed  = await _context.AuditLogs.CountAsync(a => a.Status == "Failed");
+            var failed  = await _context.LoginAttempts
+                .CountAsync(l => l.Status != "Success" && l.AttemptedAt >= DateTime.UtcNow.Date);
             var today   = await _context.AuditLogs.CountAsync(a => a.CreatedAt >= DateTime.UtcNow.Date);
 
             return Ok(new { total, success, failed, today });
@@ -525,7 +526,7 @@ namespace NexumAPI.Controllers
                 var success = await _context.LoginAttempts
                     .CountAsync(l => l.AttemptedAt >= date && l.AttemptedAt < next && l.Status == "Success");
                 var failed  = await _context.LoginAttempts
-                    .CountAsync(l => l.AttemptedAt >= date && l.AttemptedAt < next && l.Status == "Failed");
+                    .CountAsync(l => l.AttemptedAt >= date && l.AttemptedAt < next && l.Status != "Success");
                 days.Add(new { day = date.ToString("ddd"), success, failed });
             }
             return Ok(days);

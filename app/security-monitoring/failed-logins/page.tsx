@@ -168,6 +168,7 @@ export default function FailedLoginsPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = logs.filter(l => {
+    if (l.status === 'Success') return false;
     if (reasonFilter !== 'all' && (l.failureReason ?? 'None') !== reasonFilter) return false;
     if (searchTerm) {
       const q = searchTerm.toLowerCase();

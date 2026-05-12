@@ -73,7 +73,7 @@ function CustomSelect({ options, value, onChange }: {
 
 const statusMap: Record<string, { label: string; color: string; bg: string; dot: string }> = {
   Failed:  { label: 'Failed',  color: '#dc2626', bg: '#fee2e2', dot: '#ef4444' },
-  Blocked: { label: 'Blocked', color: '#d97706', bg: '#fef3c7', dot: '#f59e0b' },
+  Blocked: { label: 'Blocked', color: '#dc2626', bg: '#fee2e2', dot: '#ef4444' },
   Success: { label: 'Success', color: '#059669', bg: '#dcfce7', dot: '#10b981' },
 };
 
@@ -161,7 +161,7 @@ export default function LoginAttempts() {
   const stats = [
     { label: 'Total Attempts', value: summary?.total      ?? logs.length, accent: '#6366f1', iconBg: 'rgba(99,102,241,0.1)',  icon: <Activity size={20} />    },
     { label: 'Failed',         value: summary?.failed     ?? 0,           accent: '#ef4444', iconBg: 'rgba(239,68,68,0.1)',   icon: <XCircle size={20} />     },
-    { label: 'Blocked',        value: summary?.blocked    ?? 0,           accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)',  icon: <Lock size={20} />        },
+    { label: 'Blocked',        value: summary?.blocked    ?? 0,           accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)',  icon: <Lock size={20} />        },
     { label: 'Today',          value: summary?.todayCount ?? 0,           accent: '#1D9E75', iconBg: 'rgba(45,185,163,0.15)', icon: <CheckCircle size={20} /> },
     { label: 'Blocked IPs',    value: summary?.blockedIps ?? 0,           accent: '#dc2626', iconBg: 'rgba(220,38,38,0.1)',   icon: <Shield size={20} />      },
   ];

@@ -216,15 +216,15 @@ export default function ActivityLogs() {
                       <tr key={l.id}>
                         <td>
                           <div style={{ fontWeight: 600, color: '#0f172a' }}>{l.userName}</div>
-                          <div style={{ fontSize: 11, color: '#94a3b8' }}>{l.userEmpId}</div>
+                          <div style={{ fontSize: 12, color: '#94a3b8' }}>{l.userEmpId}</div>
                         </td>
-                        <td style={{ fontWeight: 600, color: '#334155' }}>{l.action}</td>
-                        <td style={{ color: '#64748b' }}>{l.module ?? '—'}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#374151' }}>{l.ipAddress ?? '—'}</td>
-                        <td style={{ color: '#94a3b8', fontSize: 12 }}>{formatDate(l.createdAt)}</td>
+                        <td>{l.action}</td>
+                        <td>{l.module ?? '—'}</td>
+                        <td>{l.ipAddress ?? '—'}</td>
+                        <td style={{ fontSize: 12, color: '#94a3b8' }}>{formatDate(l.createdAt)}</td>
                         <td>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: cfg.bg, color: cfg.color }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontWeight: 600, background: cfg.bg, color: cfg.color }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.dot }} />
                             {l.status}
                           </span>
                         </td>

@@ -3,7 +3,7 @@ import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Filter, FileText, ChevronDown } from 'lucide-react';
+import { Search, Filter, FileText, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { auth, fetchArray } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -138,6 +138,10 @@ export default function TransactionTrailPage() {
         .pg-btn:hover:not(:disabled):not(.active){border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
         .pg-btn.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
         .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
+        .pagination-info{font-size:13px;color:#94a3b8;}
+        .pagination-info strong{color:#475569;font-weight:500;}
+        .pagination-controls{display:flex;align-items:center;gap:4px;}
+        .pg-counter{font-size:13px;color:#475569;font-weight:500;min-width:50px;text-align:center;}
         .empty-state{text-align:center;padding:60px 20px;color:#94a3b8;}
         .empty-icon{font-size:40px;margin-bottom:12px;}
       `}</style>
@@ -224,15 +228,17 @@ export default function TransactionTrailPage() {
                   </table>
                 </div>
                 <div className="pagination-bar">
-                  <span style={{ fontSize: 13, color: '#94a3b8' }}>
-                    Showing <strong style={{ color: '#475569' }}>{records.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, records.length)}</strong> of <strong style={{ color: '#475569' }}>{records.length}</strong>
+                  <span className="pagination-info">
+                    Showing <strong>{records.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, records.length)}</strong> of <strong>{records.length}</strong>
                   </span>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>‹</button>
-                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map(p => (
-                      <button key={p} className={`pg-btn${safePage === p ? ' active' : ''}`} onClick={() => setCurrentPage(p)}>{p}</button>
-                    ))}
-                    <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>›</button>
+                  <div className="pagination-controls">
+                    <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span className="pg-counter">{safePage} / {totalPages}</span>
+                    <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>
+                      <ChevronRight size={14} />
+                    </button>
                   </div>
                 </div>
               </div>

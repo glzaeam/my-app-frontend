@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   Download, FileText, FileSpreadsheet,
-  ChevronDown, Activity, CheckCircle, XCircle, Clock, TrendingUp,
+  ChevronDown, Activity, CheckCircle, XCircle, Clock, TrendingUp, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -426,19 +426,18 @@ export default function ExportReports() {
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderTop: '1px solid #f0f3f7' }}>
                   <span style={{ fontSize: 13, color: '#94a3b8' }}>
-                    Showing <strong style={{ color: '#475569' }}>{(safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, exports.length)}</strong> of <strong style={{ color: '#475569' }}>{exports.length}</strong>
+                    Showing <strong style={{ color: '#475569' }}>{exports.length === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, exports.length)}</strong> of <strong style={{ color: '#475569' }}>{exports.length}</strong>
                   </span>
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === 1 ? 0.35 : 1, fontSize: 16 }}>‹</button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                      <button key={p} onClick={() => setPage(p)}
-                        style={{ width: 34, height: 34, borderRadius: 8, fontSize: 13, border: safePage === p ? 'none' : '1px solid #e2e8f0', background: safePage === p ? '#2db9a3' : '#fff', color: safePage === p ? '#fff' : '#475569', cursor: 'pointer', fontWeight: safePage === p ? 600 : 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {p}
-                      </button>
-                    ))}
+                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === 1 ? 0.35 : 1, transition: 'all 0.15s' }}>
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span style={{ fontSize: 13, color: '#475569', fontWeight: 500, minWidth: 50, textAlign: 'center' }}>{safePage} / {totalPages}</span>
                     <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === totalPages ? 0.35 : 1, fontSize: 16 }}>›</button>
+                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === totalPages ? 0.35 : 1, transition: 'all 0.15s' }}>
+                      <ChevronRight size={14} />
+                    </button>
                   </div>
                 </div>
               </>

@@ -91,19 +91,26 @@ export default function Dashboard() {
   const fetchAdminDashboard = useCallback(async () => {
     try {
       const token = auth.getToken();
-      const [summary, logsRaw, trend, roles, mfa] = await Promise.allSettled([
-        apiFetch(`${API}/audit/summary`,                     token),
-        apiFetch(`${API}/audit?page=1&pageSize=1000`,        token),
-        apiFetch(`${API}/audit/dashboard/login-trend`,       token),
-        apiFetch(`${API}/audit/dashboard/role-distribution`, token),
-        apiFetch(`${API}/audit/dashboard/mfa-adoption`,      token),
+      const [summary, logsRaw, trend, roles, mfa, failedRaw] = await Promise.allSettled([
+        apiFetch(`${API}/audit/summary`,                         token),
+        apiFetch(`${API}/audit?page=1&pageSize=1000`,            token),
+        apiFetch(`${API}/audit/dashboard/login-trend`,           token),
+        apiFetch(`${API}/audit/dashboard/role-distribution`,     token),
+        apiFetch(`${API}/audit/dashboard/mfa-adoption`,          token),
+        apiFetch(`${API}/audit/failed-logins?page=1&pageSize=1000`, token),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
 
       if (!summary) return;
 
+      const failedItems = extractItems(failedRaw);
+      const failedToday = failedItems.filter((f: any) => {
+        const d = new Date((f.createdAt ?? f.timestamp ?? '') + 'Z'.repeat(!(f.createdAt ?? '').endsWith('Z') ? 1 : 0));
+        return d.toDateString() === new Date().toDateString();
+      }).length;
+
       setMetrics([
         { label: 'Total Events',        value: String(summary.total   ?? 0), icon: Activity,      trend: 'up'   as const },
-        { label: 'Failed Logins Today', value: String(summary.failed  ?? 0), icon: AlertTriangle, trend: 'down' as const },
+        { label: 'Failed Logins Today', value: String(failedToday),          icon: AlertTriangle, trend: 'down' as const },
         { label: 'Success Today',       value: String(summary.success ?? 0), icon: Shield,        trend: 'up'   as const },
         { label: 'Events Today',        value: String(summary.today   ?? 0), icon: Lock,          trend: 'up'   as const },
       ]);

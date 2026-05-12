@@ -146,17 +146,21 @@ export default function LiveAlerts() {
   const [resolving,   setResolving]   = useState<string | null>(null);
   const [toast,       setToast]       = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  const fetchAlerts = useCallback(async () => {
-    setLoading(true);
+  const fetchAlerts = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res  = await fetch(`${API}/security/alerts`, { headers: { Authorization: `Bearer ${auth.getToken()}` } });
       const data = await res.json();
       setAlerts(data);
     } catch { setToast({ msg: 'Failed to load alerts', type: 'error' }); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+  useEffect(() => {
+    fetchAlerts();
+    const interval = setInterval(() => fetchAlerts(true), 10000); // silent refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
 
   const handleResolve = async (id: string) => {
     setResolving(id);
@@ -168,7 +172,7 @@ export default function LiveAlerts() {
       const data = await res.json();
       if (data.success) {
         setToast({ msg: 'Alert resolved', type: 'success' });
-        fetchAlerts();
+        fetchAlerts(true);
       } else setToast({ msg: data.message || 'Failed to resolve', type: 'error' });
     } catch { setToast({ msg: 'Server error', type: 'error' }); }
     finally { setResolving(null); }

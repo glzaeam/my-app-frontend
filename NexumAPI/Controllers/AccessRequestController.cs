@@ -91,6 +91,12 @@ namespace NexumAPI.Controllers
                     r.RequestedRole,
                     r.Status,
                     r.ReviewedBy,
+                    reviewerName = r.ReviewedBy != null 
+                        ? _context.Users
+                            .Where(u => u.Id == r.ReviewedBy)
+                            .Select(u => u.Name)
+                            .FirstOrDefault()
+                        : null,
                     r.RejectionReason,
                     r.CreatedAt,
                     r.ReviewedAt

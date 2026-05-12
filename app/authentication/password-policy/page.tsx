@@ -229,14 +229,9 @@ export default function PasswordPolicyPage() {
         <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #2db9a3 0%, #22a090 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Lock size={20} color="#fff" />
-              </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Password Policy</h1>
-                <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>Configure password requirements and security rules</p>
-              </div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Password Policy</h1>
+              <p style={{ margin: 0, fontSize: 13, color: '#64748b', marginTop: 4 }}>Configure password requirements and security rules</p>
             </div>
             {!isEditable && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '5px 12px', borderRadius: 20, border: '1px solid #e2e8f0' }}>

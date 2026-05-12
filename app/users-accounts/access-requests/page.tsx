@@ -20,6 +20,7 @@ interface AccessRequest {
   requestedRole: string | null;
   status: 'Pending' | 'Approved' | 'Rejected';
   reviewedBy: string | null;
+  reviewerName: string | null;
   rejectionReason: string | null;
   createdAt: string;
   reviewedAt: string | null;
@@ -51,46 +52,89 @@ function ReviewModal({ request, onClose, onDone }: {
   };
 
   return (
-    <div style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(15,23,42,0.45)',display:'flex',alignItems:'center',justifyContent:'center' }} onClick={onClose}>
-      <div style={{ background:'#fff',borderRadius:16,padding:'24px 28px',width:480,maxWidth:'90vw',boxShadow:'0 20px 60px rgba(0,0,0,0.18)',fontFamily:"'DM Sans',sans-serif" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18 }}>
+    <div style={{ position:'fixed',inset:0,zIndex:1000,background:'rgba(15,23,42,0.5)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px' }} onClick={onClose}>
+      <div style={{ background:'#fff',borderRadius:20,padding:'32px',width:'100%',maxWidth:520,boxShadow:'0 25px 50px rgba(0,0,0,0.15)',fontFamily:"'DM Sans',sans-serif" }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:28,paddingBottom:20,borderBottom:'1px solid #e8ecf2' }}>
           <div>
-            <div style={{ fontWeight:700,fontSize:16,color:'#1a2332' }}>Review Request</div>
-            <div style={{ fontSize:12,color:'#94a3b8',marginTop:3 }}>{request.fullName} — {request.employeeId}</div>
+            <h2 style={{ fontSize:20,fontWeight:700,color:'#1a2332',margin:'0 0 6px' }}>Review Request</h2>
+            <p style={{ fontSize:14,color:'#94a3b8',margin:0 }}>{request.fullName} • {request.employeeId}</p>
           </div>
-          <button onClick={onClose} style={{ width:28,height:28,borderRadius:7,border:'1px solid #e2e8f0',background:'#f8fafc',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8' }}><X size={14}/></button>
+          <button onClick={onClose} style={{ width:32,height:32,borderRadius:8,border:'1px solid #e2e8f0',background:'#f8fafc',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8',transition:'all 0.2s' }} onMouseEnter={e => {e.currentTarget.style.borderColor='#2db9a3'; e.currentTarget.style.color='#2db9a3';}} onMouseLeave={e => {e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.color='#94a3b8';}}><X size={16}/></button>
         </div>
-        <div style={{ background:'#f8fafc',borderRadius:10,padding:'12px 14px',marginBottom:18,fontSize:13 }}>
-          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8 }}>
+
+        {/* Request Details */}
+        <div style={{ background:'#f8fafc',borderRadius:14,padding:'18px 20px',marginBottom:24 }}>
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px 20px' }}>
             {[['Email',request.email],['Department',request.department??'—'],['Branch',request.branch??'—'],['Role Requested',request.requestedRole??'—']].map(([k,v]) => (
-              <div key={k}><span style={{ color:'#94a3b8',fontSize:11 }}>{k}</span><div style={{ color:'#1a2332',fontWeight:600,fontSize:13 }}>{v}</div></div>
+              <div key={k}>
+                <label style={{ display:'block',fontSize:11,fontWeight:600,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4 }}>{k}</label>
+                <div style={{ fontSize:14,fontWeight:600,color:'#1a2332' }}>{v}</div>
+              </div>
             ))}
           </div>
         </div>
-        <div style={{ display:'flex',gap:10,marginBottom:16 }}>
+
+        {/* Decision Buttons */}
+        <div style={{ display:'flex',gap:12,marginBottom:24 }}>
           {(['Approve','Reject'] as const).map(a => (
             <button key={a} onClick={() => setAction(a)}
-              style={{ flex:1,height:38,borderRadius:8,border:`2px solid ${action===a?(a==='Approve'?'#2db9a3':'#e55353'):'#e2e8f0'}`,background:action===a?(a==='Approve'?'#e8f9f6':'#fef2f2'):'#fff',color:action===a?(a==='Approve'?'#2db9a3':'#e55353'):'#64748b',fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6 }}>
-              {a==='Approve'?<CheckCircle2 size={14}/>:<XCircle size={14}/>} {a}
+              style={{ 
+                flex:1,
+                height:44,
+                borderRadius:10,
+                border:`2px solid ${action===a?(a==='Approve'?'#2db9a3':'#dc2626'):'#e8ecf2'}`,
+                background:action===a?(a==='Approve'?'#ecfdf5':'#fee2e2'):'#fff',
+                color:action===a?(a==='Approve'?'#2db9a3':'#dc2626'):'#64748b',
+                fontSize:14,
+                fontWeight:600,
+                fontFamily:"'DM Sans',sans-serif",
+                cursor:'pointer',
+                display:'flex',
+                alignItems:'center',
+                justifyContent:'center',
+                gap:8,
+                transition:'all 0.2s'
+              }}>
+              {a==='Approve'?<CheckCircle2 size={16}/>:<XCircle size={16}/>} 
+              {a}
             </button>
           ))}
         </div>
+
+        {/* Rejection Reason */}
         {action==='Reject' && (
-          <div style={{ marginBottom:14 }}>
-            <label style={{ fontSize:12,fontWeight:600,color:'#374151',display:'block',marginBottom:6 }}>Rejection Reason *</label>
-            <textarea value={rejectionReason} onChange={e => setReason(e.target.value)} placeholder="Explain why this request is being rejected..."
-              style={{ width:'100%',minHeight:80,padding:'10px 12px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,fontFamily:"'DM Sans',sans-serif",resize:'none',outline:'none',color:'#1a2332' }}/>
+          <div style={{ marginBottom:24,animation:'slideDown 0.2s ease-out',animationFillMode:'forwards' }}>
+            <label style={{ fontSize:13,fontWeight:600,color:'#1a2332',display:'block',marginBottom:8 }}>Rejection Reason *</label>
+            <textarea value={rejectionReason} onChange={e => setReason(e.target.value)} placeholder="Provide a clear reason for rejection..."
+              style={{ width:'100%',minHeight:90,padding:'12px 14px',border:'1.5px solid #e2e8f0',borderRadius:10,fontSize:13,fontFamily:"'DM Sans',sans-serif",resize:'none',outline:'none',color:'#1a2332',boxSizing:'border-box',transition:'border-color 0.2s' }} onFocus={e => e.target.style.borderColor='#2db9a3'} onBlur={e => e.target.style.borderColor='#e2e8f0'}/>
           </div>
         )}
-        {error && <div style={{ fontSize:13,color:'#e55353',marginBottom:12 }}>⚠️ {error}</div>}
+
+        {/* Error Message */}
+        {error && (
+          <div style={{ background:'#fee2e2',border:'1px solid #fecaca',borderRadius:10,padding:'12px 14px',marginBottom:20,fontSize:13,color:'#dc2626',display:'flex',gap:8,alignItems:'flex-start' }}>
+            <span style={{ fontSize:16 }}>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Footer Buttons */}
         <div style={{ display:'flex',justifyContent:'flex-end',gap:10 }}>
-          <button onClick={onClose} style={{ padding:'8px 18px',borderRadius:8,border:'1px solid #e2e8f0',background:'#fff',color:'#475569',fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:'pointer' }}>Cancel</button>
+          <button onClick={onClose} style={{ padding:'10px 20px',borderRadius:10,border:'1.5px solid #e2e8f0',background:'#fff',color:'#475569',fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:'pointer',transition:'all 0.2s' }} onMouseEnter={e => {e.currentTarget.style.borderColor='#d1d5db'; e.currentTarget.style.background='#f9fafb';}} onMouseLeave={e => {e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.background='#fff';}}>Cancel</button>
           <button onClick={handleSubmit} disabled={!action||loading}
-            style={{ padding:'8px 18px',borderRadius:8,border:'none',background:!action?'#e2e8f0':action==='Approve'?'#2db9a3':'#e55353',color:'#fff',fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:!action?'not-allowed':'pointer' }}>
+            style={{ padding:'10px 20px',borderRadius:10,border:'none',background:!action?'#e5e7eb':action==='Approve'?'#2db9a3':'#dc2626',color:'#fff',fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:!action?'not-allowed':'pointer',transition:'all 0.2s',opacity:!action?0.5:1 }} onMouseEnter={e => { if (action && !loading) e.currentTarget.style.transform='translateY(-1px)'; }} onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}>
             {loading?'Submitting...':'Confirm'}
           </button>
         </div>
       </div>
+
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -304,7 +348,7 @@ export default function AccessRequestsPage() {
                           <td style={{ textAlign:'center' }}>
                             {r.status==='Pending'
                               ? <button className="ar-review-btn" onClick={() => setReviewing(r)}>Review</button>
-                              : <span style={{ fontSize:11,color:'#94a3b8' }}>by {r.reviewedBy??'—'}</span>
+                              : <span style={{ fontSize:11,color:'#94a3b8' }}>by {r.reviewerName??'—'}</span>
                             }
                           </td>
                         </tr>

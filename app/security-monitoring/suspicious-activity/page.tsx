@@ -236,9 +236,8 @@ export default function SuspiciousActivity() {
           
           <div className="sa-scroll">
             <div style={{ marginBottom: 24 }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#dc2626', background: 'rgba(220,38,38,0.08)', padding: '4px 10px', borderRadius: 20, marginBottom: 8 }}>
-              </div>
               <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a2332', margin: '0 0 4px' }}>Suspicious Activity</h1>
+              <p style={{ fontSize: 13, color: '#8a9ab0', margin: 0 }}>Detect and monitor unusual behavior patterns — track suspicious login attempts and activities</p>
             </div>
 
             <div className="metrics-grid">

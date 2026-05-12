@@ -97,9 +97,6 @@ export default function ModuleAccess() {
           <div className="ma-scroll">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:22 }}>
               <div>
-                <div style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'#2db9a3', background:'rgba(45,185,163,0.08)', padding:'4px 10px', borderRadius:20, marginBottom:8 }}>
-                  <span style={{ width:6, height:6, borderRadius:'50%', background:'#2db9a3' }}/>Permissions
-                </div>
                 <h1 style={{ fontSize:22, fontWeight:700, color:'#1a2332', margin:'0 0 4px' }}>Module Access</h1>
                 <p style={{ fontSize:13, color:'#8a9ab0', margin:0 }}>Read-only summary of Permission Matrix — determines Sidebar visibility per role</p>
               </div>

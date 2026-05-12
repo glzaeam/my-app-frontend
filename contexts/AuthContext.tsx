@@ -57,7 +57,7 @@ async function getClientIp(): Promise<string> {
 }
 
 // Public routes that don't require authentication
-const PUBLIC_PATHS = ['/', '/login', '/forgot-password'];
+const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/2fa', '/request-access'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,    setUser]    = useState<User | null>(null);

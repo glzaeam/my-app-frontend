@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { auth, fetchPermissions } from '@/lib/api';  // ✅ import fetchPermissions
+import { useRouter, usePathname } from 'next/navigation';
+import { auth, fetchPermissions } from '@/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://nexum.runasp.net/api';
 
@@ -42,15 +42,13 @@ function normalizeRole(roles: string[]): UserRole {
   return 'Bank Teller';
 }
 
-// ✅ Converts "Login Settings" → "login-settings" to match sidebar ids
 function slugify(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
-// Helper to get user's public IP
 async function getClientIp(): Promise<string> {
   try {
-    const res = await fetch('https://api.ipify.org?format=json');
+    const res  = await fetch('https://api.ipify.org?format=json');
     const data = await res.json();
     return data.ip || 'unknown';
   } catch {
@@ -58,10 +56,14 @@ async function getClientIp(): Promise<string> {
   }
 }
 
+// Public routes that don't require authentication
+const PUBLIC_PATHS = ['/', '/login', '/forgot-password'];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,    setUser]    = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const router   = useRouter();
+  const pathname = usePathname();
 
   const refreshUser = async () => {
     const token = auth.getToken();
@@ -72,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // 1. Fetch user profile
       const res = await fetch(`${API_BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -92,14 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const resolvedRole = normalizeRole(data.roles ?? []);
 
-      // 2. Fetch permissions using the dedicated helper
       const { isSystemAdmin, permissions: rawPerms } = await fetchPermissions(token);
 
       console.log('[AuthContext] isSystemAdmin:', isSystemAdmin);
       console.log('[AuthContext] raw permissions:', rawPerms);
 
-      // 3. Slugify module names so they match sidebar item ids
-      const permissions     = isSystemAdmin
+      const permissions = isSystemAdmin
         ? ['*']
         : rawPerms.filter(p => p.canView).map(p => slugify(p.module));
 
@@ -128,7 +127,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       auth.saveToken(token, normalized);
     } catch (err) {
       console.error('[AuthContext] refreshUser error:', err);
-      // Fall back to localStorage on network error
       const stored = auth.getUser();
       if (stored) {
         setUser({
@@ -143,7 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => { auth.clear(); setUser(null); };
+  const logout = () => {
+    auth.clear();
+    setUser(null);
+    router.replace('/');
+  };
 
   const checkAccess = (module: string): boolean => {
     if (!user)                          return false;
@@ -157,8 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user.editPermissions.includes(slugify(module));
   };
 
+  // Initial load — restore from localStorage then verify with API
   useEffect(() => {
-    // Load from localStorage immediately to avoid flash
     const stored = auth.getUser();
     if (stored) {
       setUser({
@@ -168,9 +170,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         editPermissions: stored.editPermissions ?? [],
       });
     }
-    // Then refresh from API
     refreshUser();
   }, []);
+
+  // ✅ Redirect unauthenticated users away from protected routes
+  useEffect(() => {
+    if (loading) return; // wait for auth check to finish first
+    const isPublic = PUBLIC_PATHS.includes(pathname);
+    if (!user && !isPublic) {
+      router.replace('/');
+    }
+  }, [user, loading, pathname, router]);
 
   // ✅ Auto-logout if user's IP gets blocked while logged in
   useEffect(() => {
@@ -178,10 +188,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const interval = setInterval(async () => {
       try {
-        const ip = await getClientIp();
-        const res = await fetch(`${API_BASE}/login-settings/check-ip?ip=${ip}`);
+        const ip   = await getClientIp();
+        const res  = await fetch(`${API_BASE}/login-settings/check-ip?ip=${ip}`);
         const data = await res.json();
-
         if (data.blocked) {
           auth.clear();
           setUser(null);
@@ -190,7 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('[AuthContext] IP check error:', err);
       }
-    }, 30000); // check every 30 seconds
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [user, router]);

@@ -56,8 +56,7 @@ export const api = {
   },
 };
 
-// ✅ Dedicated permissions fetcher — never goes through fetchArray
-// so the { isSystemAdmin, permissions } envelope is preserved intact
+// ✅ Dedicated permissions fetcher
 export async function fetchPermissions(token: string): Promise<{
   isSystemAdmin: boolean;
   permissions: { moduleId: string; module: string; canView: boolean; canEdit: boolean; canDelete: boolean }[];
@@ -67,7 +66,6 @@ export async function fetchPermissions(token: string): Promise<{
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // ✅ Log clearly so you can see in console what's happening
     console.log('[permissions/my]', res.status, res.statusText);
 
     if (!res.ok) {
@@ -88,7 +86,7 @@ export async function fetchPermissions(token: string): Promise<{
   }
 }
 
-// ✅ fetchArray is only for LIST endpoints — never use it for /permissions/my
+// ✅ fetchArray is only for LIST endpoints
 export async function fetchArray(url: string): Promise<any[]> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${auth.getToken()}` },
@@ -123,6 +121,8 @@ export const auth = {
     localStorage.setItem('nexum_token', token);
     localStorage.setItem('nexum_user', JSON.stringify(user));
     localStorage.setItem('nexum_session_start', Date.now().toString());
+    // ✅ Save to cookie so middleware can read it
+    document.cookie = `nexum_token=${token}; path=/; max-age=${60 * 60 * 8}; SameSite=Lax`;
   },
 
   savePendingUser(userId: string) {
@@ -151,6 +151,8 @@ export const auth = {
     localStorage.removeItem('nexum_user');
     localStorage.removeItem('nexum_pending_user');
     localStorage.removeItem('nexum_session_start');
+    // ✅ Clear cookie too so middleware blocks access immediately
+    document.cookie = 'nexum_token=; path=/; max-age=0';
   },
 
   isLoggedIn(): boolean {

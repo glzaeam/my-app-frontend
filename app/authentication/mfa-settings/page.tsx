@@ -3,7 +3,7 @@ import DashboardLayout from '@/app/components/DashboardLayout';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Mail, Smartphone, ChevronLeft, ChevronRight, ChevronDown, Edit2, X } from 'lucide-react';
+import { Settings, Mail, Shield, ChevronLeft, ChevronRight, ChevronDown, Edit2, X } from 'lucide-react';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -350,7 +350,7 @@ export default function MFASettings() {
                   {/* Auth Methods */}
                   <div className="card">
                     <div className="card-title">
-                      <div className="card-icon"><MessageSquare size={16} /></div>
+                      <div className="card-icon"><Shield size={16} /></div>
                       Authentication Methods
                     </div>
                     {authMethods.map((m, i) => (

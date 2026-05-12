@@ -83,7 +83,7 @@ export default function ActivityLogs() {
     if (!hasAccess('activity-logs')) { setLoading(false); return; }
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: '500' });
+      const params = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (statusFilter !== 'all') params.set('status', statusFilter);
       const data = await fetchArray(`${API}/audit?${params}`);
       setLogs(data);
@@ -92,7 +92,6 @@ export default function ActivityLogs() {
   }, [statusFilter, hasAccess]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
-  useEffect(() => { const interval = setInterval(() => fetchLogs(), 5000); return () => clearInterval(interval); }, [fetchLogs]);
 
   const modules = ['all', ...new Set(logs.map(l => l.module ?? '').filter(Boolean))];
 

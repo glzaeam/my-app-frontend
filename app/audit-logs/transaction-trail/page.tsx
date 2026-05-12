@@ -91,6 +91,8 @@ export default function TransactionTrailPage() {
       if (searchTerm)              params.set('search', searchTerm);
       if (moduleFilter !== 'all')  params.set('module', moduleFilter);
       if (dateRange !== 'all')     params.set('dateRange', dateRange);
+      params.set('page', '1');
+      params.set('pageSize', '1000');
       const url = `${API}/audit/transactions?${params}`;
       const data = await fetchArray(url);
       console.log('Transaction Trail Response:', data);
@@ -201,23 +203,16 @@ export default function TransactionTrailPage() {
                         const sc = statusCfg[r.status] ?? statusCfg.Warning;
                         return (
                           <tr key={r.id}>
+                            <td>{r.txnId}</td>
+                            <td style={{ whiteSpace: 'nowrap' }}>{formatDate(r.createdAt)}</td>
+                            <td>{r.performedBy}</td>
+                            <td>{r.targetUser}</td>
+                            <td>{r.action}</td>
+                            <td>{r.module ?? '—'}</td>
+                            <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.details ?? ''}>{r.details ?? '—'}</td>
+                            <td>{r.ipAddress ?? '—'}</td>
                             <td>
-                              <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '3px 8px', borderRadius: 6 }}>
-                                {r.txnId}
-                              </span>
-                            </td>
-                            <td style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(r.createdAt)}</td>
-                            <td>
-                              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>{r.performedBy}</div>
-                              <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.performerEmpId}</div>
-                            </td>
-                            <td style={{ color: '#64748b', fontSize: 12 }}>{r.targetUser}</td>
-                            <td style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>{r.action}</td>
-                            <td style={{ color: '#64748b', fontSize: 12 }}>{r.module ?? '—'}</td>
-                            <td style={{ color: '#94a3b8', fontSize: 11, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.details ?? ''}>{r.details ?? '—'}</td>
-                            <td style={{ fontFamily: 'monospace', fontSize: 11, color: '#64748b' }}>{r.ipAddress ?? '—'}</td>
-                            <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: sc.bg, color: sc.color }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontWeight: 600, background: sc.bg, color: sc.color }}>
                                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.dot }} />
                                 {r.status}
                               </span>

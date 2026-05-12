@@ -93,7 +93,7 @@ export default function Dashboard() {
       const token = auth.getToken();
       const [summary, logsRaw, trend, roles, mfa] = await Promise.allSettled([
         apiFetch(`${API}/audit/summary`,                     token),
-        apiFetch(`${API}/audit?page=1&pageSize=50`,          token),
+        apiFetch(`${API}/audit?page=1&pageSize=1000`,        token),
         apiFetch(`${API}/audit/dashboard/login-trend`,       token),
         apiFetch(`${API}/audit/dashboard/role-distribution`, token),
         apiFetch(`${API}/audit/dashboard/mfa-adoption`,      token),
@@ -162,7 +162,7 @@ export default function Dashboard() {
       const [trend, logsRaw] = await Promise.allSettled([
         apiFetch(`${API}/audit/dashboard/login-trend`, token),
         hasAccess('activity-logs')
-          ? apiFetch(`${API}/audit?page=1&pageSize=50`, token)
+          ? apiFetch(`${API}/audit?page=1&pageSize=1000`, token)
           : Promise.resolve(null),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
 
@@ -210,7 +210,7 @@ export default function Dashboard() {
 
       const [logsRaw, trend] = await Promise.allSettled([
         hasAccess('activity-logs')
-          ? apiFetch(`${API}/audit?page=1&pageSize=50`, token)
+          ? apiFetch(`${API}/audit?page=1&pageSize=1000`, token)
           : Promise.resolve(null),
         apiFetch(`${API}/audit/dashboard/login-trend`, token),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
@@ -303,6 +303,7 @@ export default function Dashboard() {
   const statusCfg: Record<string, { color: string; bg: string; dot: string }> = {
     success: { color: '#059669', bg: '#ecfdf5', dot: '#10b981' },
     failed:  { color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' },
+    blocked: { color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' },
     warning: { color: '#d97706', bg: '#fffbeb', dot: '#f59e0b' },
   };
 

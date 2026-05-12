@@ -132,7 +132,7 @@ export default function ExportReports() {
   const fetchSummary = useCallback(async () => {
     if (!hasAccess('export-reports') && !hasAccess('activity-logs')) return;
     try {
-      const res  = await fetch(`${API}/audit?page=1&pageSize=500`, {
+      const res  = await fetch(`${API}/audit?page=1&pageSize=1000`, {
         headers: { Authorization: `Bearer ${auth.getToken()}` },
       });
       if (!res.ok) return;
@@ -375,8 +375,11 @@ export default function ExportReports() {
           {/* Recent Exports */}
           <p style={sectionLabel}>Recent exports</p>
           <div style={{ ...card, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
-              <span style={{ fontSize: 13, fontWeight: 500, color: '#0f172a' }}>Export history</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Export history</div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{exports.length} records</div>
+              </div>
               <span style={{ fontSize: 11, fontWeight: 500, color: '#1D9E75', background: '#E1F5EE', padding: '3px 10px', borderRadius: 20 }}>
                 {exports.length} exports
               </span>
@@ -388,50 +391,54 @@ export default function ExportReports() {
               </div>
             ) : (
               <>
-                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                  <thead>
-                    <tr style={{ background: '#ffffff' }}>
-                      {['Report name', 'Format', 'Type', 'Date range', 'Generated at', 'By'].map(h => (
-                        <th key={h} style={{ padding: '9px 16px', textAlign: 'left', fontSize: 10.5, fontWeight: 500, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginated.map((e, i) => {
-                      const fc = formatCfg[e.format] ?? { color: '#64748b', bg: '#f1f5f9', border: '#e2e8f0' };
-                      return (
-                        <tr key={i} style={{ borderTop: i === 0 ? 'none' : '0.5px solid rgba(0,0,0,0.05)' }}>
-                          <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: '#0f172a' }}>{e.name}</td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{ background: fc.bg, color: fc.color, border: `1px solid ${fc.border}`, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20 }}>{e.format}</span>
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#64748b' }}>{e.type === 'transactions' ? 'Transaction trail' : 'Activity logs'}</td>
-                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#64748b' }}>{e.dateRange}</td>
-                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#94a3b8' }}>{formatDate(e.generatedAt)}</td>
-                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: '#475569' }}>{e.generatedBy}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #edf0f5' }}>
+                        {['Report Name', 'Format', 'Type', 'Date Range', 'Generated At', 'By'].map(h => (
+                          <th key={h} style={{ padding: '12px 14px', textAlign: 'center', fontSize: 10.5, fontWeight: 700, color: '#9aa5b4', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginated.map((e, i) => {
+                        const fc = formatCfg[e.format] ?? { color: '#64748b', bg: '#f1f5f9', border: '#e2e8f0' };
+                        return (
+                          <tr key={i} style={{ borderBottom: '1px solid #f0f3f7', transition: 'background 0.12s' }}
+                            onMouseEnter={ev => (ev.currentTarget.style.background = '#fafbfc')}
+                            onMouseLeave={ev => (ev.currentTarget.style.background = 'transparent')}>
+                            <td style={{ padding: '13px 14px', fontSize: 13, fontWeight: 600, color: '#0f172a', textAlign: 'center' }}>{e.name}</td>
+                            <td style={{ padding: '13px 14px', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: fc.bg, color: fc.color, border: `1px solid ${fc.border}`, fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20 }}>{e.format}</span>
+                            </td>
+                            <td style={{ padding: '13px 14px', fontSize: 13, color: '#64748b', textAlign: 'center' }}>{e.type === 'transactions' ? 'Transaction trail' : 'Activity logs'}</td>
+                            <td style={{ padding: '13px 14px', fontSize: 13, color: '#64748b', textAlign: 'center' }}>{e.dateRange}</td>
+                            <td style={{ padding: '13px 14px', fontSize: 12, color: '#94a3b8', fontFamily: 'monospace', textAlign: 'center' }}>{formatDate(e.generatedAt)}</td>
+                            <td style={{ padding: '13px 14px', fontSize: 13, color: '#475569', textAlign: 'center' }}>{e.generatedBy}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '0.5px solid rgba(0,0,0,0.06)', background: '#ffffff' }}>
-                  <span style={{ fontSize: 12, color: '#94a3b8' }}>
-                    Showing <strong style={{ color: '#475569', fontWeight: 500 }}>{(safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, exports.length)}</strong> of <strong style={{ color: '#475569', fontWeight: 500 }}>{exports.length}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderTop: '1px solid #f0f3f7' }}>
+                  <span style={{ fontSize: 13, color: '#94a3b8' }}>
+                    Showing <strong style={{ color: '#475569' }}>{(safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, exports.length)}</strong> of <strong style={{ color: '#475569' }}>{exports.length}</strong>
                   </span>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-                      style={{ width: 30, height: 30, borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.15)', background: '#fff', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === 1 ? 0.4 : 1, fontSize: 16 }}>‹</button>
+                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === 1 ? 0.35 : 1, fontSize: 16 }}>‹</button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                       <button key={p} onClick={() => setPage(p)}
-                        style={{ width: 30, height: 30, borderRadius: 7, fontSize: 13, border: safePage === p ? 'none' : '0.5px solid rgba(0,0,0,0.15)', background: safePage === p ? '#1D9E75' : '#fff', color: safePage === p ? '#fff' : '#64748b', cursor: 'pointer', fontWeight: safePage === p ? 500 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        style={{ width: 34, height: 34, borderRadius: 8, fontSize: 13, border: safePage === p ? 'none' : '1px solid #e2e8f0', background: safePage === p ? '#2db9a3' : '#fff', color: safePage === p ? '#fff' : '#475569', cursor: 'pointer', fontWeight: safePage === p ? 600 : 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {p}
                       </button>
                     ))}
                     <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                      style={{ width: 30, height: 30, borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.15)', background: '#fff', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === totalPages ? 0.4 : 1, fontSize: 16 }}>›</button>
+                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', opacity: safePage === totalPages ? 0.35 : 1, fontSize: 16 }}>›</button>
                   </div>
                 </div>
               </>

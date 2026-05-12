@@ -77,7 +77,8 @@ const formatDate = (iso: string) => {
 };
 
 export default function TransactionTrailPage() {
-  const router = useRouter();  const [records, setRecords]           = useState<TxnRecord[]>([]);
+  const router = useRouter();
+  const [records, setRecords]           = useState<TxnRecord[]>([]);
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [moduleFilter, setModuleFilter] = useState('all');
@@ -88,23 +89,22 @@ export default function TransactionTrailPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchTerm)              params.set('search', searchTerm);
-      if (moduleFilter !== 'all')  params.set('module', moduleFilter);
-      if (dateRange !== 'all')     params.set('dateRange', dateRange);
+      if (searchTerm)             params.set('search', searchTerm);
+      if (moduleFilter !== 'all') params.set('module', moduleFilter);
+      if (dateRange !== 'all')    params.set('dateRange', dateRange);
       params.set('page', '1');
       params.set('pageSize', '1000');
-      const url = `${API}/audit/transactions?${params}`;
+      const url  = `${API}/audit/transactions?${params}`;
       const data = await fetchArray(url);
-      console.log('Transaction Trail Response:', data);
       setRecords(data);
     } catch (err) {
       console.error('Failed to fetch transaction trail:', err);
+    } finally {
+      setLoading(false);
     }
-    finally { setLoading(false); }
   }, [searchTerm, moduleFilter, dateRange]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
-
 
   const modules    = ['all', ...new Set(records.map(r => r.module ?? '').filter(Boolean))];
   const totalPages = Math.max(1, Math.ceil(records.length / ITEMS_PER_PAGE));
@@ -114,138 +114,159 @@ export default function TransactionTrailPage() {
   return (
     <DashboardLayout title="Transaction Trail" activeMenu="transaction-trail">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0;}
-        .tt-root{display:flex;height:100vh;background:#fff;overflow:hidden;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);}
-        .tt-content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-        .main-content{flex:1;overflow-y:auto;padding:32px 36px;scrollbar-width:thin;scrollbar-color:#e2e8f0 transparent;}
-        .main-content::-webkit-scrollbar{width:6px;}
-        .main-content::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px;}
-        .controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
-        .search-wrap{position:relative;flex:1;min-width:200px;max-width:320px;}
-        .search-input{width:100%;padding:10px 14px 10px 38px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;color:#1e293b;background:#fff;font-family:var(--font-dm-sans, 'DM Sans', sans-serif);outline:none;}
-        .search-input:focus{border-color:#2db9a3;}
-        .table-card{background:#fff;border:1px solid #e8ecf2;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.05);}
-        .tt-table{width:100%;border-collapse:collapse;}
-        .tt-table thead tr{background:#f8fafc;border-bottom:1px solid #edf0f5;}
-        .tt-table thead th{padding:12px 14px;text-align:center;font-size:10.5px;font-weight:700;color:#9aa5b4;text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;}
-        .tt-table tbody tr{border-bottom:1px solid #f0f3f7;transition:background 0.12s;}
-        .tt-table tbody tr:last-child{border-bottom:none;}
-        .tt-table tbody tr:hover{background:#fafbfc;}
-        .tt-table tbody td{padding:13px 14px;font-size:13px;color:#1e293b;vertical-align:middle;text-align:center;}
-        .pagination-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-top:1px solid #f0f3f7;}
-        .pg-btn{width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#475569;transition:all 0.15s;}
-        .pg-btn:hover:not(:disabled):not(.active){border-color:#2db9a3;color:#2db9a3;background:#f0fdf9;}
-        .pg-btn.active{background:#2db9a3;border-color:#2db9a3;color:#fff;}
-        .pg-btn:disabled{opacity:0.35;cursor:not-allowed;}
-        .pagination-info{font-size:13px;color:#94a3b8;}
-        .pagination-info strong{color:#475569;font-weight:500;}
-        .pagination-controls{display:flex;align-items:center;gap:4px;}
-        .pg-counter{font-size:13px;color:#475569;font-weight:500;min-width:50px;text-align:center;}
-        .empty-state{text-align:center;padding:60px 20px;color:#94a3b8;}
-        .empty-icon{font-size:40px;margin-bottom:12px;}
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        .tt-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .main-content { flex: 1; overflow-y: auto; padding: 32px 36px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
+        .main-content::-webkit-scrollbar { width: 6px; }
+        .main-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+        .controls-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+        .search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 320px; }
+        .search-input { width: 100%; padding: 10px 14px 10px 38px; border-radius: 10px; border: 1.5px solid #e2e8f0; font-size: 13px; color: #1e293b; background: #fff; font-family: var(--font-dm-sans, 'DM Sans', sans-serif); outline: none; }
+        .search-input:focus { border-color: #2db9a3; }
+        .table-card { background: #fff; border: 1px solid #e8ecf2; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,0.05); }
+        .tt-table { width: 100%; border-collapse: collapse; }
+        .tt-table thead tr { background: #f8fafc; border-bottom: 1px solid #edf0f5; }
+        .tt-table thead th { padding: 12px 14px; text-align: center; font-size: 10.5px; font-weight: 700; color: #9aa5b4; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+        .tt-table tbody tr { border-bottom: 1px solid #f0f3f7; transition: background 0.12s; }
+        .tt-table tbody tr:last-child { border-bottom: none; }
+        .tt-table tbody tr:hover { background: #fafbfc; }
+        .tt-table tbody td { padding: 14px 16px; font-size: 13px; color: #94a3b8; vertical-align: middle; text-align: center; }
+        .pagination-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; border-top: 1px solid #f0f3f7; }
+        .pg-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #475569; transition: all 0.15s; }
+        .pg-btn:hover:not(:disabled) { border-color: #2db9a3; color: #2db9a3; background: #f0fdf9; }
+        .pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .pagination-info { font-size: 13px; color: #94a3b8; }
+        .pagination-info strong { color: #475569; font-weight: 500; }
+        .pagination-controls { display: flex; align-items: center; gap: 10px; }
+        .pg-counter { font-size: 13px; color: #475569; font-weight: 500; min-width: 50px; text-align: center; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; }
+        .empty-icon { font-size: 40px; margin-bottom: 12px; }
       `}</style>
 
-      
-        
-        <div className="tt-content">
-          
-          <div className="main-content">
+      <div className="tt-content">
+        <div className="main-content">
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-              <div>
-                <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>Transaction Trail</h1>
-                <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>Every significant action with a unique TXN ID — immutable compliance record</p>
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '8px 16px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FileText size={14} />{records.length} transactions
-              </span>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+            <div>
+              <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>Transaction Trail</h1>
+              <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>Every significant action with a unique TXN ID — immutable compliance record</p>
             </div>
-
-            <div className="controls-bar">
-              <div className="search-wrap">
-                <Search size={14} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                <input className="search-input" placeholder="Search by TXN ID, user or action..."
-                  value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
-              </div>
-              <CustomSelect
-                options={[{ value: 'all', label: 'All Dates' }, { value: 'today', label: 'Today' }, { value: 'last-7', label: 'Last 7 Days' }, { value: 'last-30', label: 'Last 30 Days' }]}
-                value={dateRange} onChange={v => { setDateRange(v); setCurrentPage(1); }} />
-              <CustomSelect
-                options={modules.map(m => ({ value: m, label: m === 'all' ? 'All Modules' : m }))}
-                value={moduleFilter} onChange={v => { setModuleFilter(v); setCurrentPage(1); }} />
-            </div>
-
-            {records.length === 0 && !loading ? (
-              <div className="table-card">
-                <div className="empty-state">
-                  <div className="empty-icon">📋</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>No transactions yet</div>
-                  <div style={{ fontSize: 13 }}>Transaction records are created when roles are assigned, users are created, or settings are changed.</div>
-                </div>
-              </div>
-            ) : (
-              <div className="table-card">
-                <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Transaction Log</div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{records.length} records — cannot be edited or deleted</div>
-                  </div>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="tt-table">
-                    <thead>
-                      <tr>
-                        {['TXN ID', 'Date & Time', 'Performed By', 'Target', 'Action', 'Module', 'Details', 'IP', 'Status'].map(h =>
-                          <th key={h}>{h}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>Loading...</td></tr>
-                      ) : paged.map(r => {
-                        const sc = statusCfg[r.status] ?? statusCfg.Warning;
-                        return (
-                          <tr key={r.id}>
-                            <td>{r.txnId}</td>
-                            <td style={{ whiteSpace: 'nowrap' }}>{formatDate(r.createdAt)}</td>
-                            <td>{r.performedBy}</td>
-                            <td>{r.targetUser}</td>
-                            <td>{r.action}</td>
-                            <td>{r.module ?? '—'}</td>
-                            <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.details ?? ''}>{r.details ?? '—'}</td>
-                            <td>{r.ipAddress ?? '—'}</td>
-                            <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontWeight: 600, background: sc.bg, color: sc.color }}>
-                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.dot }} />
-                                {r.status}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="pagination-bar">
-                  <span className="pagination-info">
-                    Showing <strong>{records.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, records.length)}</strong> of <strong>{records.length}</strong>
-                  </span>
-                  <div className="pagination-controls">
-                    <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="pg-counter">{safePage} / {totalPages}</span>
-                    <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#2db9a3', background: 'rgba(45,185,163,0.08)', padding: '8px 16px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <FileText size={14} />{records.length} transactions
+            </span>
           </div>
+
+          {/* Controls */}
+          <div className="controls-bar">
+            <div className="search-wrap">
+              <Search size={14} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+              <input className="search-input" placeholder="Search by TXN ID, user or action..."
+                value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
+            </div>
+            <CustomSelect
+              options={[{ value: 'all', label: 'All Dates' }, { value: 'today', label: 'Today' }, { value: 'last-7', label: 'Last 7 Days' }, { value: 'last-30', label: 'Last 30 Days' }]}
+              value={dateRange} onChange={v => { setDateRange(v); setCurrentPage(1); }} />
+            <CustomSelect
+              options={modules.map(m => ({ value: m, label: m === 'all' ? 'All Modules' : m }))}
+              value={moduleFilter} onChange={v => { setModuleFilter(v); setCurrentPage(1); }} />
+          </div>
+
+          {/* Table */}
+          {records.length === 0 && !loading ? (
+            <div className="table-card">
+              <div className="empty-state">
+                <div className="empty-icon">📋</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>No transactions yet</div>
+                <div style={{ fontSize: 13 }}>Transaction records are created when roles are assigned, users are created, or settings are changed.</div>
+              </div>
+            </div>
+          ) : (
+            <div className="table-card">
+              <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid #f0f3f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Transaction Log</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{records.length} records — cannot be edited or deleted</div>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="tt-table">
+                  <thead>
+                    <tr>
+                      {['TXN ID', 'Date & Time', 'Performed By', 'Target', 'Action', 'Module', 'Details', 'IP', 'Status'].map(h =>
+                        <th key={h}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan={9} style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>Loading...</td></tr>
+                    ) : paged.map(r => {
+                      const sc = statusCfg[r.status] ?? statusCfg.Warning;
+                      return (
+                        <tr key={r.id}>
+                          {/* TXN ID — muted same as date */}
+                          <td style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 12 }}>{r.txnId}</td>
+
+                          {/* Date & Time — muted */}
+                          <td style={{ whiteSpace: 'nowrap', color: '#94a3b8' }}>{formatDate(r.createdAt)}</td>
+
+                          {/* Performed By — dark + bold with emp id subtitle */}
+                          <td>
+                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{r.performedBy}</div>
+                            <div style={{ fontSize: 12, color: '#94a3b8' }}>{r.performerEmpId}</div>
+                          </td>
+
+                          {/* Target */}
+                          <td style={{ color: '#475569' }}>{r.targetUser}</td>
+
+                          {/* Action — dark + bold */}
+                          <td style={{ fontWeight: 700, color: '#0f172a' }}>{r.action}</td>
+
+                          {/* Module — muted */}
+                          <td style={{ color: '#94a3b8' }}>{r.module ?? '—'}</td>
+
+                          {/* Details — muted + truncated */}
+                          <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#94a3b8' }} title={r.details ?? ''}>
+                            {r.details ?? '—'}
+                          </td>
+
+                          {/* IP — muted */}
+                          <td style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 12 }}>{r.ipAddress ?? '—'}</td>
+
+                          {/* Status badge */}
+                          <td>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontWeight: 600, fontSize: 12, background: sc.bg, color: sc.color }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.dot }} />
+                              {r.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="pagination-bar">
+                <span className="pagination-info">
+                  Showing <strong>{records.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, records.length)}</strong> of <strong>{records.length}</strong>
+                </span>
+                <div className="pagination-controls">
+                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="pg-counter">{safePage} / {totalPages}</span>
+                  <button className="pg-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
     </DashboardLayout>
   );
 }
-

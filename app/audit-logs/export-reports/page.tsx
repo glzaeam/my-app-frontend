@@ -424,7 +424,7 @@ export default function ExportReports() {
                   </table>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderTop: '1px solid #f0f3f7' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 28px', borderTop: '1px solid #f0f3f7' }}>
                   <span style={{ fontSize: 13, color: '#94a3b8' }}>
                     Showing <strong style={{ color: '#475569' }}>{exports.length === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, exports.length)}</strong> of <strong style={{ color: '#475569' }}>{exports.length}</strong>
                   </span>

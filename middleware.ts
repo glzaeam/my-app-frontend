@@ -10,27 +10,24 @@ export function middleware(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some(p => pathname === p);
   if (isPublic) return NextResponse.next();
 
-  // Allow Next.js internals and static files
+  // Allow Next.js internals, static files, and api routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
     pathname.startsWith('/static') ||
+    pathname.startsWith('/images') ||
+    pathname.startsWith('/public') ||
     pathname.includes('.')
   ) {
     return NextResponse.next();
   }
 
   // Check for token in cookies
-  const token =
-    request.cookies.get('token')?.value ||
-    request.cookies.get('auth_token')?.value ||
-    request.cookies.get('nexum_token')?.value;
+  const token = request.cookies.get('nexum_token')?.value;
 
   // No token — redirect to login
   if (!token) {
-    const loginUrl = new URL('/', request.url);
-    loginUrl.searchParams.set('reason', 'unauthorized');
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();

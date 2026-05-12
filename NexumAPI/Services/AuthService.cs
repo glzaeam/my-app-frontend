@@ -336,7 +336,7 @@ namespace NexumAPI.Services
 
             var uaFingerprint = Convert.ToHexString(
                 System.Security.Cryptography.SHA256.HashData(
-                    System.Text.Encoding.UTF8.GetBytes(userAgent)
+                    System.Text.Encoding.UTF8.GetBytes(userAgent + "|" + ip)
                 )).ToLower()[..16];
 
             var existingDevice = await _context.Devices
@@ -477,7 +477,7 @@ namespace NexumAPI.Services
 
             var uaFingerprint = Convert.ToHexString(
                 System.Security.Cryptography.SHA256.HashData(
-                    System.Text.Encoding.UTF8.GetBytes(userAgent)
+                    System.Text.Encoding.UTF8.GetBytes(userAgent + "|" + ip)
                 )).ToLower()[..16];
 
             var existingDevice = await _context.Devices

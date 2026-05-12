@@ -100,6 +100,11 @@ export default function Dashboard() {
         apiFetch(`${API}/audit/failed-logins?page=1&pageSize=1000`, token),
       ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : null));
 
+      console.log('[dashboard] summary:', summary);
+      console.log('[dashboard] trend:', trend);
+      console.log('[dashboard] failedRaw:', failedRaw);
+      console.log('[dashboard] failedItems:', extractItems(failedRaw));
+
       if (!summary) return;
 
       const failedItems = extractItems(failedRaw);

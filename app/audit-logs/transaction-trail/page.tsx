@@ -205,36 +205,33 @@ export default function TransactionTrailPage() {
                       const sc = statusCfg[r.status] ?? statusCfg.Warning;
                       return (
                         <tr key={r.id}>
-                          {/* TXN ID — muted same as date */}
+                          {/* TXN ID */}
                           <td style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 12 }}>{r.txnId}</td>
 
-                          {/* Date & Time — muted */}
+                          {/* Date & Time */}
                           <td style={{ whiteSpace: 'nowrap', color: '#94a3b8' }}>{formatDate(r.createdAt)}</td>
 
-                          {/* Performed By — dark + bold with emp id subtitle */}
-                          <td>
-                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{r.performedBy}</div>
-                            <div style={{ fontSize: 12, color: '#94a3b8' }}>{r.performerEmpId}</div>
-                          </td>
+                          {/* Performed By — no emp id, medium weight */}
+                          <td style={{ color: '#0f172a', fontWeight: 500 }}>{r.performedBy}</td>
 
                           {/* Target */}
                           <td style={{ color: '#475569' }}>{r.targetUser}</td>
 
-                          {/* Action — dark + bold */}
-                          <td style={{ fontWeight: 700, color: '#0f172a' }}>{r.action}</td>
+                          {/* Action — medium weight */}
+                          <td style={{ color: '#0f172a', fontWeight: 500 }}>{r.action}</td>
 
-                          {/* Module — muted */}
+                          {/* Module */}
                           <td style={{ color: '#94a3b8' }}>{r.module ?? '—'}</td>
 
-                          {/* Details — muted + truncated */}
+                          {/* Details */}
                           <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#94a3b8' }} title={r.details ?? ''}>
                             {r.details ?? '—'}
                           </td>
 
-                          {/* IP — muted */}
+                          {/* IP */}
                           <td style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 12 }}>{r.ipAddress ?? '—'}</td>
 
-                          {/* Status badge */}
+                          {/* Status */}
                           <td>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontWeight: 600, fontSize: 12, background: sc.bg, color: sc.color }}>
                               <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.dot }} />
